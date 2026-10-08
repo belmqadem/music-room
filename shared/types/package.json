@@ -1,0 +1,9 @@
+{
+  "name": "@music-room/shared",
+  "version": "0.0.0",
+  "private": true,
+  "description": "API contract types shared by backend and mobile. Types only: consumers use `import type` through a tsconfig path alias, so no build step and no runtime code.",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}

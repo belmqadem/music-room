@@ -1,0 +1,9 @@
+node_modules
+dist
+coverage
+package-lock.json
+mobile/.expo
+mobile/assets
+mobile/expo-env.d.ts
+mobile/nativewind-env.d.ts
+LICENSE
