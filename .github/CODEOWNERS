@@ -1,0 +1,22 @@
+# Replace the placeholder handles with the real GitHub usernames.
+# Contract files need review from everyone: branch protection + this file
+# request the owners; the PR template reminds you to ask the others.
+
+*                                   @owner-core
+/backend/src/modules/auth/          @owner-core
+/backend/src/modules/rooms/         @owner-core
+/backend/src/modules/logging/       @owner-core
+/backend/src/middleware/            @owner-core
+/backend/src/config/                @owner-core
+/backend/src/db/                    @owner-core
+/backend/src/sockets/               @owner-core
+/backend/src/modules/track-vote/    @owner-vote
+/backend/src/modules/playlist-editor/ @owner-playlist
+/mobile/src/auth/                   @owner-core
+/mobile/src/features/track-vote/    @owner-vote
+/mobile/src/features/playlist-editor/ @owner-playlist
+
+# Contract: every owner reviews.
+/shared/                            @owner-core @owner-vote @owner-playlist
+/docs/api-contract.md               @owner-core @owner-vote @owner-playlist
+/.github/                           @owner-core
