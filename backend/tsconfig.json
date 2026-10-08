@@ -1,0 +1,16 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    // NodeNext = real Node ESM semantics: relative imports must end in ".js".
+    "target": "ES2023",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "types": ["node"],
+    "noEmit": true,
+    "paths": {
+      // Types-only package: always `import type`, so nothing is needed at runtime.
+      "@music-room/shared": ["../shared/types/src/index.ts"]
+    }
+  },
+  "include": ["src", "tests", "vitest.config.ts"]
+}
