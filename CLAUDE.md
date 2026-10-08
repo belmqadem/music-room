@@ -69,3 +69,69 @@ real-time updates, proper auth/authorization, logging, and load-test
 results with justified server specs. The bonus part is not evaluated at all
 unless the mandatory part is complete and fault-free — don't let bonus work
 start before that's true.
+
+## Git workflow
+
+### Branches
+
+- `main` is always stable and defense-ready. It only receives merges from
+  `develop`, via PR.
+- `develop` is the integration branch.
+- Work happens on short-lived branches off `develop`.
+- Naming: `<type>/<scope>-<short-description>`
+  - types: `feat`, `fix`, `chore`, `docs`, `test`, `refactor`
+  - scope = the module: `auth`, `rooms`, `track-vote`, `playlist-editor`,
+    `mobile`, `shared`, `infra`
+  - example: `feat/track-vote-ranking`
+
+### Commits
+
+Conventional Commits (`feat(track-vote): add ranking endpoint`), small and
+focused. `make install` enables `.githooks/commit-msg`, which rejects other
+formats.
+
+### Pull requests
+
+- Required for every merge into `develop` and `main`. No direct pushes to
+  either.
+- At least one teammate reviews. The review is part of the learning, not a
+  formality.
+- Squash-merge into `develop`; merge-commit into `main`.
+- Delete branches after merge.
+- Rebase your branch on `develop` before opening a PR.
+- Never force-push shared branches.
+- Fill in `.github/PULL_REQUEST_TEMPLATE.md`, including the **AI usage**
+  section, and add a row to `docs/ai-usage.md`.
+- CI (`.github/workflows/ci.yml`) runs format check, lint, typecheck and tests
+  on every PR; it must be green.
+
+### Contract changes
+
+Changes to `shared/types/` or `docs/api-contract.md` need review from **every**
+team member, since two people build against them.
+
+### Ownership
+
+`.github/CODEOWNERS` maps each module to its owner (Core & Infra, Track Vote,
+Playlist Editor). The handles in it are placeholders until filled in.
+
+### GitHub branch protection (manual, repo Settings → Branches)
+
+Apply to both `main` and `develop`:
+
+- [ ] Require a pull request before merging
+- [ ] Require at least 1 approval
+- [ ] Dismiss stale approvals when new commits are pushed
+- [ ] Require review from Code Owners
+- [ ] Require status checks to pass (select the `check` job from CI) and require
+      branches to be up to date
+- [ ] Require conversation resolution before merging
+- [ ] Block force pushes
+- [ ] Block branch deletion
+- [ ] Do not allow bypassing (include administrators)
+
+Merge methods (Settings → General → Pull Requests):
+
+- [ ] `develop`: squash merging allowed. `main`: merge commits allowed (a ruleset
+      can restrict the method per branch).
+- [ ] Automatically delete head branches
