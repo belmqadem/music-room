@@ -30,19 +30,29 @@ in detail, without leaning on AI to do so.** Concretely, that means:
 
 ## Team split
 
-split by ownership:
+The team is two developers, split by layer:
 
-- **Core & Infra** — auth (email/password + OAuth), the session/room model,
-  the shared visibility (public/private) and permission engine, API
-  scaffolding + docs, security/logging middleware.
-- **Track Vote** — suggest/vote endpoints, ranking logic, concurrency
-  handling for simultaneous votes, related mobile screens.
-- **Playlist Editor** — real-time add/remove/reorder, concurrency handling
-  for simultaneous edits, related mobile screens.
+- **belmqadem — backend, all three areas:**
+  - **Core & Infra** — auth (email/password + OAuth), the session/room model,
+    the shared visibility (public/private) and permission engine, API
+    scaffolding + docs, security/logging middleware.
+  - **Track Vote** — suggest/vote endpoints, ranking logic, concurrency
+    handling for simultaneous votes.
+  - **Playlist Editor** — real-time add/remove/reorder, concurrency handling
+    for simultaneous edits.
+- **kaouthar — mobile app (front end):** all screens and client code in
+  `mobile/`, including the Track Vote and Playlist Editor screens.
 
-Respect this ownership boundary in the file structure — keep each area's
-code in its own module rather than intermixing, so it's clear at a glance
-who owns what.
+The API contract (`shared/types/`, `docs/api-contract.md`) is the interface
+between the two, so it is agreed jointly before either side builds on it.
+
+Even with this split, the subject requires that **each developer can explain and
+defend every decision in the repo**, not only their own layer. Walk each other
+through your PRs.
+
+Respect the ownership boundary in the file structure — keep each area's code in
+its own module rather than intermixing (`backend/src/modules/*`,
+`mobile/src/features/*`), so it's clear at a glance what belongs to what.
 
 ## Non-negotiable constraints
 
@@ -94,8 +104,12 @@ formats.
 
 - Required for every merge into `develop` and `main`. No direct pushes to
   either.
-- At least one teammate reviews. The review is part of the learning, not a
-  formality.
+- Reviewer: `@belmqadem` reviews every PR (the team is two developers, and
+  `.github/CODEOWNERS` makes this automatic). kaouthar's PRs need belmqadem's
+  approval. belmqadem cannot approve their own PRs (GitHub forbids it), so
+  those merge through the ruleset's pull-request-only bypass: CI must still
+  pass and the PR is still required. Discuss them with kaouthar and run
+  `/code-review` first. The review is part of the learning, not a formality.
 - Squash-merge into `develop`; merge-commit into `main`.
 - Delete branches after merge.
 - Rebase your branch on `develop` before opening a PR.
@@ -107,13 +121,16 @@ formats.
 
 ### Contract changes
 
-Changes to `shared/types/` or `docs/api-contract.md` need review from **every**
-team member, since two people build against them.
+Changes to `shared/types/` or `docs/api-contract.md` need review from **both**
+developers, since two people build against them. Because the code owner is a
+single person, ask the other developer for a comment or approval on the PR
+yourself; GitHub will not enforce it.
 
 ### Ownership
 
-`.github/CODEOWNERS` maps each module to its owner (Core & Infra, Track Vote,
-Playlist Editor). The handles in it are placeholders until filled in.
+`.github/CODEOWNERS` lists `@belmqadem` for every path, so they are the single
+required reviewer, including for kaouthar's mobile PRs. Who authors what (backend
+vs. mobile) is the split described above, not enforced by CODEOWNERS.
 
 ### GitHub branch protection (manual, repo Settings → Branches)
 
@@ -128,7 +145,8 @@ Apply to both `main` and `develop`:
 - [ ] Require conversation resolution before merging
 - [ ] Block force pushes
 - [ ] Block branch deletion
-- [ ] Do not allow bypassing (include administrators)
+- [ ] Bypass list: only the repo admin (belmqadem), mode **pull request only**
+      (never direct pushes), so their own PRs can merge once CI is green
 
 Merge methods (Settings → General → Pull Requests):
 

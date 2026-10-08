@@ -29,12 +29,12 @@ are built for one listener. Music Room is built for the room.
 
 ## Project status
 
-This is a school project (42 Network), built by a team of three as a
+This is a school project (42 Network), built by a team of two as a
 full-stack, mobile-first application: a live backend, an API connecting it
 to the app, and a mobile client people actually use during a session.
 
 ## Team
 
-Built collaboratively, with the work split across three people covering the
-shared foundation (accounts, sessions, permissions) and the two live
-features (Track Vote and Playlist Editor).
+Built by two developers: one on the backend (accounts, sessions, permissions
+and the two live features, Track Vote and Playlist Editor) and one on the mobile
+app.
