@@ -94,8 +94,12 @@ formats.
 
 - Required for every merge into `develop` and `main`. No direct pushes to
   either.
-- At least one teammate reviews. The review is part of the learning, not a
-  formality.
+- Reviewer: `@belmqadem` reviews every PR (the team is two developers, and
+  `.github/CODEOWNERS` makes this automatic). kaouthar's PRs need belmqadem's
+  approval. belmqadem cannot approve their own PRs (GitHub forbids it), so
+  those merge through the ruleset's pull-request-only bypass: CI must still
+  pass and the PR is still required. Discuss them with kaouthar and run
+  `/code-review` first. The review is part of the learning, not a formality.
 - Squash-merge into `develop`; merge-commit into `main`.
 - Delete branches after merge.
 - Rebase your branch on `develop` before opening a PR.
@@ -107,13 +111,16 @@ formats.
 
 ### Contract changes
 
-Changes to `shared/types/` or `docs/api-contract.md` need review from **every**
-team member, since two people build against them.
+Changes to `shared/types/` or `docs/api-contract.md` need review from **both**
+developers, since two people build against them. Because the code owner is a
+single person, ask the other developer for a comment or approval on the PR
+yourself; GitHub will not enforce it.
 
 ### Ownership
 
-`.github/CODEOWNERS` maps each module to its owner (Core & Infra, Track Vote,
-Playlist Editor). The handles in it are placeholders until filled in.
+`.github/CODEOWNERS` lists `@belmqadem` for every path, so they are the single
+required reviewer. Who authors which module (Core & Infra, Track Vote, Playlist
+Editor) is the split described above, not enforced by CODEOWNERS.
 
 ### GitHub branch protection (manual, repo Settings → Branches)
 
@@ -128,7 +135,8 @@ Apply to both `main` and `develop`:
 - [ ] Require conversation resolution before merging
 - [ ] Block force pushes
 - [ ] Block branch deletion
-- [ ] Do not allow bypassing (include administrators)
+- [ ] Bypass list: only the repo admin (belmqadem), mode **pull request only**
+      (never direct pushes), so their own PRs can merge once CI is green
 
 Merge methods (Settings → General → Pull Requests):
 

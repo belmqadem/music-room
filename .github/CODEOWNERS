@@ -1,22 +1,7 @@
-# Replace the placeholder handles with the real GitHub usernames.
-# Contract files need review from everyone: branch protection + this file
-# request the owners; the PR template reminds you to ask the others.
+# Single reviewer: @belmqadem reviews every pull request (team of two).
+# Module authorship (Core & Infra, Track Vote, Playlist Editor) is documented in
+# CLAUDE.md; it does not affect who must approve.
+# Note: GitHub never lets you approve your own PR, so @belmqadem's own PRs are
+# merged through the ruleset's pull-request-only bypass (CI still must pass).
 
-*                                   @belmqadem
-/backend/src/modules/auth/          @belmqadem
-/backend/src/modules/rooms/         @belmqadem
-/backend/src/modules/logging/       @belmqadem
-/backend/src/middleware/            @belmqadem
-/backend/src/config/                @belmqadem
-/backend/src/db/                    @belmqadem
-/backend/src/sockets/               @belmqadem
-/backend/src/modules/track-vote/    @kaouthar
-/backend/src/modules/playlist-editor/ @kaouthar
-/mobile/src/auth/                   @belmqadem
-/mobile/src/features/track-vote/    @kaouthar
-/mobile/src/features/playlist-editor/ @kaouthar
-
-# Contract: every owner reviews.
-/shared/                            @belmqadem @kaouthar @kaouthar
-/docs/api-contract.md               @belmqadem @kaouthar @kaouthar
-/.github/                           @belmqadem
+* @belmqadem

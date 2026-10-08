@@ -11,7 +11,7 @@
 ## Contract impact
 
 - [ ] No change to `shared/types` or `docs/api-contract.md`
-- [ ] Contract changed — every team member has been asked to review
+- [ ] Contract changed — both developers have reviewed or commented
 
 ## AI usage (required)
 
