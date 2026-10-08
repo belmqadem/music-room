@@ -26,5 +26,10 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    // The contract interfaces are intentionally empty TODO stubs for now.
+    files: ["shared/types/src/**/*.ts"],
+    rules: { "@typescript-eslint/no-empty-object-type": "off" },
+  },
   prettier, // must be last: turns off rules that conflict with Prettier
 );
