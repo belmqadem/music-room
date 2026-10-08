@@ -30,19 +30,29 @@ in detail, without leaning on AI to do so.** Concretely, that means:
 
 ## Team split
 
-split by ownership:
+The team is two developers, split by layer:
 
-- **Core & Infra** — auth (email/password + OAuth), the session/room model,
-  the shared visibility (public/private) and permission engine, API
-  scaffolding + docs, security/logging middleware.
-- **Track Vote** — suggest/vote endpoints, ranking logic, concurrency
-  handling for simultaneous votes, related mobile screens.
-- **Playlist Editor** — real-time add/remove/reorder, concurrency handling
-  for simultaneous edits, related mobile screens.
+- **belmqadem — backend, all three areas:**
+  - **Core & Infra** — auth (email/password + OAuth), the session/room model,
+    the shared visibility (public/private) and permission engine, API
+    scaffolding + docs, security/logging middleware.
+  - **Track Vote** — suggest/vote endpoints, ranking logic, concurrency
+    handling for simultaneous votes.
+  - **Playlist Editor** — real-time add/remove/reorder, concurrency handling
+    for simultaneous edits.
+- **kaouthar — mobile app (front end):** all screens and client code in
+  `mobile/`, including the Track Vote and Playlist Editor screens.
 
-Respect this ownership boundary in the file structure — keep each area's
-code in its own module rather than intermixing, so it's clear at a glance
-who owns what.
+The API contract (`shared/types/`, `docs/api-contract.md`) is the interface
+between the two, so it is agreed jointly before either side builds on it.
+
+Even with this split, the subject requires that **each developer can explain and
+defend every decision in the repo**, not only their own layer. Walk each other
+through your PRs.
+
+Respect the ownership boundary in the file structure — keep each area's code in
+its own module rather than intermixing (`backend/src/modules/*`,
+`mobile/src/features/*`), so it's clear at a glance what belongs to what.
 
 ## Non-negotiable constraints
 
@@ -119,8 +129,8 @@ yourself; GitHub will not enforce it.
 ### Ownership
 
 `.github/CODEOWNERS` lists `@belmqadem` for every path, so they are the single
-required reviewer. Who authors which module (Core & Infra, Track Vote, Playlist
-Editor) is the split described above, not enforced by CODEOWNERS.
+required reviewer, including for kaouthar's mobile PRs. Who authors what (backend
+vs. mobile) is the split described above, not enforced by CODEOWNERS.
 
 ### GitHub branch protection (manual, repo Settings → Branches)
 

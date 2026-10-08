@@ -1,6 +1,6 @@
 # Single reviewer: @belmqadem reviews every pull request (team of two).
-# Module authorship (Core & Infra, Track Vote, Playlist Editor) is documented in
-# CLAUDE.md; it does not affect who must approve.
+# Who writes what (backend vs. mobile) is documented in CLAUDE.md; it does not
+# affect who must approve.
 # Note: GitHub never lets you approve your own PR, so @belmqadem's own PRs are
 # merged through the ruleset's pull-request-only bypass (CI still must pass).
 
