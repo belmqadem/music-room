@@ -13,143 +13,195 @@
 | Style / format | REST + JSON, UTF-8, camelCase keys (ADR-001, ADR-002)                                                                 | Decided  |
 | Base path      | `/api/v1/...`. `/health` and `/docs` are unversioned.                                                                 | Proposed |
 | IDs            | UUID strings (v4), never sequential integers (not guessable)                                                          | Proposed |
-| Timestamps     | ISO 8601 UTC strings, e.g. `2026-10-09T12:00:00Z`                                                                     | Proposed |
+| Timestamps     | ISO 8601 UTC strings, e.g. `2026-10-09T16:00:00Z`                                                                     | Proposed |
 | Pagination     | Lists take `?limit=` (default 20, max 100) and `?cursor=`; respond `{ "items": [...], "nextCursor": string \| null }` | Proposed |
 | Unknown fields | Request bodies are validated strictly; unknown fields are rejected with `400 VALIDATION_ERROR`                        | Proposed |
 | Success bodies | The resource itself (no `{ "data": ... }` envelope); lists use the shape above                                        | Proposed |
 
 ### Errors
 
-Every error response has this body (type `ApiError` in `shared/types`):
+Every non-2xx response has this body (type `ApiError`):
 
 ```json
-{ "error": { "code": "ROOM_NOT_FOUND", "message": "Room not found.", "details": null } }
+{ "error": { "code": "EVENT_NOT_FOUND", "message": "Event not found.", "details": null } }
 ```
 
-- `code` is a stable, machine-readable string the app can switch on; `message` is for humans and may change.
-- `details` is optional extra data (e.g. which fields failed validation).
-- Error messages never include internals (stack traces, SQL, whether an email exists).
+- `code` is stable and machine-readable; `message` is for humans and may change.
+- `details` is optional extra data (e.g. failed fields, or the existing track on `TRACK_ALREADY_QUEUED`).
+- Messages never include internals (stack traces, SQL, whether an email exists).
 
-| HTTP | Meaning                                                 | Example codes                      |
-| ---- | ------------------------------------------------------- | ---------------------------------- |
-| 400  | Malformed or invalid request                            | `VALIDATION_ERROR`                 |
-| 401  | Not authenticated (missing/expired/invalid token)       | `UNAUTHENTICATED`, `TOKEN_EXPIRED` |
-| 403  | Authenticated and allowed to see it, but not to do this | `FORBIDDEN`                        |
-| 404  | Does not exist **or you may not know it exists**        | `ROOM_NOT_FOUND`                   |
-| 409  | Conflicts with current state                            | `EMAIL_TAKEN`, `ALREADY_MEMBER`    |
-| 429  | Rate limited                                            | `RATE_LIMITED`                     |
+| HTTP | Meaning                                          | Codes                                                                                                                                             |
+| ---- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 400  | Malformed or invalid request                     | `VALIDATION_ERROR`, `LOCATION_REQUIRED`                                                                                                           |
+| 401  | Not authenticated                                | `UNAUTHENTICATED`, `TOKEN_EXPIRED`, `INVALID_CREDENTIALS`, `INVALID_REFRESH_TOKEN`                                                                |
+| 403  | You can see it, but may not do this              | `FORBIDDEN`, `NOT_INVITED`, `OUTSIDE_VOTING_AREA`, `OUTSIDE_VOTING_TIME`                                                                          |
+| 404  | Does not exist **or you may not know it exists** | `EVENT_NOT_FOUND`, `PLAYLIST_NOT_FOUND`, `TRACK_NOT_FOUND`                                                                                        |
+| 409  | Conflicts with current state                     | `EMAIL_TAKEN`, `PROVIDER_ACCOUNT_LINKED`, `LAST_LOGIN_METHOD`, `ALREADY_INVITED`, `TRACK_ALREADY_QUEUED`, `TRACK_NOT_VOTABLE`, `ANCHOR_NOT_FOUND` |
+| 429  | Rate limited                                     | `RATE_LIMITED`                                                                                                                                    |
 
 ### Required client headers
 
-Every request from the mobile app carries `X-Platform` (`ios` \| `android` \| `web`), `X-Device` (model name or
-`unknown`) and `X-App-Version`. The backend logs them for every mobile-triggered action. They are for logging,
-never for authorization decisions (a client can send anything).
+Every request from the app carries `X-Platform` (`ios` \| `android` \| `web`), `X-Device` (model or `unknown`) and
+`X-App-Version`. The backend logs them for every mobile-triggered action. They are for logging only, never for
+authorization (a client can send anything).
 
-## Authentication (Decided: ADR-003)
+## Authentication (Decided: ADR-003, ADR-006, ADR-007)
 
 - `Authorization: Bearer <accessToken>` on every endpoint except those marked _public_.
-- Access token: short-lived JWT. Refresh token: opaque, rotated on every use; reusing an old one revokes the
-  whole token family. Lifetimes and signing algorithm: **TODO** (ADR pending).
-- The same access token authenticates the Socket.io handshake (`auth: { token }`).
+- Access token: JWT, 15 minutes, HS256. Refresh token: opaque, 7 days, rotated on every use; reusing an old one
+  revokes the whole family. The same access token authenticates the Socket.io handshake.
+- The app keeps the refresh token in secure storage and the access token in memory only.
 
-`AuthSession` (returned by register, login, refresh, OAuth): `{ accessToken, refreshToken, expiresIn, user }`
-where `expiresIn` is seconds until the access token expires.
+`AuthSession` (returned by register, login, refresh, OAuth login): `{ accessToken, refreshToken, expiresIn, user }`;
+`expiresIn` is seconds until the access token expires.
 
-| Method | Path                     | Auth   | Purpose                                    | Success           | Errors                                    |
-| ------ | ------------------------ | ------ | ------------------------------------------ | ----------------- | ----------------------------------------- |
-| POST   | `/auth/register`         | public | Create account with email + password       | 201 `AuthSession` | 400, 409 `EMAIL_TAKEN`                    |
-| POST   | `/auth/login`            | public | Email + password login                     | 200 `AuthSession` | 400, 401 `INVALID_CREDENTIALS`, 429       |
-| POST   | `/auth/refresh`          | public | Exchange a refresh token for a new session | 200 `AuthSession` | 401 `INVALID_REFRESH_TOKEN`               |
-| POST   | `/auth/logout`           | bearer | Revoke the given refresh token family      | 204               | 401                                       |
-| POST   | `/auth/oauth/{provider}` | public | Log in / sign up with an OAuth provider    | 200 `AuthSession` | 400, 401 — **TODO**: provider(s) and flow |
-| GET    | `/users/me`              | bearer | The signed-in user                         | 200 `User`        | 401                                       |
+| Method | Path                             | Auth   | Purpose                                        | Success           | Errors                                  |
+| ------ | -------------------------------- | ------ | ---------------------------------------------- | ----------------- | --------------------------------------- |
+| POST   | `/auth/register`                 | public | Create an account with email + password        | 201 `AuthSession` | 400, 409 `EMAIL_TAKEN`                  |
+| POST   | `/auth/login`                    | public | Email + password login                         | 200 `AuthSession` | 400, 401 `INVALID_CREDENTIALS`, 429     |
+| POST   | `/auth/oauth/{provider}`         | public | Sign up or log in with Google or Facebook      | 200 `AuthSession` | 400, 401, 409 `EMAIL_TAKEN`             |
+| POST   | `/auth/refresh`                  | public | Exchange a refresh token for a new session     | 200 `AuthSession` | 401 `INVALID_REFRESH_TOKEN`             |
+| POST   | `/auth/logout`                   | bearer | Revoke the given refresh token's family        | 204               | 401                                     |
+| GET    | `/users/me`                      | bearer | The signed-in user, incl. linked providers     | 200 `User`        | 401                                     |
+| POST   | `/users/me/providers/{provider}` | bearer | Link a Google/Facebook account to this account | 200 `User`        | 400, 401, 409 `PROVIDER_ACCOUNT_LINKED` |
+| DELETE | `/users/me/providers/{provider}` | bearer | Unlink a provider                              | 200 `User`        | 404, 409 `LAST_LOGIN_METHOD`            |
 
-- `INVALID_CREDENTIALS` is the same response for an unknown email and a wrong password (no account enumeration).
-  Login is rate limited (**Proposed**).
-- Passwords: minimum length and hashing algorithm **TODO** (ADR pending). The password is never returned or logged.
+- `{provider}` is `google` or `facebook`. The OAuth body is `{ "credential": string }`: Google ID token or Facebook
+  access token, obtained by the app from the provider. **The backend verifies it with the provider**; it never trusts
+  an identity the client merely claims.
+- **No automatic linking by email.** If the provider's email matches an existing account, the backend answers
+  `409 EMAIL_TAKEN`; the user logs in and links from settings (otherwise an unverified provider email could take over
+  an account).
+- A user always keeps at least one login method; unlinking the last one is `409 LAST_LOGIN_METHOD`.
+- `INVALID_CREDENTIALS` is identical for an unknown email and a wrong password. Passwords: 8 to 72 bytes (longer
+  is rejected, not truncated), bcrypt cost 12 (ADR-006). The password is never returned or logged.
+- Login and register are rate limited (**Proposed**).
 
-## Access rules (Decided: ADR-004; details Proposed)
+## Access rules (Decided: ADR-005)
 
-A room has two flags and each member has a role.
+Both resources, **Event** (Track Vote) and **Playlist** (Playlist Editor), follow the same rules.
 
-- `visibility`: `public` or `private`
-- `permission`: `open` or `restricted`
-- `role`: `owner`, `editor`, `voter` or `listener`
+- Each has an **owner** (its creator), a `visibility`, and an **invitation list**.
+- `visibility`: `public` (default) or `private`.
+- The owner can always do everything on their own resource, including managing invitations and settings.
+- An **invited user** is anyone on the invitation list. Invitations take effect immediately (**Proposed**: no
+  accept step).
 
-### Roles and licenses
+### Who can see it
 
-A **license** is what a user may do in a room. It is derived from role (and flags), never sent by the client.
+| visibility | Who can see it                                                 | Everyone else                                      |
+| ---------- | -------------------------------------------------------------- | -------------------------------------------------- |
+| public     | any authenticated user (listed in `GET /events`, `/playlists`) | —                                                  |
+| private    | the owner and invited users (listed for them only)             | `404`, identical to a resource that does not exist |
 
-| Role     | canVote | canEdit | canControlPlayback | Manage members/settings |
-| -------- | ------- | ------- | ------------------ | ----------------------- |
-| owner    | yes     | yes     | yes                | yes                     |
-| editor   | yes     | yes     | no                 | no                      |
-| voter    | yes     | no      | no                 | no                      |
-| listener | no      | no      | no                 | no                      |
+### Who can act (license)
 
-"Viewing" the room (its details, queue and playlist) is separate: it requires being allowed to **see** it (below).
+The license applies to people who can already see the resource.
 
-### Who can see a room
+| Resource | License         | Default | Who may vote/suggest (event) or edit (playlist)                                                                                           |
+| -------- | --------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Event    | `everyone`      | yes     | anyone who can see the event                                                                                                              |
+| Event    | `invited_only`  |         | the owner and invited users; others get `403 NOT_INVITED`                                                                                 |
+| Event    | `location_time` |         | anyone who can see the event **and** is within `radiusMeters` of the event's point **and** the server time is within `startsAt`..`endsAt` |
+| Playlist | `everyone`      | yes     | anyone who can see the playlist                                                                                                           |
+| Playlist | `invited_only`  |         | the owner and invited users; others get `403 NOT_INVITED`                                                                                 |
 
-| visibility | Who can see it                                                         | Everyone else gets                                |
-| ---------- | ---------------------------------------------------------------------- | ------------------------------------------------- |
-| public     | any authenticated user (appears in `GET /rooms`)                       | —                                                 |
-| private    | its members (owner, or invited users who accepted/joined). Not listed. | `404 ROOM_NOT_FOUND`, same as if it did not exist |
+- Suggesting a track and voting are both "voting" for the license check.
+- **Viewing is separate from acting**: in a public event with license `invited_only`, everyone can view, only
+  invited users can vote.
+- `location_time`: the app sends its coordinates with the vote/suggestion; the server computes the distance
+  (it never trusts a "I am inside" flag) and compares times with **its own clock**. Failures:
+  `400 LOCATION_REQUIRED`, `403 OUTSIDE_VOTING_AREA`, `403 OUTSIDE_VOTING_TIME`. Coordinates can still be faked by
+  the client; see `docs/security.md`.
+- `myPermissions` on a resource (`canView`, `canAct`, `canManage`) is a **UI hint**. For `location_time`, `canAct`
+  means "eligible if you are in the right place and time". The backend checks everything again on every request.
 
-### Effective license of a user in a room
+## Events (Track Vote)
 
-1. If the user is a **member**: the license of their role — except that in an `open` room nobody is below `editor`
-   (roles only differentiate members in `restricted` rooms). The `owner` is always the owner.
-2. If the user is **not a member** but can see the room (public only): `open` -> `editor` license; `restricted` -> `listener`.
-3. Otherwise: no access (`404`).
+All endpoints are bearer-authenticated and check the access rules above on every call.
 
-`canControlPlayback` is owner-only in this first version (delegating playback is a possible later extension).
+| Method | Path                                      | Who may call it        | Purpose                                             | Success                  | Errors                                    |
+| ------ | ----------------------------------------- | ---------------------- | --------------------------------------------------- | ------------------------ | ----------------------------------------- |
+| POST   | `/events`                                 | any authenticated user | Create an event (caller is owner)                   | 201 `MusicEvent`         | 400                                       |
+| GET    | `/events`                                 | any authenticated user | Page of events you can see (public + yours/invited) | 200 page of `MusicEvent` | —                                         |
+| GET    | `/events/{eventId}`                       | anyone who can see it  | Event details incl. `myPermissions`                 | 200 `MusicEvent`         | 404                                       |
+| PATCH  | `/events/{eventId}`                       | owner                  | Change name, visibility, vote license               | 200 `MusicEvent`         | 400, 403, 404                             |
+| DELETE | `/events/{eventId}`                       | owner                  | Delete the event                                    | 204                      | 403, 404                                  |
+| GET    | `/events/{eventId}/invitations`           | owner                  | List invited users                                  | 200 page of `Invitation` | 403, 404                                  |
+| POST   | `/events/{eventId}/invitations`           | owner                  | Invite a user                                       | 201 `Invitation`         | 400, 403, 404, 409 `ALREADY_INVITED`      |
+| DELETE | `/events/{eventId}/invitations/{userId}`  | owner                  | Remove an invitation                                | 204                      | 403, 404                                  |
+| GET    | `/events/{eventId}/tracks`                | anyone who can see it  | The queue, **already ordered** (see Ranking)        | 200 `EventTrack[]`       | 404                                       |
+| POST   | `/events/{eventId}/tracks`                | anyone allowed to act  | Suggest a track (counts as your vote)               | 201 `EventTrack`         | 400, 403, 404, 409 `TRACK_ALREADY_QUEUED` |
+| PUT    | `/events/{eventId}/tracks/{trackId}/vote` | anyone allowed to act  | Vote for a track (**idempotent**)                   | 200 `EventTrack`         | 400, 403, 404, 409 `TRACK_NOT_VOTABLE`    |
+| DELETE | `/events/{eventId}/tracks/{trackId}/vote` | anyone allowed to act  | Withdraw your vote (**idempotent**)                 | 200 `EventTrack`         | 403, 404, 409 `TRACK_NOT_VOTABLE`         |
 
-> **Open question for both developers:** is "open" meant to include edit rights for anyone who can see the room,
-> or only voting? This draft says voting **and** editing. Needs a decision before Track Vote / Playlist Editor.
+- Request bodies: `CreateEventRequest`, `UpdateEventRequest`, `InviteRequest` (`{ userId }`),
+  `SuggestTrackRequest` (`{ providerTrackId, location? }`, `location` is a `GeoPoint`), `VoteRequest` (`{ location? }`, only needed when the
+  license is `location_time`). The backend looks up title and artist from the music catalog itself; the client sends
+  only the track id (**TODO** catalog provider).
+- A user has at most one vote per track, and may vote for several tracks.
 
-## Rooms
+### Ranking and concurrency (Decided: ADR-008)
 
-All endpoints are bearer-authenticated. Every one checks authorization against the room (not just "is logged in").
+- Order: most votes first; ties: oldest suggestion first. The server returns the queue already ordered; clients do
+  not re-sort.
+- Voting twice for the same track, or two devices of one user voting at once, counts once (`PUT` is idempotent).
+- Many users voting at the same moment never lose votes; counts are exact.
+- Two people suggesting the same track at once: one gets `201`, the other `409 TRACK_ALREADY_QUEUED` with the
+  existing track in `details`, so the app can vote for it instead.
+- Voting on a track that already started playing or was removed: `409 TRACK_NOT_VOTABLE`.
 
-| Method | Path                               | Who may call it                      | Purpose                                            | Success                  | Errors                        |
-| ------ | ---------------------------------- | ------------------------------------ | -------------------------------------------------- | ------------------------ | ----------------------------- |
-| POST   | `/rooms`                           | any authenticated user               | Create a room (caller becomes owner)               | 201 `Room`               | 400                           |
-| GET    | `/rooms`                           | any authenticated user               | Paginated list: public rooms + rooms you belong to | 200 page of `Room`       | —                             |
-| GET    | `/rooms/{roomId}`                  | anyone who can see the room          | Room details incl. your role and license           | 200 `Room`               | 404                           |
-| PATCH  | `/rooms/{roomId}`                  | owner                                | Change name, visibility, permission                | 200 `Room`               | 400, 403, 404                 |
-| DELETE | `/rooms/{roomId}`                  | owner                                | Delete the room                                    | 204                      | 403, 404                      |
-| POST   | `/rooms/{roomId}/join`             | anyone who can see a **public** room | Become a member                                    | 200 `RoomMember`         | 404, 409 `ALREADY_MEMBER`     |
-| POST   | `/rooms/{roomId}/leave`            | a non-owner member                   | Stop being a member                                | 204                      | 404, 403 (owner cannot leave) |
-| GET    | `/rooms/{roomId}/members`          | anyone who can see the room          | Paginated member list                              | 200 page of `RoomMember` | 404                           |
-| POST   | `/rooms/{roomId}/invites`          | owner                                | Invite a user (by `userId`) with a role            | 201 `RoomMember`         | 400, 403, 404, 409            |
-| PUT    | `/rooms/{roomId}/members/{userId}` | owner                                | Change a member's role                             | 200 `RoomMember`         | 400, 403, 404                 |
-| DELETE | `/rooms/{roomId}/members/{userId}` | owner                                | Remove a member                                    | 204                      | 403, 404                      |
+## Playlists (Playlist Editor)
 
-Notes:
+| Method | Path                                            | Who may call it        | Purpose                                             | Success                  | Errors                                |
+| ------ | ----------------------------------------------- | ---------------------- | --------------------------------------------------- | ------------------------ | ------------------------------------- |
+| POST   | `/playlists`                                    | any authenticated user | Create a playlist (caller is owner)                 | 201 `Playlist`           | 400                                   |
+| GET    | `/playlists`                                    | any authenticated user | Page of playlists you can see                       | 200 page of `Playlist`   | —                                     |
+| GET    | `/playlists/{playlistId}`                       | anyone who can see it  | Playlist details incl. `myPermissions`              | 200 `Playlist`           | 404                                   |
+| PATCH  | `/playlists/{playlistId}`                       | owner                  | Change name, visibility, edit license               | 200 `Playlist`           | 400, 403, 404                         |
+| DELETE | `/playlists/{playlistId}`                       | owner                  | Delete the playlist                                 | 204                      | 403, 404                              |
+| GET    | `/playlists/{playlistId}/invitations`           | owner                  | List invited users                                  | 200 page of `Invitation` | 403, 404                              |
+| POST   | `/playlists/{playlistId}/invitations`           | owner                  | Invite a user                                       | 201 `Invitation`         | 400, 403, 404, 409 `ALREADY_INVITED`  |
+| DELETE | `/playlists/{playlistId}/invitations/{userId}`  | owner                  | Remove an invitation                                | 204                      | 403, 404                              |
+| GET    | `/playlists/{playlistId}/tracks`                | anyone who can see it  | Ordered tracks + current `version`                  | 200 `PlaylistSnapshot`   | 404                                   |
+| POST   | `/playlists/{playlistId}/tracks`                | anyone allowed to edit | Add a track (end of list, or after an anchor)       | 201 `PlaylistSnapshot`   | 400, 403, 404, 409 `ANCHOR_NOT_FOUND` |
+| POST   | `/playlists/{playlistId}/tracks/{entryId}/move` | anyone allowed to edit | Move an entry after another entry (or to the start) | 200 `PlaylistSnapshot`   | 400, 403, 404, 409 `ANCHOR_NOT_FOUND` |
+| DELETE | `/playlists/{playlistId}/tracks/{entryId}`      | anyone allowed to edit | Remove an entry                                     | 200 `PlaylistSnapshot`   | 403, 404                              |
 
-- Invites are **Proposed** as immediate membership (no accept step) to keep scope small; revisit if needed.
-- `PATCH /rooms/{roomId}` changing visibility to `private` does not remove existing members.
-- A 403 means "you can see this room but may not do that"; a 404 means "no such room, as far as you may know".
-  Never return 403 for a private room the caller cannot see (it would confirm the room exists).
+- Request bodies: `AddPlaylistTrackRequest` (`{ providerTrackId, afterEntryId? }`, omit `afterEntryId` to append),
+  `MovePlaylistTrackRequest` (`{ afterEntryId: string | null }`, `null` = move to the start).
+- An **entry** (`PlaylistEntry`) is one occurrence of a track in a playlist, with its own id. The same song may
+  appear twice.
+- Editing a playlist you can see but may not edit: `403 NOT_INVITED` (license `invited_only`).
 
-## Track Vote
+### Concurrency (Decided: ADR-009)
 
-**TODO** — blocked on the concurrency decision for simultaneous votes. Placeholder in `shared/types/src/vote.ts`.
-
-## Playlist Editor
-
-**TODO** — blocked on the concurrency decision for simultaneous edits. Placeholder in `shared/types/src/playlist.ts`.
+- Edits are expressed by intent ("after this entry"), never by index, and applied one at a time per playlist on the
+  server. Moving **different** entries at once: both succeed, in arrival order. Moving the **same** entry at once:
+  both succeed in arrival order and the last one wins; all clients end with the same list.
+- Every applied edit increments `version`. A client ignores any update whose version is not newer than its own and
+  refetches if it sees a gap.
+- Removing an entry that is already gone is not an error. Anchoring to an entry that was removed meanwhile gives
+  `409 ANCHOR_NOT_FOUND`; the app refreshes.
 
 ## Real-time events (Socket.io, namespace `/live`)
 
-- The handshake carries the access token; the server verifies it and rejects the connection otherwise.
-  (The namespace currently refuses every connection until this is implemented.)
-- A client joins a room's channel only if the effective license rules above allow viewing it.
-- Event names and payloads: **TODO** (depends on Track Vote and Playlist Editor).
+- The handshake carries the access token (`auth: { token }`); the server verifies it and rejects the connection
+  otherwise. (Today the namespace refuses every connection until this is implemented.)
+- Client -> server: `subscribe` with `{ resource: "event" | "playlist", id }` and an acknowledgement. The server
+  runs the same "can this user see it?" check as REST; on failure it answers `NOT_FOUND`. `unsubscribe` leaves.
+  The client's claim is never trusted.
+- Server -> client (after the change is committed):
+  - `event:queue` -> `EventQueueUpdate` `{ eventId, tracks: EventTrack[] }`: the full ordered queue with absolute
+    vote counts (applying it twice or out of order is harmless).
+  - `playlist:updated` -> `PlaylistSnapshot` `{ playlistId, version, tracks }`: apply only if `version` is newer.
+- When someone is uninvited or a resource becomes private, the server removes their sockets from its channel
+  (**TODO**: implement and test; otherwise they keep receiving updates).
+- Payloads are full snapshots for simplicity; switch to deltas only if load tests justify it.
 
 ## Changelog
 
-| Date       | Change                                              | Author    | Reviewed by |
-| ---------- | --------------------------------------------------- | --------- | ----------- |
-| 2026-10-09 | First draft: conventions, auth, access rules, rooms | belmqadem | pending     |
+| Date       | Change                                                                                 | Author    | Reviewed by |
+| ---------- | -------------------------------------------------------------------------------------- | --------- | ----------- |
+| 2026-10-09 | First draft: conventions, auth, rooms/roles model                                      | belmqadem | withdrawn   |
+| 2026-10-09 | Rewritten from the subject: events, playlists, licenses, OAuth, concurrency, real-time | belmqadem | pending     |

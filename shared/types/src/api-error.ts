@@ -4,14 +4,25 @@
 // Stable codes the app can switch on. Extend as endpoints are added.
 export type ApiErrorCode =
   | "VALIDATION_ERROR"
+  | "LOCATION_REQUIRED"
   | "UNAUTHENTICATED"
   | "TOKEN_EXPIRED"
   | "INVALID_CREDENTIALS"
   | "INVALID_REFRESH_TOKEN"
   | "FORBIDDEN"
-  | "ROOM_NOT_FOUND"
+  | "NOT_INVITED"
+  | "OUTSIDE_VOTING_AREA"
+  | "OUTSIDE_VOTING_TIME"
+  | "EVENT_NOT_FOUND"
+  | "PLAYLIST_NOT_FOUND"
+  | "TRACK_NOT_FOUND"
   | "EMAIL_TAKEN"
-  | "ALREADY_MEMBER"
+  | "PROVIDER_ACCOUNT_LINKED"
+  | "LAST_LOGIN_METHOD"
+  | "ALREADY_INVITED"
+  | "TRACK_ALREADY_QUEUED"
+  | "TRACK_NOT_VOTABLE"
+  | "ANCHOR_NOT_FOUND"
   | "RATE_LIMITED";
 
 export interface ApiError {

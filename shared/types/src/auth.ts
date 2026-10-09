@@ -25,4 +25,11 @@ export interface AuthSession {
   user: User;
 }
 
-// TODO(contract): OAuth request body once provider(s) and flow are decided.
+/**
+ * Body of POST /auth/oauth/{provider} and POST /users/me/providers/{provider}.
+ * `credential` is the Google ID token or Facebook access token the app got from
+ * the provider. The backend verifies it with the provider (ADR-007).
+ */
+export interface OAuthCredentialRequest {
+  credential: string;
+}

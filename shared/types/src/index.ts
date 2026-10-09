@@ -1,17 +1,37 @@
 // Public entry point of @music-room/shared. Import with `import type { ... }`.
-export type { User } from "./user";
-export type { RegisterRequest, LoginRequest, RefreshRequest, AuthSession } from "./auth";
+export type { User, OAuthProvider } from "./user";
+export type {
+  RegisterRequest,
+  LoginRequest,
+  RefreshRequest,
+  OAuthCredentialRequest,
+  AuthSession,
+} from "./auth";
 export type { ApiError, ApiErrorCode } from "./api-error";
 export type { Page } from "./pagination";
-export type { Visibility, PermissionMode } from "./visibility";
-export type { Role, License } from "./license";
+export type { Visibility } from "./visibility";
 export type {
-  Room,
-  RoomMember,
-  CreateRoomRequest,
-  UpdateRoomRequest,
-  InviteRequest,
-  ChangeRoleRequest,
-} from "./room";
-export type { Vote } from "./vote";
-export type { Playlist } from "./playlist";
+  LocationTimeRule,
+  VoteLicense,
+  EditLicense,
+  MyPermissions,
+  GeoPoint,
+} from "./license";
+export type { Invitation, InviteRequest } from "./invitation";
+export type { Track } from "./track";
+export type { MusicEvent, CreateEventRequest, UpdateEventRequest } from "./event";
+export type {
+  EventTrack,
+  SuggestTrackRequest,
+  VoteRequest,
+  EventQueueUpdate,
+} from "./vote";
+export type {
+  Playlist,
+  PlaylistEntry,
+  PlaylistSnapshot,
+  CreatePlaylistRequest,
+  UpdatePlaylistRequest,
+  AddPlaylistTrackRequest,
+  MovePlaylistTrackRequest,
+} from "./playlist";
