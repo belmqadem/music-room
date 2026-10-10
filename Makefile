@@ -2,7 +2,7 @@
 # Dependencies are installed from lockfiles (npm ci); nothing third-party is committed.
 
 .DEFAULT_GOAL := help
-.PHONY: help install dev dev-mobile db-up db-down migrate lint typecheck test format format-check clean
+.PHONY: help install dev dev-mobile db-up db-down migrate lint typecheck test test-integration format format-check clean
 
 # Loads the root .env into the environment of a command (used by `migrate`).
 LOAD_ENV = set -a; . ./.env; set +a;
@@ -41,8 +41,11 @@ typecheck: ## Type-check shared, backend and mobile
 	npm run typecheck --prefix backend
 	npm run typecheck --prefix mobile
 
-test: ## Run backend tests (load tests are not included)
+test: ## Run backend tests (database tests are skipped unless TEST_DATABASE_URL is set)
 	npm run test --prefix backend
+
+test-integration: ## Run all backend tests incl. database tests (needs db-up + migrate; uses .env)
+	$(LOAD_ENV) TEST_DATABASE_URL="$$DATABASE_URL" npm run test --prefix backend
 
 format: ## Format the whole repo with Prettier
 	npx prettier --write .
