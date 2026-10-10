@@ -23,3 +23,10 @@ export const loginSchema = z.strictObject({
   password: z.string().min(1).max(1024),
 });
 export type LoginInput = z.infer<typeof loginSchema>;
+
+// Body of POST /auth/refresh and POST /auth/logout. Tokens are 43 characters;
+// the generous max only exists to reject absurd payloads early.
+export const refreshTokenBodySchema = z.strictObject({
+  refreshToken: z.string().min(1).max(512),
+});
+export type RefreshTokenBody = z.infer<typeof refreshTokenBodySchema>;

@@ -1,25 +1,35 @@
 import { randomUUID } from "node:crypto";
 import type { AuthSession, OAuthProvider, User } from "@music-room/shared";
 import type pg from "pg";
+import type { Logger } from "pino";
 import { withTransaction } from "../../db/postgres.js";
 import { HttpError } from "../../http-error.js";
 import { ACCESS_TOKEN_TTL_SECONDS, signAccessToken } from "./access-token.js";
 import { hashPassword, verifyPassword } from "./password.js";
-import { generateRefreshToken, refreshTokenExpiry } from "./refresh-token.js";
 import {
+  generateRefreshToken,
+  hashRefreshToken,
+  refreshTokenExpiry,
+} from "./refresh-token.js";
+import {
+  consumeRefreshToken,
   findLinkedProviders,
-  findUserById,
+  findRefreshToken,
   findUserByEmail,
+  findUserById,
   insertRefreshToken,
   insertUser,
   isUniqueViolation,
+  revokeFamily,
+  revokeFamilyOfUsersToken,
   type UserRecord,
 } from "./repository.js";
-import type { LoginInput, RegisterInput } from "./schema.js";
+import type { LoginInput, RefreshTokenBody, RegisterInput } from "./schema.js";
 
 export interface AuthServiceDependencies {
   pool: pg.Pool;
   jwtSecret: string;
+  logger: Logger;
   /** bcrypt cost; only tests lower it (for speed). Defaults to 12. */
   passwordCost?: number;
 }
@@ -27,6 +37,8 @@ export interface AuthServiceDependencies {
 export interface AuthService {
   register(input: RegisterInput): Promise<AuthSession>;
   login(input: LoginInput): Promise<AuthSession>;
+  refresh(input: RefreshTokenBody): Promise<AuthSession>;
+  logout(userId: string, input: RefreshTokenBody): Promise<void>;
   getUser(userId: string): Promise<User>;
 }
 
@@ -34,7 +46,7 @@ type Queryable = Pick<pg.Pool, "query">;
 
 /** Business rules for accounts and sessions. No HTTP and no SQL in here. */
 export function createAuthService(deps: AuthServiceDependencies): AuthService {
-  const { pool, jwtSecret, passwordCost } = deps;
+  const { pool, jwtSecret, logger, passwordCost } = deps;
 
   function toApiUser(user: UserRecord, linkedProviders: string[]): User {
     return {
@@ -47,15 +59,17 @@ export function createAuthService(deps: AuthServiceDependencies): AuthService {
   }
 
   // Starts a new login session: a new "family" of refresh tokens plus an access token.
+  // `familyId` is only passed when rotating an existing session (refresh).
   async function startSession(
     db: Queryable,
     user: UserRecord,
     linkedProviders: string[],
+    familyId: string = randomUUID(),
   ): Promise<AuthSession> {
     const refresh = generateRefreshToken();
     await insertRefreshToken(db, {
       userId: user.id,
-      familyId: randomUUID(),
+      familyId,
       tokenHash: refresh.hash,
       expiresAt: refreshTokenExpiry(),
     });
@@ -112,6 +126,59 @@ export function createAuthService(deps: AuthServiceDependencies): AuthService {
         );
       }
       return startSession(pool, user, await findLinkedProviders(pool, user.id));
+    },
+
+    async refresh(input) {
+      const tokenHash = hashRefreshToken(input.refreshToken);
+
+      // The outcome is decided inside the transaction but the error is thrown
+      // AFTER it commits: if we threw inside, the "revoke the family" below
+      // would be rolled back and the defence would silently not happen.
+      const outcome = await withTransaction(pool, async (client) => {
+        const consumed = await consumeRefreshToken(client, tokenHash);
+        if (consumed) {
+          const user = await findUserById(client, consumed.userId);
+          if (!user) return { kind: "invalid" } as const;
+          const providers = await findLinkedProviders(client, user.id);
+          // Same family: it is still the same login session, just a newer token.
+          const session = await startSession(client, user, providers, consumed.familyId);
+          return { kind: "ok", session } as const;
+        }
+
+        // Could not consume. Why? A token that was ALREADY used is the danger
+        // sign: either a thief replays a stolen token, or the real client
+        // retried. Strict policy: revoke the whole family either way.
+        const existing = await findRefreshToken(client, tokenHash);
+        if (existing?.usedAt) {
+          await revokeFamily(client, existing.familyId);
+          return {
+            kind: "reuse",
+            userId: existing.userId,
+            familyId: existing.familyId,
+          } as const;
+        }
+        return { kind: "invalid" } as const; // unknown, expired or already revoked
+      });
+
+      if (outcome.kind === "ok") return outcome.session;
+      if (outcome.kind === "reuse") {
+        // Security event. Log who/which session, never the token.
+        logger.warn(
+          { userId: outcome.userId, familyId: outcome.familyId },
+          "refresh token reuse detected, session revoked",
+        );
+      }
+      // Same answer for every failure: the client learns nothing about why.
+      throw new HttpError(
+        401,
+        "INVALID_REFRESH_TOKEN",
+        "Refresh token is invalid or expired.",
+      );
+    },
+
+    async logout(userId, input) {
+      // Always succeeds (idempotent, and no hint about whether the token existed).
+      await revokeFamilyOfUsersToken(pool, hashRefreshToken(input.refreshToken), userId);
     },
 
     async getUser(userId) {
