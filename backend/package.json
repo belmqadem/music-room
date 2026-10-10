@@ -16,11 +16,13 @@
   "dependencies": {
     "bcrypt": "^6.0.0",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.7.1",
     "ioredis": "^6.0.0",
     "jose": "^6.2.12",
     "node-pg-migrate": "^9.0.0",
     "pg": "^8.23.1",
     "pino": "^10.4.0",
+    "rate-limit-redis": "^6.0.1",
     "socket.io": "^4.8.4",
     "swagger-ui-express": "^5.0.1",
     "zod": "^4.6.5"

@@ -23,7 +23,9 @@ export type ApiErrorCode =
   | "TRACK_ALREADY_QUEUED"
   | "TRACK_NOT_VOTABLE"
   | "ANCHOR_NOT_FOUND"
-  | "RATE_LIMITED";
+  | "RATE_LIMITED"
+  | "NOT_FOUND"
+  | "INTERNAL_ERROR";
 
 export interface ApiError {
   error: {
