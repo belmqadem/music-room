@@ -137,6 +137,18 @@ Each decision must be defensible in detail at the defense. Copy the template for
 - Live updates: after commit, the server broadcasts the full ordered track list with the new version.
 - Consequences: positions are rewritten on each move (fine for lists of a few hundred tracks; load tests must confirm). Only one edit per playlist runs at a time.
 
+### ADR-010: Strict reuse detection for refresh tokens
+
+- Status: accepted
+- Date: 2026-10-10
+- Deciders: belmqadem
+- Context: refresh tokens rotate (ADR-003, ADR-006). A token that is presented after it was already exchanged is either a thief replaying a stolen token or the real client retrying after a lost response.
+- Options considered:
+  - Strict: any reuse revokes the whole session (family). Simplest and safest; a retried refresh logs the user out.
+  - Short grace window: a second use within a few seconds returns the same result and does not revoke. Friendlier on flaky mobile networks, but more code and state, and a thief acting inside the window goes undetected.
+- Decision: strict. Consuming a token is a single atomic SQL statement (`UPDATE ... WHERE used_at IS NULL ...`), so of several simultaneous requests with the same token exactly one succeeds; the others are treated as reuse. The revoke is committed before the error is returned (an error thrown inside the transaction would roll the revoke back). Every failure returns the same `INVALID_REFRESH_TOKEN`; reuse is logged as a warning with user and session ids, never the token.
+- Consequences: the mobile app must never retry a refresh with the same token; on failure it logs in again. If this proves painful in practice, the grace-window option can replace it (document the change here).
+
 ### Still to decide (record each as an ADR)
 
 TODO:
