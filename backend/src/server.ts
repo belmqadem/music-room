@@ -1,5 +1,5 @@
 import { createServer } from "node:http";
-import { app } from "./app.js";
+import { createApp } from "./app.js";
 import { loadConfig, loadEnvFileIfPresent } from "./config/env.js";
 import { createLogger } from "./config/logger.js";
 import { assertPostgresReachable, createPostgresPool } from "./db/postgres.js";
@@ -18,6 +18,7 @@ async function main(): Promise<void> {
   await assertPostgresReachable(pool);
   await redis.connect();
 
+  const app = createApp({ pool, redis, logger, jwtSecret: config.JWT_ACCESS_SECRET });
   const httpServer = createServer(app);
   const io = attachSockets(httpServer);
 

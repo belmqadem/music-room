@@ -30,14 +30,15 @@ Every non-2xx response has this body (type `ApiError`):
 - `details` is optional extra data (e.g. failed fields, or the existing track on `TRACK_ALREADY_QUEUED`).
 - Messages never include internals (stack traces, SQL, whether an email exists).
 
-| HTTP | Meaning                                          | Codes                                                                                                                                             |
-| ---- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 400  | Malformed or invalid request                     | `VALIDATION_ERROR`, `LOCATION_REQUIRED`                                                                                                           |
-| 401  | Not authenticated                                | `UNAUTHENTICATED`, `TOKEN_EXPIRED`, `INVALID_CREDENTIALS`, `INVALID_REFRESH_TOKEN`                                                                |
-| 403  | You can see it, but may not do this              | `FORBIDDEN`, `NOT_INVITED`, `OUTSIDE_VOTING_AREA`, `OUTSIDE_VOTING_TIME`                                                                          |
-| 404  | Does not exist **or you may not know it exists** | `EVENT_NOT_FOUND`, `PLAYLIST_NOT_FOUND`, `TRACK_NOT_FOUND`                                                                                        |
-| 409  | Conflicts with current state                     | `EMAIL_TAKEN`, `PROVIDER_ACCOUNT_LINKED`, `LAST_LOGIN_METHOD`, `ALREADY_INVITED`, `TRACK_ALREADY_QUEUED`, `TRACK_NOT_VOTABLE`, `ANCHOR_NOT_FOUND` |
-| 429  | Rate limited                                     | `RATE_LIMITED`                                                                                                                                    |
+| HTTP | Meaning                                                      | Codes                                                                                                                                             |
+| ---- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 400  | Malformed or invalid request                                 | `VALIDATION_ERROR`, `LOCATION_REQUIRED`                                                                                                           |
+| 401  | Not authenticated                                            | `UNAUTHENTICATED`, `TOKEN_EXPIRED`, `INVALID_CREDENTIALS`, `INVALID_REFRESH_TOKEN`                                                                |
+| 403  | You can see it, but may not do this                          | `FORBIDDEN`, `NOT_INVITED`, `OUTSIDE_VOTING_AREA`, `OUTSIDE_VOTING_TIME`                                                                          |
+| 404  | Does not exist **or you may not know it exists**             | `EVENT_NOT_FOUND`, `PLAYLIST_NOT_FOUND`, `TRACK_NOT_FOUND`, `NOT_FOUND` (unknown route)                                                           |
+| 409  | Conflicts with current state                                 | `EMAIL_TAKEN`, `PROVIDER_ACCOUNT_LINKED`, `LAST_LOGIN_METHOD`, `ALREADY_INVITED`, `TRACK_ALREADY_QUEUED`, `TRACK_NOT_VOTABLE`, `ANCHOR_NOT_FOUND` |
+| 429  | Rate limited                                                 | `RATE_LIMITED`                                                                                                                                    |
+| 500  | Unexpected server error (details are logged, never returned) | `INTERNAL_ERROR`                                                                                                                                  |
 
 ### Required client headers
 
@@ -201,7 +202,8 @@ All endpoints are bearer-authenticated and check the access rules above on every
 
 ## Changelog
 
-| Date       | Change                                                                                 | Author    | Reviewed by |
-| ---------- | -------------------------------------------------------------------------------------- | --------- | ----------- |
-| 2026-10-09 | First draft: conventions, auth, rooms/roles model                                      | belmqadem | withdrawn   |
-| 2026-10-09 | Rewritten from the subject: events, playlists, licenses, OAuth, concurrency, real-time | belmqadem | pending     |
+| Date       | Change                                                                                                            | Author    | Reviewed by |
+| ---------- | ----------------------------------------------------------------------------------------------------------------- | --------- | ----------- |
+| 2026-10-09 | First draft: conventions, auth, rooms/roles model                                                                 | belmqadem | withdrawn   |
+| 2026-10-09 | Rewritten from the subject: events, playlists, licenses, OAuth, concurrency, real-time                            | belmqadem | pending     |
+| 2026-10-10 | Added error codes `NOT_FOUND` (404, unknown route) and `INTERNAL_ERROR` (500); additive, no existing code changed | belmqadem | pending     |

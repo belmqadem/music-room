@@ -1,0 +1,54 @@
+import type { RequestHandler } from "express";
+import { rateLimit } from "express-rate-limit";
+import type { Redis } from "ioredis";
+import { RedisStore } from "rate-limit-redis";
+import { HttpError } from "../http-error.js";
+
+export interface RateLimitSettings {
+  windowMs: number;
+  limit: number;
+}
+
+// Proposed values (docs/api-contract.md): enough for a person who mistypes,
+// too few for password guessing. Counted per client IP address.
+export const DEFAULT_LOGIN_LIMIT: RateLimitSettings = {
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+};
+export const DEFAULT_REGISTER_LIMIT: RateLimitSettings = {
+  windowMs: 60 * 60 * 1000,
+  limit: 10,
+};
+
+/**
+ * Limits requests per IP. With `redis`, counters live in Redis (shared by all
+ * server processes, survive restarts); without it they are in memory (tests).
+ * If Redis is unreachable the request fails (500) rather than skipping the
+ * limit: for login protection, failing closed is the safer default.
+ * Behind a reverse proxy, configure Express "trust proxy" or every user will
+ * share the proxy's IP (TODO at deployment).
+ */
+export function createRateLimiter(
+  name: string,
+  settings: RateLimitSettings,
+  redis?: Redis,
+): RequestHandler {
+  return rateLimit({
+    windowMs: settings.windowMs,
+    limit: settings.limit,
+    standardHeaders: "draft-7", // sends RateLimit-* and Retry-After headers
+    legacyHeaders: false,
+    ...(redis
+      ? {
+          store: new RedisStore({
+            prefix: `rate-limit:${name}:`,
+            sendCommand: (...args: string[]) =>
+              redis.call(args[0]!, ...args.slice(1)) as Promise<never>,
+          }),
+        }
+      : {}),
+    handler: (_req, _res, next) => {
+      next(new HttpError(429, "RATE_LIMITED", "Too many attempts. Try again later."));
+    },
+  });
+}

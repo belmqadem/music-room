@@ -41,11 +41,11 @@ typecheck: ## Type-check shared, backend and mobile
 	npm run typecheck --prefix backend
 	npm run typecheck --prefix mobile
 
-test: ## Run backend tests (database tests are skipped unless TEST_DATABASE_URL is set)
+test: ## Run backend tests (database/Redis tests are skipped unless TEST_DATABASE_URL / TEST_REDIS_URL are set)
 	npm run test --prefix backend
 
-test-integration: ## Run all backend tests incl. database tests (needs db-up + migrate; uses .env)
-	$(LOAD_ENV) TEST_DATABASE_URL="$$DATABASE_URL" npm run test --prefix backend
+test-integration: ## Run all backend tests incl. database + Redis tests (needs db-up + migrate; uses .env)
+	$(LOAD_ENV) TEST_DATABASE_URL="$$DATABASE_URL" TEST_REDIS_URL="$$REDIS_URL" npm run test --prefix backend
 
 format: ## Format the whole repo with Prettier
 	npx prettier --write .
