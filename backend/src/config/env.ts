@@ -11,6 +11,10 @@ const envSchema = z.object({
     .default("info"),
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
   REDIS_URL: z.string().min(1, "REDIS_URL is required"),
+  // Signs access tokens (HS256). 32+ characters so it cannot be brute-forced; never commit a real one.
+  JWT_ACCESS_SECRET: z
+    .string()
+    .min(32, "JWT_ACCESS_SECRET must be at least 32 characters"),
 });
 
 export type Config = z.infer<typeof envSchema>;
