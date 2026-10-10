@@ -96,3 +96,77 @@ export async function insertRefreshToken(
     [token.userId, token.familyId, token.tokenHash, token.expiresAt],
   );
 }
+
+export interface RefreshTokenRecord {
+  userId: string;
+  familyId: string;
+  usedAt: Date | null;
+}
+
+/**
+ * Atomically consumes a refresh token: succeeds only if it exists, is unused,
+ * not revoked and not expired. It is ONE statement, so when several requests
+ * present the same token at once, Postgres lets exactly one of them match
+ * (the others wait on the row lock, then see used_at already set and match
+ * nothing). That is what makes rotation race-safe.
+ * Returns null when the token cannot be consumed (look at findRefreshToken to learn why).
+ */
+export async function consumeRefreshToken(
+  db: Queryable,
+  tokenHash: string,
+): Promise<RefreshTokenRecord | null> {
+  const { rows } = await db.query<{ user_id: string; family_id: string; used_at: Date }>(
+    `UPDATE refresh_tokens SET used_at = now()
+     WHERE token_hash = $1 AND used_at IS NULL AND revoked_at IS NULL AND expires_at > now()
+     RETURNING user_id, family_id, used_at`,
+    [tokenHash],
+  );
+  const row = rows[0];
+  return row
+    ? { userId: row.user_id, familyId: row.family_id, usedAt: row.used_at }
+    : null;
+}
+
+export async function findRefreshToken(
+  db: Queryable,
+  tokenHash: string,
+): Promise<RefreshTokenRecord | null> {
+  const { rows } = await db.query<{
+    user_id: string;
+    family_id: string;
+    used_at: Date | null;
+  }>("SELECT user_id, family_id, used_at FROM refresh_tokens WHERE token_hash = $1", [
+    tokenHash,
+  ]);
+  const row = rows[0];
+  return row
+    ? { userId: row.user_id, familyId: row.family_id, usedAt: row.used_at }
+    : null;
+}
+
+/** Revokes every token of a login session (family). Idempotent. */
+export async function revokeFamily(db: Queryable, familyId: string): Promise<void> {
+  await db.query(
+    "UPDATE refresh_tokens SET revoked_at = now() WHERE family_id = $1 AND revoked_at IS NULL",
+    [familyId],
+  );
+}
+
+/**
+ * Logout: revokes the family of `tokenHash`, but ONLY if that token belongs to
+ * `userId`. One statement, so a user can never revoke someone else's session
+ * even when they present that person's token.
+ */
+export async function revokeFamilyOfUsersToken(
+  db: Queryable,
+  tokenHash: string,
+  userId: string,
+): Promise<void> {
+  await db.query(
+    `UPDATE refresh_tokens SET revoked_at = now()
+     WHERE revoked_at IS NULL AND family_id = (
+       SELECT family_id FROM refresh_tokens WHERE token_hash = $1 AND user_id = $2
+     )`,
+    [tokenHash, userId],
+  );
+}

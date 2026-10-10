@@ -19,6 +19,7 @@ export interface AppDependencies {
   passwordCost?: number;
   loginLimit?: RateLimitSettings;
   registerLimit?: RateLimitSettings;
+  refreshLimit?: RateLimitSettings;
 }
 
 // Builds the Express app WITHOUT listening, so tests can drive it in-process
@@ -37,6 +38,7 @@ export function createApp(deps: AppDependencies): Express {
   const authService = createAuthService({
     pool: deps.pool,
     jwtSecret: deps.jwtSecret,
+    logger: deps.logger,
     ...(deps.passwordCost !== undefined && { passwordCost: deps.passwordCost }),
   });
   app.use(
@@ -47,6 +49,7 @@ export function createApp(deps: AppDependencies): Express {
       ...(deps.redis && { redis: deps.redis }),
       ...(deps.loginLimit && { loginLimit: deps.loginLimit }),
       ...(deps.registerLimit && { registerLimit: deps.registerLimit }),
+      ...(deps.refreshLimit && { refreshLimit: deps.refreshLimit }),
     }),
   );
 

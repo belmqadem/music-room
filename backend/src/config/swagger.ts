@@ -155,6 +155,91 @@ export const openApiDocument = {
         },
       },
     },
+    "/api/v1/auth/refresh": {
+      post: {
+        summary: "Exchange a refresh token for a new session (rotation)",
+        description:
+          "Consumes the presented refresh token and returns a new pair. Presenting a token that was already used revokes the whole session (strict reuse detection). No Authorization header is needed.",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["refreshToken"],
+                additionalProperties: false,
+                properties: { refreshToken: { type: "string" } },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "New session",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/AuthSession" },
+              },
+            },
+          },
+          "400": {
+            description: "VALIDATION_ERROR",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "401": {
+            description:
+              "INVALID_REFRESH_TOKEN (unknown, expired, revoked or already used)",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "429": {
+            description: "RATE_LIMITED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+        },
+      },
+    },
+    "/api/v1/auth/logout": {
+      post: {
+        summary: "Log out: revoke the session of the given refresh token",
+        description:
+          "Always answers 204, including for unknown tokens and tokens of another user (which are not revoked). The current access token stays valid until it expires.",
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["refreshToken"],
+                additionalProperties: false,
+                properties: { refreshToken: { type: "string" } },
+              },
+            },
+          },
+        },
+        responses: {
+          "204": { description: "Session revoked (or nothing to revoke)" },
+          "400": {
+            description: "VALIDATION_ERROR",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "401": {
+            description: "UNAUTHENTICATED or TOKEN_EXPIRED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+        },
+      },
+    },
     "/api/v1/users/me": {
       get: {
         summary: "The signed-in user",

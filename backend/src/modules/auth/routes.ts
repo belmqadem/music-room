@@ -5,6 +5,7 @@ import { createAuthenticate } from "../../middleware/authenticate.js";
 import {
   createRateLimiter,
   DEFAULT_LOGIN_LIMIT,
+  DEFAULT_REFRESH_LIMIT,
   DEFAULT_REGISTER_LIMIT,
   type RateLimitSettings,
 } from "../../middleware/rate-limit.js";
@@ -17,9 +18,10 @@ export interface AuthRoutesOptions {
   redis?: Redis;
   loginLimit?: RateLimitSettings;
   registerLimit?: RateLimitSettings;
+  refreshLimit?: RateLimitSettings;
 }
 
-/** Mounted at /api/v1: POST /auth/register, POST /auth/login, GET /users/me. */
+/** Mounted at /api/v1: /auth/register, /auth/login, /auth/refresh, /auth/logout, GET /users/me. */
 export function createAuthRoutes(options: AuthRoutesOptions): ExpressRouter {
   const controller = createAuthController(options.service);
   const authenticate = createAuthenticate(options.jwtSecret);
@@ -34,9 +36,18 @@ export function createAuthRoutes(options: AuthRoutesOptions): ExpressRouter {
     options.redis,
   );
 
+  const refreshLimiter = createRateLimiter(
+    "refresh",
+    options.refreshLimit ?? DEFAULT_REFRESH_LIMIT,
+    options.redis,
+  );
+
   const router = Router();
   router.post("/auth/register", registerLimiter, controller.register);
   router.post("/auth/login", loginLimiter, controller.login);
+  // Public on purpose: the access token has usually expired when the app refreshes.
+  router.post("/auth/refresh", refreshLimiter, controller.refresh);
+  router.post("/auth/logout", authenticate, controller.logout);
   router.get("/users/me", authenticate, controller.me);
   return router;
 }

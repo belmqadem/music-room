@@ -19,6 +19,12 @@ export const DEFAULT_REGISTER_LIMIT: RateLimitSettings = {
   windowMs: 60 * 60 * 1000,
   limit: 10,
 };
+// Refresh tokens are 256-bit random values, so guessing is hopeless; this only
+// stops hammering. Generous because many users can share one IP (mobile networks).
+export const DEFAULT_REFRESH_LIMIT: RateLimitSettings = {
+  windowMs: 15 * 60 * 1000,
+  limit: 100,
+};
 
 /**
  * Limits requests per IP. With `redis`, counters live in Redis (shared by all
