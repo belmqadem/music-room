@@ -163,6 +163,18 @@ Each decision must be defensible in detail at the defense. Copy the template for
 - Decision: Google (a): no new dependency, one JWKS fetch cached in memory, and every step can be explained. The accepted audiences are a list in `GOOGLE_CLIENT_IDS` (iOS, Android and Web client ids differ). Facebook (a): `debug_token` must say `is_valid`, with our `app_id`, then `/me?fields=id,name` gives the user id and name. Both verifiers sit behind a small `ProviderVerifier` interface, so tests use a fake and CI never calls Google or Facebook.
 - Consequences: Facebook costs two network calls per login and needs `FACEBOOK_APP_ID` and `FACEBOOK_APP_SECRET` in `.env` (never the repo; the secret never goes to the phone). A provider outage is `502 PROVIDER_UNAVAILABLE`, not a login failure the user caused. The Facebook email is not used, so Facebook accounts are stored without email, which avoids trusting an unverified address.
 
+### ADR-012: Web client: CORS allow-list and refresh-token storage
+
+- Status: accepted
+- Date: 2026-10-11
+- Deciders: belmqadem
+- Context: the app also runs in a browser (Expo web). Browsers enforce CORS and have no secure storage like the phone keychain, so two questions arise: which sites may call the API, and where the web client keeps its refresh token.
+- Options considered:
+  - CORS: an explicit allow-list of origins (`ALLOWED_ORIGINS`), reflecting any origin, or `*`. Reflecting any origin or `*` lets any website call the API from a visitor's browser, so it is rejected.
+  - Refresh token on web: (A) browser storage, sent in the request body like on mobile; (B) an httpOnly cookie, which needs CSRF protection, credentialed CORS and a second code path; (C) memory only, which logs the user out on every reload.
+- Decision: an exact-match origin allow-list, empty by default, used for both REST and Socket.io; credentials stay disabled. The refresh token on web is option A: the same contract as mobile, no server change. The cost is that a script injected into the web page (XSS) could read it. This is limited by refresh rotation with reuse detection (ADR-010) and short access tokens, and must be reduced by the web build sending a strict Content-Security-Policy and never rendering untrusted HTML. Because rotation is strict, the web client must make sure only one tab refreshes at a time (for example with the Web Locks API), otherwise two tabs presenting the same token revoke the session.
+- Consequences: CORS is not an authorization control (only browsers apply it; the token still decides who the caller is). Native apps are unaffected. Socket.io's origin list only covers long-polling requests; WebSockets are not subject to CORS in browsers, which is safe because the handshake uses a token in its payload, not a cookie. If XSS exposure turns out to be unacceptable, option B can be added later without changing mobile.
+
 ## Still to decide (record each as an ADR)
 
 TODO:
