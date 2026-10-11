@@ -44,7 +44,8 @@ Every non-2xx response has this body (type `ApiError`):
 
 Every request from the app carries `X-Platform` (`ios` \| `android` \| `web`), `X-Device` (model or `unknown`) and
 `X-App-Version`. The backend logs them for every mobile-triggered action. They are for logging only, never for
-authorization (a client can send anything).
+authorization (a client can send anything). A missing or malformed header is logged as `unknown` and never
+rejects the request; values are stripped of unsafe characters and capped at 64 characters.
 
 ## Authentication (Decided: ADR-003, ADR-006, ADR-007)
 
