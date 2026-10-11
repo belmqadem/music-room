@@ -190,8 +190,13 @@ All endpoints are bearer-authenticated and check the access rules above on every
 
 ## Real-time events (Socket.io, namespace `/live`)
 
-- The handshake carries the access token (`auth: { token }`); the server verifies it and rejects the connection
-  otherwise. (Today the namespace refuses every connection until this is implemented.)
+- The handshake carries the access token (`auth: { token }`); the server verifies it and refuses the connection
+  otherwise. A refused connection raises `connect_error` whose `data.code` is `TOKEN_EXPIRED` (refresh the token,
+  then reconnect) or `UNAUTHENTICATED`. The app should also send the `X-Platform`, `X-Device` and `X-App-Version`
+  headers (`extraHeaders`) so the connection is logged like any request.
+- The token is checked only at the handshake. A connected socket keeps working after the 15-minute token expires,
+  so permissions are re-checked on every `subscribe`, and the app should reconnect with a fresh token when it
+  refreshes. (Decided; see `docs/security.md`.)
 - Client -> server: `subscribe` with `{ resource: "event" | "playlist", id }` and an acknowledgement. The server
   runs the same "can this user see it?" check as REST; on failure it answers `NOT_FOUND`. `unsubscribe` leaves.
   The client's claim is never trusted.
@@ -211,3 +216,4 @@ All endpoints are bearer-authenticated and check the access rules above on every
 | 2026-10-09 | Rewritten from the subject: events, playlists, licenses, OAuth, concurrency, real-time                                          | belmqadem | pending     |
 | 2026-10-10 | Added error codes `NOT_FOUND` (404, unknown route) and `INTERNAL_ERROR` (500); additive, no existing code changed               | belmqadem | pending     |
 | 2026-10-10 | Clarified refresh rotation (strict reuse detection), logout behaviour and refresh rate limit; no type or endpoint shape changes | belmqadem | pending     |
+| 2026-10-11 | Real-time handshake: `connect_error` `data.code` values and the token-checked-once rule; no type or endpoint shape changes      | belmqadem | pending     |

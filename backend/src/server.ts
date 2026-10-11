@@ -20,7 +20,7 @@ async function main(): Promise<void> {
 
   const app = createApp({ pool, redis, logger, jwtSecret: config.JWT_ACCESS_SECRET });
   const httpServer = createServer(app);
-  const io = attachSockets(httpServer);
+  const io = attachSockets(httpServer, { jwtSecret: config.JWT_ACCESS_SECRET, logger });
 
   httpServer.listen(config.PORT, () => {
     logger.info({ port: config.PORT }, "server listening");
