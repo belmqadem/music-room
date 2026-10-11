@@ -4,6 +4,7 @@ import type pg from "pg";
 import type { Logger } from "pino";
 import swaggerUi from "swagger-ui-express";
 import { openApiDocument } from "./config/swagger.js";
+import { createRequestLogger } from "./middleware/request-logger.js";
 import { createErrorHandler, notFoundHandler } from "./middleware/error-handler.js";
 import type { RateLimitSettings } from "./middleware/rate-limit.js";
 import { createAuthRoutes } from "./modules/auth/routes.js";
@@ -28,6 +29,7 @@ export interface AppDependencies {
 export function createApp(deps: AppDependencies): Express {
   const app = express();
   app.disable("x-powered-by"); // do not advertise the framework
+  app.use(createRequestLogger(deps.logger));
   app.use(express.json({ limit: "100kb" }));
 
   app.get("/health", (_req, res) => {
