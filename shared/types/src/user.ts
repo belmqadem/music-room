@@ -13,4 +13,12 @@ export interface User {
   linkedProviders: OAuthProvider[];
   createdAt: string; // ISO 8601 UTC
 }
-// TODO(contract): decide whether other users may see `email` (privacy) or only the user themself.
+/**
+ * What other users may see of someone: enough to recognise them, nothing private.
+ * No email, no linked providers (those are only in `User`, returned to the user themself).
+ * Display names are not unique, so two results can look alike; the id tells them apart.
+ */
+export interface UserSummary {
+  id: string; // UUID
+  displayName: string;
+}
