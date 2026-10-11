@@ -33,11 +33,12 @@ Every non-2xx response has this body (type `ApiError`):
 | HTTP | Meaning                                                      | Codes                                                                                                                                             |
 | ---- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 400  | Malformed or invalid request                                 | `VALIDATION_ERROR`, `LOCATION_REQUIRED`                                                                                                           |
-| 401  | Not authenticated                                            | `UNAUTHENTICATED`, `TOKEN_EXPIRED`, `INVALID_CREDENTIALS`, `INVALID_REFRESH_TOKEN`                                                                |
+| 401  | Not authenticated                                            | `UNAUTHENTICATED`, `TOKEN_EXPIRED`, `INVALID_CREDENTIALS`, `INVALID_REFRESH_TOKEN`, `INVALID_PROVIDER_CREDENTIAL`                                 |
 | 403  | You can see it, but may not do this                          | `FORBIDDEN`, `NOT_INVITED`, `OUTSIDE_VOTING_AREA`, `OUTSIDE_VOTING_TIME`                                                                          |
 | 404  | Does not exist **or you may not know it exists**             | `EVENT_NOT_FOUND`, `PLAYLIST_NOT_FOUND`, `TRACK_NOT_FOUND`, `NOT_FOUND` (unknown route)                                                           |
 | 409  | Conflicts with current state                                 | `EMAIL_TAKEN`, `PROVIDER_ACCOUNT_LINKED`, `LAST_LOGIN_METHOD`, `ALREADY_INVITED`, `TRACK_ALREADY_QUEUED`, `TRACK_NOT_VOTABLE`, `ANCHOR_NOT_FOUND` |
 | 429  | Rate limited                                                 | `RATE_LIMITED`                                                                                                                                    |
+| 502  | The social provider could not be reached or answered badly   | `PROVIDER_UNAVAILABLE`                                                                                                                            |
 | 500  | Unexpected server error (details are logged, never returned) | `INTERNAL_ERROR`                                                                                                                                  |
 
 ### Required client headers
@@ -57,16 +58,16 @@ rejects the request; values are stripped of unsafe characters and capped at 64 c
 `AuthSession` (returned by register, login, refresh, OAuth login): `{ accessToken, refreshToken, expiresIn, user }`;
 `expiresIn` is seconds until the access token expires.
 
-| Method | Path                             | Auth   | Purpose                                                               | Success           | Errors                                  |
-| ------ | -------------------------------- | ------ | --------------------------------------------------------------------- | ----------------- | --------------------------------------- |
-| POST   | `/auth/register`                 | public | Create an account with email + password                               | 201 `AuthSession` | 400, 409 `EMAIL_TAKEN`                  |
-| POST   | `/auth/login`                    | public | Email + password login                                                | 200 `AuthSession` | 400, 401 `INVALID_CREDENTIALS`, 429     |
-| POST   | `/auth/oauth/{provider}`         | public | Sign up or log in with Google or Facebook                             | 200 `AuthSession` | 400, 401, 409 `EMAIL_TAKEN`             |
-| POST   | `/auth/refresh`                  | public | Exchange a refresh token for a new session (body: `{ refreshToken }`) | 200 `AuthSession` | 401 `INVALID_REFRESH_TOKEN`             |
-| POST   | `/auth/logout`                   | bearer | Revoke the session of `{ refreshToken }` (always 204)                 | 204               | 401                                     |
-| GET    | `/users/me`                      | bearer | The signed-in user, incl. linked providers                            | 200 `User`        | 401                                     |
-| POST   | `/users/me/providers/{provider}` | bearer | Link a Google/Facebook account to this account                        | 200 `User`        | 400, 401, 409 `PROVIDER_ACCOUNT_LINKED` |
-| DELETE | `/users/me/providers/{provider}` | bearer | Unlink a provider                                                     | 200 `User`        | 404, 409 `LAST_LOGIN_METHOD`            |
+| Method | Path                             | Auth   | Purpose                                                               | Success           | Errors                                       |
+| ------ | -------------------------------- | ------ | --------------------------------------------------------------------- | ----------------- | -------------------------------------------- |
+| POST   | `/auth/register`                 | public | Create an account with email + password                               | 201 `AuthSession` | 400, 409 `EMAIL_TAKEN`                       |
+| POST   | `/auth/login`                    | public | Email + password login                                                | 200 `AuthSession` | 400, 401 `INVALID_CREDENTIALS`, 429          |
+| POST   | `/auth/oauth/{provider}`         | public | Sign up or log in with Google or Facebook                             | 200 `AuthSession` | 400, 401, 409 `EMAIL_TAKEN`, 429, 502        |
+| POST   | `/auth/refresh`                  | public | Exchange a refresh token for a new session (body: `{ refreshToken }`) | 200 `AuthSession` | 401 `INVALID_REFRESH_TOKEN`                  |
+| POST   | `/auth/logout`                   | bearer | Revoke the session of `{ refreshToken }` (always 204)                 | 204               | 401                                          |
+| GET    | `/users/me`                      | bearer | The signed-in user, incl. linked providers                            | 200 `User`        | 401                                          |
+| POST   | `/users/me/providers/{provider}` | bearer | Link a Google/Facebook account to this account                        | 200 `User`        | 400, 401, 409 `PROVIDER_ACCOUNT_LINKED`, 502 |
+| DELETE | `/users/me/providers/{provider}` | bearer | Unlink a provider                                                     | 200 `User`        | 404, 409 `LAST_LOGIN_METHOD`                 |
 
 - `{provider}` is `google` or `facebook`. The OAuth body is `{ "credential": string }`: Google ID token or Facebook
   access token, obtained by the app from the provider. **The backend verifies it with the provider**; it never trusts
@@ -74,6 +75,22 @@ rejects the request; values are stripped of unsafe characters and capped at 64 c
 - **No automatic linking by email.** If the provider's email matches an existing account, the backend answers
   `409 EMAIL_TAKEN`; the user logs in and links from settings (otherwise an unverified provider email could take over
   an account).
+- **OAuth login (ADR-011)** `POST /auth/oauth/{provider}`:
+  - the provider confirms the credential, giving a stable provider user id, a name and maybe an email;
+  - if that provider account is already linked, the linked user logs in (`200 AuthSession`);
+  - otherwise, if the provider's **verified** email matches an existing account, `409 EMAIL_TAKEN` (no linking);
+  - otherwise a new social-only account is created (no password; `email` may be `null`) and logged in.
+    A Google email counts only when Google marks it verified. Facebook emails are ignored for the match
+    (Facebook does not guarantee they are verified), so a Facebook account never triggers `EMAIL_TAKEN` and is stored
+    with `email: null` unless we later decide otherwise.
+- Provider failures: a credential the provider rejects (bad signature, expired, wrong app) is
+  `401 INVALID_PROVIDER_CREDENTIAL`, always the same message. If the provider cannot be reached, `502
+PROVIDER_UNAVAILABLE`; the app may retry later. Both are logged without the credential.
+- **Link** `POST /users/me/providers/{provider}`: same body, bearer required. `409 PROVIDER_ACCOUNT_LINKED` if that
+  provider account belongs to anyone (including this user), or this user already has that provider linked.
+  **Unlink** `DELETE ...`: `404` if that provider is not linked, `409 LAST_LOGIN_METHOD` if it is the only login
+  method left (a user has a login method per linked provider, plus one if they have a password).
+- OAuth login shares the login rate limit (per IP, 10 per 15 minutes).
 - A user always keeps at least one login method; unlinking the last one is `409 LAST_LOGIN_METHOD`.
 - `INVALID_CREDENTIALS` is identical for an unknown email and a wrong password. Passwords: 8 to 72 bytes (longer
   is rejected, not truncated), bcrypt cost 12 (ADR-006). The password is never returned or logged.
@@ -210,10 +227,11 @@ All endpoints are bearer-authenticated and check the access rules above on every
 
 ## Changelog
 
-| Date       | Change                                                                                                                          | Author    | Reviewed by |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------- | --------- | ----------- |
-| 2026-10-09 | First draft: conventions, auth, rooms/roles model                                                                               | belmqadem | withdrawn   |
-| 2026-10-09 | Rewritten from the subject: events, playlists, licenses, OAuth, concurrency, real-time                                          | belmqadem | pending     |
-| 2026-10-10 | Added error codes `NOT_FOUND` (404, unknown route) and `INTERNAL_ERROR` (500); additive, no existing code changed               | belmqadem | pending     |
-| 2026-10-10 | Clarified refresh rotation (strict reuse detection), logout behaviour and refresh rate limit; no type or endpoint shape changes | belmqadem | pending     |
-| 2026-10-11 | Real-time handshake: `connect_error` `data.code` values and the token-checked-once rule; no type or endpoint shape changes      | belmqadem | pending     |
+| Date       | Change                                                                                                                                | Author    | Reviewed by |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------- | --------- | ----------- |
+| 2026-10-09 | First draft: conventions, auth, rooms/roles model                                                                                     | belmqadem | withdrawn   |
+| 2026-10-09 | Rewritten from the subject: events, playlists, licenses, OAuth, concurrency, real-time                                                | belmqadem | pending     |
+| 2026-10-10 | Added error codes `NOT_FOUND` (404, unknown route) and `INTERNAL_ERROR` (500); additive, no existing code changed                     | belmqadem | pending     |
+| 2026-10-10 | Clarified refresh rotation (strict reuse detection), logout behaviour and refresh rate limit; no type or endpoint shape changes       | belmqadem | pending     |
+| 2026-10-11 | Real-time handshake: `connect_error` `data.code` values and the token-checked-once rule; no type or endpoint shape changes            | belmqadem | pending     |
+| 2026-10-11 | OAuth semantics (login, link, unlink), new error codes `INVALID_PROVIDER_CREDENTIAL` (401) and `PROVIDER_UNAVAILABLE` (502); additive | belmqadem | pending     |

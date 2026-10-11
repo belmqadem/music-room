@@ -149,7 +149,21 @@ Each decision must be defensible in detail at the defense. Copy the template for
 - Decision: strict. Consuming a token is a single atomic SQL statement (`UPDATE ... WHERE used_at IS NULL ...`), so of several simultaneous requests with the same token exactly one succeeds; the others are treated as reuse. The revoke is committed before the error is returned (an error thrown inside the transaction would roll the revoke back). Every failure returns the same `INVALID_REFRESH_TOKEN`; reuse is logged as a warning with user and session ids, never the token.
 - Consequences: the mobile app must never retry a refresh with the same token; on failure it logs in again. If this proves painful in practice, the grace-window option can replace it (document the change here).
 
-### Still to decide (record each as an ADR)
+#
+
+### ADR-011: How the backend verifies Google and Facebook credentials
+
+- Status: accepted
+- Date: 2026-10-11
+- Deciders: belmqadem
+- Context: ADR-007 says the backend verifies the provider credential itself. This ADR picks how.
+- Options considered:
+  - Google: (a) verify the ID token with `jose` against Google's public keys (JWKS), checking signature, issuer, audience and expiry; (b) the official `google-auth-library`; (c) call Google's `tokeninfo` endpoint on every login.
+  - Facebook: (a) Graph API `debug_token` with the app access token (`appId|appSecret`), then `/me`; (b) Limited Login JWT, verified like Google's, which exists only on iOS.
+- Decision: Google (a): no new dependency, one JWKS fetch cached in memory, and every step can be explained. The accepted audiences are a list in `GOOGLE_CLIENT_IDS` (iOS, Android and Web client ids differ). Facebook (a): `debug_token` must say `is_valid`, with our `app_id`, then `/me?fields=id,name` gives the user id and name. Both verifiers sit behind a small `ProviderVerifier` interface, so tests use a fake and CI never calls Google or Facebook.
+- Consequences: Facebook costs two network calls per login and needs `FACEBOOK_APP_ID` and `FACEBOOK_APP_SECRET` in `.env` (never the repo; the secret never goes to the phone). A provider outage is `502 PROVIDER_UNAVAILABLE`, not a login failure the user caused. The Facebook email is not used, so Facebook accounts are stored without email, which avoids trusting an unverified address.
+
+## Still to decide (record each as an ADR)
 
 TODO:
 
