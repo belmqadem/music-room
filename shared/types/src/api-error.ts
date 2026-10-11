@@ -9,6 +9,7 @@ export type ApiErrorCode =
   | "TOKEN_EXPIRED"
   | "INVALID_CREDENTIALS"
   | "INVALID_REFRESH_TOKEN"
+  | "INVALID_PROVIDER_CREDENTIAL"
   | "FORBIDDEN"
   | "NOT_INVITED"
   | "OUTSIDE_VOTING_AREA"
@@ -25,6 +26,7 @@ export type ApiErrorCode =
   | "ANCHOR_NOT_FOUND"
   | "RATE_LIMITED"
   | "NOT_FOUND"
+  | "PROVIDER_UNAVAILABLE"
   | "INTERNAL_ERROR";
 
 export interface ApiError {
