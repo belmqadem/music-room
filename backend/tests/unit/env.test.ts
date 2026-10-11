@@ -45,4 +45,52 @@ describe("loadConfig", () => {
       /LOG_LEVEL/,
     );
   });
+
+  describe("social sign-in settings", () => {
+    it("are optional: no providers configured is valid", () => {
+      const config = loadConfig(validEnv);
+
+      expect(config.GOOGLE_CLIENT_IDS).toEqual([]);
+      expect(config.FACEBOOK_APP_ID).toBeUndefined();
+      expect(config.FACEBOOK_APP_SECRET).toBeUndefined();
+    });
+
+    it("splits GOOGLE_CLIENT_IDS on commas and ignores spaces and empty items", () => {
+      const config = loadConfig({
+        ...validEnv,
+        GOOGLE_CLIENT_IDS: " ios-id , android-id,, ",
+      });
+
+      expect(config.GOOGLE_CLIENT_IDS).toEqual(["ios-id", "android-id"]);
+    });
+
+    it("treats a blank GOOGLE_CLIENT_IDS (as in .env.example) as not configured", () => {
+      expect(
+        loadConfig({ ...validEnv, GOOGLE_CLIENT_IDS: "" }).GOOGLE_CLIENT_IDS,
+      ).toEqual([]);
+    });
+
+    it("treats the blank Facebook lines of .env.example as not configured", () => {
+      const config = loadConfig({
+        ...validEnv,
+        FACEBOOK_APP_ID: "",
+        FACEBOOK_APP_SECRET: "",
+      });
+
+      expect(config.FACEBOOK_APP_ID).toBeUndefined();
+      expect(config.FACEBOOK_APP_SECRET).toBeUndefined();
+    });
+
+    it("requires the Facebook app id and secret together", () => {
+      expect(() => loadConfig({ ...validEnv, FACEBOOK_APP_ID: "123" })).toThrowError(
+        /FACEBOOK_APP_ID and FACEBOOK_APP_SECRET must be set together/,
+      );
+      expect(() => loadConfig({ ...validEnv, FACEBOOK_APP_SECRET: "s" })).toThrowError(
+        /must be set together/,
+      );
+      expect(
+        loadConfig({ ...validEnv, FACEBOOK_APP_ID: "123", FACEBOOK_APP_SECRET: "s" }),
+      ).toMatchObject({ FACEBOOK_APP_ID: "123", FACEBOOK_APP_SECRET: "s" });
+    });
+  });
 });

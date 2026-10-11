@@ -7,6 +7,10 @@ import { openApiDocument } from "./config/swagger.js";
 import { createRequestLogger } from "./middleware/request-logger.js";
 import { createErrorHandler, notFoundHandler } from "./middleware/error-handler.js";
 import type { RateLimitSettings } from "./middleware/rate-limit.js";
+import {
+  unconfiguredVerifier,
+  type ProviderVerifiers,
+} from "./modules/auth/provider-verifier.js";
 import { createAuthRoutes } from "./modules/auth/routes.js";
 import { createAuthService } from "./modules/auth/service.js";
 
@@ -16,6 +20,8 @@ export interface AppDependencies {
   logger: Logger;
   /** Rate-limit counters live here; without it they are kept in memory (tests). */
   redis?: Redis;
+  /** Google/Facebook checkers. Omitted (tests): both providers answer 502 PROVIDER_UNAVAILABLE. */
+  providerVerifiers?: ProviderVerifiers;
   /** Tests only: cheaper bcrypt and custom rate limits. */
   passwordCost?: number;
   loginLimit?: RateLimitSettings;
@@ -41,6 +47,10 @@ export function createApp(deps: AppDependencies): Express {
     pool: deps.pool,
     jwtSecret: deps.jwtSecret,
     logger: deps.logger,
+    verifiers: deps.providerVerifiers ?? {
+      google: unconfiguredVerifier,
+      facebook: unconfiguredVerifier,
+    },
     ...(deps.passwordCost !== undefined && { passwordCost: deps.passwordCost }),
   });
   app.use(

@@ -39,6 +39,17 @@ export function isUniqueViolation(error: unknown): boolean {
   return (error as { code?: unknown } | null)?.code === UNIQUE_VIOLATION;
 }
 
+/** Which unique constraint a violation was about (null for other errors). */
+export function violatedConstraint(error: unknown): string | null {
+  if (!isUniqueViolation(error)) return null;
+  return (error as { constraint?: string }).constraint ?? null;
+}
+
+/** Postgres error code for a FOREIGN KEY violation (here: the user was deleted). */
+export function isForeignKeyViolation(error: unknown): boolean {
+  return (error as { code?: unknown } | null)?.code === "23503";
+}
+
 /** Looks up by lower(email) so it matches the unique index (case-insensitive). */
 export async function findUserByEmail(
   db: Queryable,
@@ -73,6 +84,74 @@ export async function insertUser(
     [user.email, user.passwordHash, user.displayName],
   );
   return toUserRecord(rows[0]!);
+}
+
+/** The user a provider account is linked to, if any. */
+export async function findUserByIdentity(
+  db: Queryable,
+  provider: string,
+  providerUserId: string,
+): Promise<UserRecord | null> {
+  const { rows } = await db.query<UserRow>(
+    `SELECT u.id, u.email, u.password_hash, u.display_name, u.created_at
+     FROM oauth_identities i JOIN users u ON u.id = i.user_id
+     WHERE i.provider = $1 AND i.provider_user_id = $2`,
+    [provider, providerUserId],
+  );
+  return rows[0] ? toUserRecord(rows[0]) : null;
+}
+
+/**
+ * Locks the user's row until the transaction ends. Used to serialize changes
+ * to a user's login methods, so two simultaneous unlinks cannot both pass the
+ * "keep at least one login method" check.
+ */
+export async function lockUser(db: Queryable, id: string): Promise<UserRecord | null> {
+  const { rows } = await db.query<UserRow>(
+    `SELECT ${USER_COLUMNS} FROM users WHERE id = $1 FOR UPDATE`,
+    [id],
+  );
+  return rows[0] ? toUserRecord(rows[0]) : null;
+}
+
+/** A social-only account: no password. @throws unique violation if the email is taken. */
+export async function insertSocialUser(
+  db: Queryable,
+  user: { email: string | null; displayName: string },
+): Promise<UserRecord> {
+  const { rows } = await db.query<UserRow>(
+    `INSERT INTO users (email, display_name) VALUES ($1, $2) RETURNING ${USER_COLUMNS}`,
+    [user.email, user.displayName],
+  );
+  return toUserRecord(rows[0]!);
+}
+
+/**
+ * @throws a unique violation when the provider account is already linked
+ * (to anyone) or this user already has that provider; a foreign-key
+ * violation when the user no longer exists.
+ */
+export async function insertOAuthIdentity(
+  db: Queryable,
+  identity: { userId: string; provider: string; providerUserId: string },
+): Promise<void> {
+  await db.query(
+    "INSERT INTO oauth_identities (user_id, provider, provider_user_id) VALUES ($1, $2, $3)",
+    [identity.userId, identity.provider, identity.providerUserId],
+  );
+}
+
+/** Returns whether a link was removed. */
+export async function deleteOAuthIdentity(
+  db: Queryable,
+  userId: string,
+  provider: string,
+): Promise<boolean> {
+  const result = await db.query(
+    "DELETE FROM oauth_identities WHERE user_id = $1 AND provider = $2",
+    [userId, provider],
+  );
+  return result.rowCount === 1;
 }
 
 export async function findLinkedProviders(

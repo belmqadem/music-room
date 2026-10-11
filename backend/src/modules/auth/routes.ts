@@ -21,7 +21,7 @@ export interface AuthRoutesOptions {
   refreshLimit?: RateLimitSettings;
 }
 
-/** Mounted at /api/v1: /auth/register, /auth/login, /auth/refresh, /auth/logout, GET /users/me. */
+/** Mounted at /api/v1: /auth/{register,login,refresh,logout,oauth/:provider}, /users/me and /users/me/providers/:provider. */
 export function createAuthRoutes(options: AuthRoutesOptions): ExpressRouter {
   const controller = createAuthController(options.service);
   const authenticate = createAuthenticate(options.jwtSecret);
@@ -49,5 +49,14 @@ export function createAuthRoutes(options: AuthRoutesOptions): ExpressRouter {
   router.post("/auth/refresh", refreshLimiter, controller.refresh);
   router.post("/auth/logout", authenticate, controller.logout);
   router.get("/users/me", authenticate, controller.me);
+  // Social login shares the login limit: it is another way to try to get in.
+  router.post("/auth/oauth/:provider", loginLimiter, controller.oauthLogin);
+  router.post(
+    "/users/me/providers/:provider",
+    authenticate,
+    loginLimiter,
+    controller.linkProvider,
+  );
+  router.delete("/users/me/providers/:provider", authenticate, controller.unlinkProvider);
   return router;
 }

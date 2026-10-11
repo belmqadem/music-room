@@ -260,6 +260,197 @@ export const openApiDocument = {
         },
       },
     },
+    "/api/v1/auth/oauth/{provider}": {
+      post: {
+        summary: "Sign up or log in with Google or Facebook",
+        description:
+          "The backend verifies the credential with the provider. A linked provider account logs in as its user; an unknown one creates a social-only account. No automatic linking by email: a matching verified email is EMAIL_TAKEN.",
+        parameters: [
+          {
+            name: "provider",
+            in: "path",
+            required: true,
+            schema: { type: "string", enum: ["google", "facebook"] },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["credential"],
+                additionalProperties: false,
+                properties: {
+                  credential: {
+                    type: "string",
+                    description:
+                      "Google ID token or Facebook access token obtained by the app.",
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "A new session",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/AuthSession" },
+              },
+            },
+          },
+          "400": {
+            description: "VALIDATION_ERROR",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "401": {
+            description: "INVALID_PROVIDER_CREDENTIAL",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "409": {
+            description: "EMAIL_TAKEN",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "429": {
+            description: "RATE_LIMITED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "502": {
+            description: "PROVIDER_UNAVAILABLE",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+        },
+      },
+    },
+    "/api/v1/users/me/providers/{provider}": {
+      post: {
+        summary: "Link a Google or Facebook account to the signed-in user",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "provider",
+            in: "path",
+            required: true,
+            schema: { type: "string", enum: ["google", "facebook"] },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["credential"],
+                additionalProperties: false,
+                properties: {
+                  credential: {
+                    type: "string",
+                    description:
+                      "Google ID token or Facebook access token obtained by the app.",
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "The user, with the provider linked",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/User" } },
+            },
+          },
+          "400": {
+            description: "VALIDATION_ERROR",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "401": {
+            description: "UNAUTHENTICATED, TOKEN_EXPIRED or INVALID_PROVIDER_CREDENTIAL",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "409": {
+            description: "PROVIDER_ACCOUNT_LINKED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "429": {
+            description: "RATE_LIMITED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "502": {
+            description: "PROVIDER_UNAVAILABLE",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+        },
+      },
+      delete: {
+        summary: "Unlink a provider from the signed-in user",
+        description:
+          "Refused with LAST_LOGIN_METHOD if it is the only way left to log in.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "provider",
+            in: "path",
+            required: true,
+            schema: { type: "string", enum: ["google", "facebook"] },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "The user, with the provider removed",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/User" } },
+            },
+          },
+          "400": {
+            description: "VALIDATION_ERROR",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "401": {
+            description: "UNAUTHENTICATED or TOKEN_EXPIRED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "404": {
+            description: "The provider is not linked",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "409": {
+            description: "LAST_LOGIN_METHOD",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+        },
+      },
+    },
     "/health": {
       get: {
         summary: "Liveness check",
