@@ -1,5 +1,5 @@
 // Public entry point of @music-room/shared. Import with `import type { ... }`.
-export type { User, OAuthProvider } from "./user";
+export type { User, UserSummary, OAuthProvider } from "./user";
 export type {
   RegisterRequest,
   LoginRequest,

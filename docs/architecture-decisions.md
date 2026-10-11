@@ -175,6 +175,19 @@ Each decision must be defensible in detail at the defense. Copy the template for
 - Decision: an exact-match origin allow-list, empty by default, used for both REST and Socket.io; credentials stay disabled. The refresh token on web is option A: the same contract as mobile, no server change. The cost is that a script injected into the web page (XSS) could read it. This is limited by refresh rotation with reuse detection (ADR-010) and short access tokens, and must be reduced by the web build sending a strict Content-Security-Policy and never rendering untrusted HTML. Because rotation is strict, the web client must make sure only one tab refreshes at a time (for example with the Web Locks API), otherwise two tabs presenting the same token revoke the session.
 - Consequences: CORS is not an authorization control (only browsers apply it; the token still decides who the caller is). Native apps are unaffected. Socket.io's origin list only covers long-polling requests; WebSockets are not subject to CORS in browsers, which is safe because the handshake uses a token in its payload, not a cookie. If XSS exposure turns out to be unacceptable, option B can be added later without changing mobile.
 
+### ADR-013: Data model for events, playlists and invitations; finding users
+
+- Status: accepted
+- Date: 2026-10-11
+- Deciders: belmqadem
+- Context: ADR-005 fixed the rules (visibility, invitation list, per-feature license). This ADR fixes how they are stored and how an owner finds someone to invite.
+- Options considered:
+  - Tables: (a) `events`, `playlists`, `event_invitations`, `playlist_invitations`; (b) a shared base table for the common columns plus an invitations table; (c) one polymorphic invitations table without a foreign key.
+  - Event vote license: (a) real columns with CHECK constraints; (b) one JSONB column validated in the app.
+  - Finding users: search by display name, invite by exact email, or postpone.
+- Decision: (a) separate tables with real foreign keys everywhere (deleting a user or a resource deletes the dependent rows). The common shape is written twice, which is accepted for simplicity, and the shared rules live in one access-engine module in code instead. The vote license is stored as columns (`vote_license` plus `latitude`, `longitude`, `radius_meters`, `starts_at`, `ends_at`) and the database itself refuses an inconsistent license: all five location fields are present exactly when the license is `location_time`, coordinates and radius are in range, and the window starts before it ends. The invitation primary key `(resource, user)` is the "already invited" rule. Users are found by a case-insensitive display-name prefix search that returns only `{ id, displayName }`, at least 3 characters, rate limited.
+- Consequences: a small duplication between events and playlists, balanced by simple SQL and foreign keys. Changing the license shape means a migration, not just a code change. Display names are not unique, so results can look alike (the id is the identity). The search lets any signed-in user list display names by prefix: that is why it never returns emails, is limited to 3+ characters and is rate limited. The owner cannot be invited to their own resource; that rule lives in the service, not the schema.
+
 ## Still to decide (record each as an ADR)
 
 TODO:

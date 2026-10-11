@@ -73,16 +73,17 @@ rejects the request; values are stripped of unsafe characters and capped at 64 c
 `AuthSession` (returned by register, login, refresh, OAuth login): `{ accessToken, refreshToken, expiresIn, user }`;
 `expiresIn` is seconds until the access token expires.
 
-| Method | Path                             | Auth   | Purpose                                                               | Success           | Errors                                       |
-| ------ | -------------------------------- | ------ | --------------------------------------------------------------------- | ----------------- | -------------------------------------------- |
-| POST   | `/auth/register`                 | public | Create an account with email + password                               | 201 `AuthSession` | 400, 409 `EMAIL_TAKEN`                       |
-| POST   | `/auth/login`                    | public | Email + password login                                                | 200 `AuthSession` | 400, 401 `INVALID_CREDENTIALS`, 429          |
-| POST   | `/auth/oauth/{provider}`         | public | Sign up or log in with Google or Facebook                             | 200 `AuthSession` | 400, 401, 409 `EMAIL_TAKEN`, 429, 502        |
-| POST   | `/auth/refresh`                  | public | Exchange a refresh token for a new session (body: `{ refreshToken }`) | 200 `AuthSession` | 401 `INVALID_REFRESH_TOKEN`                  |
-| POST   | `/auth/logout`                   | bearer | Revoke the session of `{ refreshToken }` (always 204)                 | 204               | 401                                          |
-| GET    | `/users/me`                      | bearer | The signed-in user, incl. linked providers                            | 200 `User`        | 401                                          |
-| POST   | `/users/me/providers/{provider}` | bearer | Link a Google/Facebook account to this account                        | 200 `User`        | 400, 401, 409 `PROVIDER_ACCOUNT_LINKED`, 502 |
-| DELETE | `/users/me/providers/{provider}` | bearer | Unlink a provider                                                     | 200 `User`        | 404, 409 `LAST_LOGIN_METHOD`                 |
+| Method | Path                             | Auth   | Purpose                                                               | Success                   | Errors                                       |
+| ------ | -------------------------------- | ------ | --------------------------------------------------------------------- | ------------------------- | -------------------------------------------- |
+| POST   | `/auth/register`                 | public | Create an account with email + password                               | 201 `AuthSession`         | 400, 409 `EMAIL_TAKEN`                       |
+| POST   | `/auth/login`                    | public | Email + password login                                                | 200 `AuthSession`         | 400, 401 `INVALID_CREDENTIALS`, 429          |
+| POST   | `/auth/oauth/{provider}`         | public | Sign up or log in with Google or Facebook                             | 200 `AuthSession`         | 400, 401, 409 `EMAIL_TAKEN`, 429, 502        |
+| POST   | `/auth/refresh`                  | public | Exchange a refresh token for a new session (body: `{ refreshToken }`) | 200 `AuthSession`         | 401 `INVALID_REFRESH_TOKEN`                  |
+| POST   | `/auth/logout`                   | bearer | Revoke the session of `{ refreshToken }` (always 204)                 | 204                       | 401                                          |
+| GET    | `/users/me`                      | bearer | The signed-in user, incl. linked providers                            | 200 `User`                | 401                                          |
+| GET    | `/users`                         | bearer | Search users by display name prefix (`?query=`, see Finding users)    | 200 page of `UserSummary` | 400, 401, 429                                |
+| POST   | `/users/me/providers/{provider}` | bearer | Link a Google/Facebook account to this account                        | 200 `User`                | 400, 401, 409 `PROVIDER_ACCOUNT_LINKED`, 502 |
+| DELETE | `/users/me/providers/{provider}` | bearer | Unlink a provider                                                     | 200 `User`                | 404, 409 `LAST_LOGIN_METHOD`                 |
 
 - `{provider}` is `google` or `facebook`. The OAuth body is `{ "credential": string }`: Google ID token or Facebook
   access token, obtained by the app from the provider. **The backend verifies it with the provider**; it never trusts
@@ -112,6 +113,18 @@ PROVIDER_UNAVAILABLE`; the app may retry later. Both are logged without the cred
 - Login and register are rate limited (**Proposed**): 10 attempts per 15 minutes (login) and 10 per hour (register) per IP; refresh allows 100 per 15 minutes.
 - **Refresh rotation (strict, ADR-010):** every refresh consumes the presented token and returns a new one in the same session. Presenting a token that was already used revokes the whole session, so the user must log in again. Consequence for the app: **never send the same refresh token twice**; do not retry a refresh request after a network timeout. Reconnect and log in if it fails. All refresh failures return the same `401 INVALID_REFRESH_TOKEN`.
 - **Logout** always answers `204` (also for unknown tokens, or a token of another user, which is not revoked). It does not cancel the current access token, which stays valid until it expires (at most 15 minutes).
+
+## Finding users (Decided: ADR-013)
+
+To invite someone, the app needs their id. `GET /users?query=ada` (bearer) returns `Page<UserSummary>`, where
+`UserSummary` is `{ id, displayName }` and **nothing else**: never an email or linked providers.
+
+- The search is a case-insensitive **prefix** match on the display name. `query` is trimmed and must be at least 3
+  characters, otherwise `400 VALIDATION_ERROR`. The caller is not in their own results.
+- Results are ordered by display name, then id, and paginated like every list (`limit` default 20).
+- Display names are not unique: show the results so the user can tell them apart, and invite by `id`.
+- Rate limited (`429 RATE_LIMITED`), so the user directory cannot be walked quickly.
+- An invitation's `user` is also a `UserSummary`: the owner never sees an invitee's email.
 
 ## Access rules (Decided: ADR-005)
 
@@ -242,12 +255,13 @@ All endpoints are bearer-authenticated and check the access rules above on every
 
 ## Changelog
 
-| Date       | Change                                                                                                                                | Author    | Reviewed by |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------- | --------- | ----------- |
-| 2026-10-09 | First draft: conventions, auth, rooms/roles model                                                                                     | belmqadem | withdrawn   |
-| 2026-10-09 | Rewritten from the subject: events, playlists, licenses, OAuth, concurrency, real-time                                                | belmqadem | pending     |
-| 2026-10-10 | Added error codes `NOT_FOUND` (404, unknown route) and `INTERNAL_ERROR` (500); additive, no existing code changed                     | belmqadem | pending     |
-| 2026-10-10 | Clarified refresh rotation (strict reuse detection), logout behaviour and refresh rate limit; no type or endpoint shape changes       | belmqadem | pending     |
-| 2026-10-11 | Real-time handshake: `connect_error` `data.code` values and the token-checked-once rule; no type or endpoint shape changes            | belmqadem | pending     |
-| 2026-10-11 | OAuth semantics (login, link, unlink), new error codes `INVALID_PROVIDER_CREDENTIAL` (401) and `PROVIDER_UNAVAILABLE` (502); additive | belmqadem | pending     |
-| 2026-10-11 | Web client section: CORS allow-list, headers, refresh token in browser storage, multi-tab rule; no type or endpoint shape changes     | belmqadem | pending     |
+| Date       | Change                                                                                                                                          | Author    | Reviewed by |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ----------- |
+| 2026-10-09 | First draft: conventions, auth, rooms/roles model                                                                                               | belmqadem | withdrawn   |
+| 2026-10-09 | Rewritten from the subject: events, playlists, licenses, OAuth, concurrency, real-time                                                          | belmqadem | pending     |
+| 2026-10-10 | Added error codes `NOT_FOUND` (404, unknown route) and `INTERNAL_ERROR` (500); additive, no existing code changed                               | belmqadem | pending     |
+| 2026-10-10 | Clarified refresh rotation (strict reuse detection), logout behaviour and refresh rate limit; no type or endpoint shape changes                 | belmqadem | pending     |
+| 2026-10-11 | Real-time handshake: `connect_error` `data.code` values and the token-checked-once rule; no type or endpoint shape changes                      | belmqadem | pending     |
+| 2026-10-11 | OAuth semantics (login, link, unlink), new error codes `INVALID_PROVIDER_CREDENTIAL` (401) and `PROVIDER_UNAVAILABLE` (502); additive           | belmqadem | pending     |
+| 2026-10-11 | Web client section: CORS allow-list, headers, refresh token in browser storage, multi-tab rule; no type or endpoint shape changes               | belmqadem | pending     |
+| 2026-10-11 | Added `GET /users?query=` and the `UserSummary` type; `Invitation.user` is now a `UserSummary` instead of a `User` (no email exposed to owners) | belmqadem | pending     |
