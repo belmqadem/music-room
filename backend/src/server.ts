@@ -24,10 +24,15 @@ async function main(): Promise<void> {
     redis,
     logger,
     jwtSecret: config.JWT_ACCESS_SECRET,
+    allowedOrigins: config.ALLOWED_ORIGINS,
     providerVerifiers: createProviderVerifiers(config, logger),
   });
   const httpServer = createServer(app);
-  const io = attachSockets(httpServer, { jwtSecret: config.JWT_ACCESS_SECRET, logger });
+  const io = attachSockets(httpServer, {
+    jwtSecret: config.JWT_ACCESS_SECRET,
+    logger,
+    allowedOrigins: config.ALLOWED_ORIGINS,
+  });
 
   httpServer.listen(config.PORT, () => {
     logger.info({ port: config.PORT }, "server listening");

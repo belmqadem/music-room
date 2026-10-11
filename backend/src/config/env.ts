@@ -11,6 +11,20 @@ const blankToUndefined = z
     value === undefined || value.trim() === "" ? undefined : value.trim(),
   );
 
+// One browser origin: scheme + host (+ port), nothing else. "*" and URLs with a
+// path or trailing slash are rejected, because a wrong value here fails open or
+// silently never matches.
+function isOrigin(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return (
+      (url.protocol === "http:" || url.protocol === "https:") && url.origin === value
+    );
+  } catch {
+    return false;
+  }
+}
+
 const envSchema = z
   .object({
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
@@ -36,6 +50,22 @@ const envSchema = z
           .map((id) => id.trim())
           .filter((id) => id !== ""),
       ),
+    // Browser origins allowed to call the API (web client), comma-separated, e.g.
+    // http://localhost:8081. Empty means no browser origin is allowed; the mobile
+    // app is not a browser and is not affected.
+    ALLOWED_ORIGINS: z
+      .string()
+      .optional()
+      .transform((value) =>
+        (value ?? "")
+          .split(",")
+          .map((origin) => origin.trim())
+          .filter((origin) => origin !== ""),
+      )
+      .refine((origins) => origins.every(isOrigin), {
+        message:
+          'ALLOWED_ORIGINS must be comma-separated origins like "https://app.example.com" (no "*", path or trailing slash)',
+      }),
     FACEBOOK_APP_ID: blankToUndefined,
     // Server-side only: never sent to the app, never committed.
     FACEBOOK_APP_SECRET: blankToUndefined,

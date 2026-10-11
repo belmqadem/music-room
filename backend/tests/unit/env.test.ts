@@ -93,4 +93,38 @@ describe("loadConfig", () => {
       ).toMatchObject({ FACEBOOK_APP_ID: "123", FACEBOOK_APP_SECRET: "s" });
     });
   });
+
+  describe("ALLOWED_ORIGINS", () => {
+    it("defaults to no origin at all", () => {
+      expect(loadConfig(validEnv).ALLOWED_ORIGINS).toEqual([]);
+      expect(loadConfig({ ...validEnv, ALLOWED_ORIGINS: "" }).ALLOWED_ORIGINS).toEqual(
+        [],
+      );
+    });
+
+    it("splits on commas and ignores spaces and empty items", () => {
+      const config = loadConfig({
+        ...validEnv,
+        ALLOWED_ORIGINS: " http://localhost:8081 , https://app.example.com,, ",
+      });
+
+      expect(config.ALLOWED_ORIGINS).toEqual([
+        "http://localhost:8081",
+        "https://app.example.com",
+      ]);
+    });
+
+    it.each([
+      ["a wildcard", "*"],
+      ["a trailing slash", "http://localhost:8081/"],
+      ["a path", "https://app.example.com/app"],
+      ["a missing scheme", "localhost:8081"],
+      ["another scheme", "ftp://example.com"],
+      ["one bad entry among good ones", "http://localhost:8081,*"],
+    ])("rejects %s", (_label, value) => {
+      expect(() => loadConfig({ ...validEnv, ALLOWED_ORIGINS: value })).toThrowError(
+        /ALLOWED_ORIGINS/,
+      );
+    });
+  });
 });

@@ -48,12 +48,27 @@ Every request from the app carries `X-Platform` (`ios` \| `android` \| `web`), `
 authorization (a client can send anything). A missing or malformed header is logged as `unknown` and never
 rejects the request; values are stripped of unsafe characters and capped at 64 characters.
 
+## Web client (Decided: ADR-012)
+
+- The API only answers browsers from the origins in the server's `ALLOWED_ORIGINS`. A web app served from another
+  origin fails in the browser with a CORS error, not an API error. Tell the backend owner the origin to add.
+- Allowed request headers: `Authorization`, `Content-Type`, `X-Platform`, `X-Device`, `X-App-Version`. Methods: GET,
+  POST, PUT, PATCH, DELETE. Cookies are not used and credentialed requests are not allowed.
+- The web build sends `X-Platform: web`.
+- **Refresh with several tabs open:** refresh tokens are single-use (ADR-010). Two tabs refreshing with the same token
+  revoke the session. The web client must let only one tab refresh at a time (for example `navigator.locks`), and
+  other tabs read the new token afterwards.
+- The web build should send a strict Content-Security-Policy and never render untrusted HTML, because a script
+  injected into the page could read the stored refresh token (see `docs/security.md`).
+
 ## Authentication (Decided: ADR-003, ADR-006, ADR-007)
 
 - `Authorization: Bearer <accessToken>` on every endpoint except those marked _public_.
 - Access token: JWT, 15 minutes, HS256. Refresh token: opaque, 7 days, rotated on every use; reusing an old one
   revokes the whole family. The same access token authenticates the Socket.io handshake.
-- The app keeps the refresh token in secure storage and the access token in memory only.
+- The app keeps the access token in memory only. The refresh token goes in secure storage on mobile (keychain /
+  keystore). On web there is no secure storage, so it goes in browser storage and is sent in the request body, exactly
+  like on mobile (ADR-012); see "Web client" below.
 
 `AuthSession` (returned by register, login, refresh, OAuth login): `{ accessToken, refreshToken, expiresIn, user }`;
 `expiresIn` is seconds until the access token expires.
@@ -235,3 +250,4 @@ All endpoints are bearer-authenticated and check the access rules above on every
 | 2026-10-10 | Clarified refresh rotation (strict reuse detection), logout behaviour and refresh rate limit; no type or endpoint shape changes       | belmqadem | pending     |
 | 2026-10-11 | Real-time handshake: `connect_error` `data.code` values and the token-checked-once rule; no type or endpoint shape changes            | belmqadem | pending     |
 | 2026-10-11 | OAuth semantics (login, link, unlink), new error codes `INVALID_PROVIDER_CREDENTIAL` (401) and `PROVIDER_UNAVAILABLE` (502); additive | belmqadem | pending     |
+| 2026-10-11 | Web client section: CORS allow-list, headers, refresh token in browser storage, multi-tab rule; no type or endpoint shape changes     | belmqadem | pending     |

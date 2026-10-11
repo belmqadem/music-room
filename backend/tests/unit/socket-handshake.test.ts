@@ -1,6 +1,7 @@
 import { createServer, type Server as HttpServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import pino from "pino";
+import request from "supertest";
 import type { Server } from "socket.io";
 import { io as connect, type Socket } from "socket.io-client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -23,7 +24,11 @@ beforeEach(async () => {
     { write: (c: string) => logLines.push(JSON.parse(c)) },
   );
   httpServer = createServer();
-  io = attachSockets(httpServer, { jwtSecret: SECRET, logger });
+  io = attachSockets(httpServer, {
+    jwtSecret: SECRET,
+    logger,
+    allowedOrigins: ["http://localhost:8081"],
+  });
   await new Promise<void>((resolve) => httpServer.listen(0, resolve));
   url = `http://localhost:${(httpServer.address() as AddressInfo).port}/live`;
 });
@@ -106,5 +111,22 @@ describe("/live handshake", () => {
       code: "UNAUTHENTICATED",
     });
     expect(JSON.stringify(logLines)).not.toContain(token);
+  });
+});
+
+describe("/live browser origins (long-polling requests)", () => {
+  const poll = (origin: string) =>
+    request(httpServer).get("/socket.io/?EIO=4&transport=polling").set("Origin", origin);
+
+  it("lets a listed web origin read the handshake response", async () => {
+    const response = await poll("http://localhost:8081");
+
+    expect(response.headers["access-control-allow-origin"]).toBe("http://localhost:8081");
+  });
+
+  it("gives an unlisted origin no permission", async () => {
+    const response = await poll("https://evil.example");
+
+    expect(response.headers["access-control-allow-origin"]).toBeUndefined();
   });
 });

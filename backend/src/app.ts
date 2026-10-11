@@ -1,3 +1,4 @@
+import cors from "cors";
 import express, { type Express } from "express";
 import type { Redis } from "ioredis";
 import type pg from "pg";
@@ -20,6 +21,8 @@ export interface AppDependencies {
   logger: Logger;
   /** Rate-limit counters live here; without it they are kept in memory (tests). */
   redis?: Redis;
+  /** Browser origins allowed to call the API (web client). Default: none. */
+  allowedOrigins?: string[];
   /** Google/Facebook checkers. Omitted (tests): both providers answer 502 PROVIDER_UNAVAILABLE. */
   providerVerifiers?: ProviderVerifiers;
   /** Tests only: cheaper bcrypt and custom rate limits. */
@@ -36,6 +39,25 @@ export function createApp(deps: AppDependencies): Express {
   const app = express();
   app.disable("x-powered-by"); // do not advertise the framework
   app.use(createRequestLogger(deps.logger));
+  app.use(
+    cors({
+      // An exact-match allow-list, never "*". Requests without an Origin header
+      // (the mobile app, curl) are not browsers and are unaffected.
+      origin: deps.allowedOrigins ?? [],
+      methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
+      // Our own headers make every browser call "non-simple", hence a preflight.
+      allowedHeaders: [
+        "Authorization",
+        "Content-Type",
+        "X-Platform",
+        "X-Device",
+        "X-App-Version",
+      ],
+      // No cookies (ADR-012): credentialed requests stay disabled.
+      credentials: false,
+      maxAge: 600,
+    }),
+  );
   app.use(express.json({ limit: "100kb" }));
 
   app.get("/health", (_req, res) => {
