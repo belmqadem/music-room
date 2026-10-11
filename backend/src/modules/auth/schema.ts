@@ -30,3 +30,12 @@ export const refreshTokenBodySchema = z.strictObject({
   refreshToken: z.string().min(1).max(512),
 });
 export type RefreshTokenBody = z.infer<typeof refreshTokenBodySchema>;
+
+export const oauthProviderSchema = z.enum(["google", "facebook"]);
+
+// Body of POST /auth/oauth/{provider} and POST /users/me/providers/{provider}.
+// A Google ID token is about 1 to 2 KB; the max only rejects absurd payloads.
+export const oauthBodySchema = z.strictObject({
+  credential: z.string().min(1).max(4096),
+});
+export type OAuthBody = z.infer<typeof oauthBodySchema>;

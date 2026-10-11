@@ -4,6 +4,7 @@ import { loadConfig, loadEnvFileIfPresent } from "./config/env.js";
 import { createLogger } from "./config/logger.js";
 import { assertPostgresReachable, createPostgresPool } from "./db/postgres.js";
 import { createRedisClient } from "./db/redis.js";
+import { createProviderVerifiers } from "./modules/auth/providers.js";
 import { attachSockets } from "./sockets/index.js";
 
 // Entry point: the only place that reads the environment, opens connections
@@ -18,7 +19,13 @@ async function main(): Promise<void> {
   await assertPostgresReachable(pool);
   await redis.connect();
 
-  const app = createApp({ pool, redis, logger, jwtSecret: config.JWT_ACCESS_SECRET });
+  const app = createApp({
+    pool,
+    redis,
+    logger,
+    jwtSecret: config.JWT_ACCESS_SECRET,
+    providerVerifiers: createProviderVerifiers(config, logger),
+  });
   const httpServer = createServer(app);
   const io = attachSockets(httpServer, { jwtSecret: config.JWT_ACCESS_SECRET, logger });
 
