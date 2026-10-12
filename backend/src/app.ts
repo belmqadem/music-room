@@ -12,6 +12,8 @@ import {
   unconfiguredVerifier,
   type ProviderVerifiers,
 } from "./modules/auth/provider-verifier.js";
+import { createEventService } from "./modules/track-vote/service.js";
+import { createEventRoutes } from "./modules/track-vote/routes.js";
 import { createAuthRoutes } from "./modules/auth/routes.js";
 import { createAuthService } from "./modules/auth/service.js";
 
@@ -84,6 +86,14 @@ export function createApp(deps: AppDependencies): Express {
       ...(deps.loginLimit && { loginLimit: deps.loginLimit }),
       ...(deps.registerLimit && { registerLimit: deps.registerLimit }),
       ...(deps.refreshLimit && { refreshLimit: deps.refreshLimit }),
+    }),
+  );
+
+  app.use(
+    "/api/v1",
+    createEventRoutes({
+      service: createEventService({ pool: deps.pool }),
+      jwtSecret: deps.jwtSecret,
     }),
   );
 

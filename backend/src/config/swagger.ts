@@ -27,6 +27,67 @@ export const openApiDocument = {
           },
         },
       },
+      VoteLicense: {
+        oneOf: [
+          {
+            type: "object",
+            required: ["type"],
+            properties: { type: { enum: ["everyone", "invited_only"] } },
+          },
+          {
+            type: "object",
+            required: [
+              "type",
+              "latitude",
+              "longitude",
+              "radiusMeters",
+              "startsAt",
+              "endsAt",
+            ],
+            properties: {
+              type: { enum: ["location_time"] },
+              latitude: { type: "number", minimum: -90, maximum: 90 },
+              longitude: { type: "number", minimum: -180, maximum: 180 },
+              radiusMeters: { type: "integer", minimum: 1, maximum: 100000 },
+              startsAt: { type: "string", format: "date-time" },
+              endsAt: {
+                type: "string",
+                format: "date-time",
+                description: "Must be after startsAt.",
+              },
+            },
+          },
+        ],
+      },
+      MusicEvent: {
+        type: "object",
+        required: [
+          "id",
+          "name",
+          "ownerId",
+          "visibility",
+          "voteLicense",
+          "createdAt",
+          "myPermissions",
+        ],
+        properties: {
+          id: { type: "string", format: "uuid" },
+          name: { type: "string" },
+          ownerId: { type: "string", format: "uuid" },
+          visibility: { type: "string", enum: ["public", "private"] },
+          voteLicense: { $ref: "#/components/schemas/VoteLicense" },
+          createdAt: { type: "string", format: "date-time" },
+          myPermissions: {
+            type: "object",
+            required: ["canView", "canAct", "canManage"],
+            properties: {
+              canView: { type: "boolean" },
+              canAct: { type: "boolean" },
+              canManage: { type: "boolean" },
+            },
+          },
+        },
+      },
       User: {
         type: "object",
         required: ["id", "displayName", "email", "linkedProviders", "createdAt"],
@@ -444,6 +505,244 @@ export const openApiDocument = {
           },
           "409": {
             description: "LAST_LOGIN_METHOD",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+        },
+      },
+    },
+    "/api/v1/events": {
+      post: {
+        summary: "Create an event (the caller becomes its owner)",
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                additionalProperties: false,
+                required: ["name"],
+                properties: {
+                  name: { type: "string", minLength: 1, maxLength: 100 },
+                  visibility: { type: "string", enum: ["public", "private"] },
+                  voteLicense: { $ref: "#/components/schemas/VoteLicense" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "The new event",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/MusicEvent" } },
+            },
+          },
+          "400": {
+            description: "VALIDATION_ERROR",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "401": {
+            description: "UNAUTHENTICATED or TOKEN_EXPIRED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+        },
+      },
+      get: {
+        summary: "Events you can see, newest first",
+        description:
+          "Public events, your own, and private events you are invited to. Paginated with limit (1 to 100, default 20) and an opaque cursor.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "limit",
+            in: "query",
+            schema: { type: "integer", minimum: 1, maximum: 100, default: 20 },
+          },
+          {
+            name: "cursor",
+            in: "query",
+            schema: { type: "string" },
+            description: "nextCursor of the previous page.",
+          },
+        ],
+        responses: {
+          "200": {
+            description: "A page of events",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["items", "nextCursor"],
+                  properties: {
+                    items: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/MusicEvent" },
+                    },
+                    nextCursor: { type: "string", nullable: true },
+                  },
+                },
+              },
+            },
+          },
+          "400": {
+            description: "VALIDATION_ERROR (bad limit or cursor)",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "401": {
+            description: "UNAUTHENTICATED or TOKEN_EXPIRED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+        },
+      },
+    },
+    "/api/v1/events/{eventId}": {
+      get: {
+        summary: "One event",
+        description:
+          "A private event you may not see is 404, the same as an event that does not exist.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "eventId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "The event, with myPermissions (a UI hint)",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/MusicEvent" } },
+            },
+          },
+          "400": {
+            description: "VALIDATION_ERROR",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "401": {
+            description: "UNAUTHENTICATED or TOKEN_EXPIRED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "404": {
+            description: "EVENT_NOT_FOUND",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+        },
+      },
+      patch: {
+        summary: "Change name, visibility or vote license (owner only)",
+        description:
+          "At least one field. A new voteLicense replaces the whole license. Takes effect immediately.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "eventId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                additionalProperties: false,
+                minProperties: 1,
+                properties: {
+                  name: { type: "string", minLength: 1, maxLength: 100 },
+                  visibility: { type: "string", enum: ["public", "private"] },
+                  voteLicense: { $ref: "#/components/schemas/VoteLicense" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "The updated event",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/MusicEvent" } },
+            },
+          },
+          "400": {
+            description: "VALIDATION_ERROR",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "401": {
+            description: "UNAUTHENTICATED or TOKEN_EXPIRED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "403": {
+            description: "FORBIDDEN: you can see the event but are not its owner",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "404": {
+            description: "EVENT_NOT_FOUND",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+        },
+      },
+      delete: {
+        summary: "Delete the event and its invitations (owner only)",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "eventId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        responses: {
+          "204": { description: "Deleted" },
+          "400": {
+            description: "VALIDATION_ERROR",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "401": {
+            description: "UNAUTHENTICATED or TOKEN_EXPIRED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "403": {
+            description: "FORBIDDEN",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "404": {
+            description: "EVENT_NOT_FOUND",
             content: {
               "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
             },
