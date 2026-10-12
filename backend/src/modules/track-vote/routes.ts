@@ -20,5 +20,8 @@ export function createEventRoutes(options: {
   router.get("/events/:eventId", controller.get);
   router.patch("/events/:eventId", controller.update);
   router.delete("/events/:eventId", controller.remove);
+  router.get("/events/:eventId/invitations", controller.listInvitations);
+  router.post("/events/:eventId/invitations", controller.invite);
+  router.delete("/events/:eventId/invitations/:userId", controller.removeInvitation);
   return router;
 }

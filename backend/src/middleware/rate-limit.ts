@@ -26,6 +26,13 @@ export const DEFAULT_REFRESH_LIMIT: RateLimitSettings = {
   limit: 100,
 };
 
+// The user directory search (invite screen). A person typing searches a few
+// times a minute; a script walking the directory searches thousands.
+export const DEFAULT_USER_SEARCH_LIMIT: RateLimitSettings = {
+  windowMs: 60 * 1000,
+  limit: 30,
+};
+
 /**
  * Limits requests per IP. With `redis`, counters live in Redis (shared by all
  * server processes, survive restarts); without it they are in memory (tests).

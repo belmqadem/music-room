@@ -12,6 +12,8 @@ import {
   unconfiguredVerifier,
   type ProviderVerifiers,
 } from "./modules/auth/provider-verifier.js";
+import { createUserRoutes } from "./modules/users/routes.js";
+import { createUserService } from "./modules/users/service.js";
 import { createEventService } from "./modules/track-vote/service.js";
 import { createEventRoutes } from "./modules/track-vote/routes.js";
 import { createAuthRoutes } from "./modules/auth/routes.js";
@@ -32,6 +34,7 @@ export interface AppDependencies {
   loginLimit?: RateLimitSettings;
   registerLimit?: RateLimitSettings;
   refreshLimit?: RateLimitSettings;
+  userSearchLimit?: RateLimitSettings;
 }
 
 // Builds the Express app WITHOUT listening, so tests can drive it in-process
@@ -94,6 +97,16 @@ export function createApp(deps: AppDependencies): Express {
     createEventRoutes({
       service: createEventService({ pool: deps.pool }),
       jwtSecret: deps.jwtSecret,
+    }),
+  );
+
+  app.use(
+    "/api/v1",
+    createUserRoutes({
+      service: createUserService({ pool: deps.pool }),
+      jwtSecret: deps.jwtSecret,
+      ...(deps.redis && { redis: deps.redis }),
+      ...(deps.userSearchLimit && { searchLimit: deps.userSearchLimit }),
     }),
   );
 

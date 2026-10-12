@@ -56,3 +56,9 @@ export const listQuerySchema = z.object({
   cursor: z.string().min(1).max(512).optional(),
 });
 export type ListQuery = z.infer<typeof listQuerySchema>;
+
+// Invitations: the body names the user to invite. strict, like every body.
+export const inviteSchema = z.strictObject({ userId: z.uuid() });
+export type InviteInput = z.infer<typeof inviteSchema>;
+
+export const userIdSchema = z.uuid();

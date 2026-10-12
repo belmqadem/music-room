@@ -179,3 +179,82 @@ export async function updateEvent(
 export async function deleteEvent(db: Queryable, eventId: string): Promise<void> {
   await db.query("DELETE FROM events WHERE id = $1", [eventId]);
 }
+
+export interface InvitationRecord {
+  eventId: string;
+  userId: string;
+  displayName: string;
+  invitedAt: Date;
+  /** invited_at exactly as Postgres prints it (microseconds), for list cursors. */
+  invitedAtCursor: string;
+}
+
+interface InvitationRow {
+  event_id: string;
+  user_id: string;
+  display_name: string;
+  invited_at: Date;
+  invited_at_cursor: string;
+}
+
+function toInvitation(row: InvitationRow): InvitationRecord {
+  return {
+    eventId: row.event_id,
+    userId: row.user_id,
+    displayName: row.display_name,
+    invitedAt: row.invited_at,
+    invitedAtCursor: row.invited_at_cursor,
+  };
+}
+
+/**
+ * @throws a unique violation if the user is already invited (ALREADY_INVITED),
+ * a foreign-key violation if the event or the user does not exist.
+ */
+export async function insertInvitation(
+  db: Queryable,
+  eventId: string,
+  userId: string,
+): Promise<InvitationRecord> {
+  const { rows } = await db.query<InvitationRow>(
+    `WITH inserted AS (
+       INSERT INTO event_invitations (event_id, user_id) VALUES ($1, $2)
+       RETURNING event_id, user_id, invited_at
+     )
+     SELECT i.event_id, i.user_id, u.display_name, i.invited_at,
+            i.invited_at::text AS invited_at_cursor
+     FROM inserted i JOIN users u ON u.id = i.user_id`,
+    [eventId, userId],
+  );
+  return toInvitation(rows[0]!);
+}
+
+/** Invited users, newest invitation first. Up to `limit` rows (the caller asks for one extra). */
+export async function listInvitations(
+  db: Queryable,
+  eventId: string,
+  options: { limit: number; after?: ListCursor | undefined },
+): Promise<InvitationRecord[]> {
+  const { rows } = await db.query<InvitationRow>(
+    `SELECT i.event_id, i.user_id, u.display_name, i.invited_at,
+            i.invited_at::text AS invited_at_cursor
+     FROM event_invitations i JOIN users u ON u.id = i.user_id
+     WHERE i.event_id = $1
+       AND ($2::timestamptz IS NULL OR (i.invited_at, i.user_id) < ($2::timestamptz, $3::uuid))
+     ORDER BY i.invited_at DESC, i.user_id DESC
+     LIMIT $4`,
+    [eventId, options.after?.createdAt ?? null, options.after?.id ?? null, options.limit],
+  );
+  return rows.map(toInvitation);
+}
+
+export async function deleteInvitation(
+  db: Queryable,
+  eventId: string,
+  userId: string,
+): Promise<void> {
+  await db.query("DELETE FROM event_invitations WHERE event_id = $1 AND user_id = $2", [
+    eventId,
+    userId,
+  ]);
+}

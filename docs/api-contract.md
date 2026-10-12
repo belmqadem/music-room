@@ -123,7 +123,7 @@ To invite someone, the app needs their id. `GET /users?query=ada` (bearer) retur
   characters, otherwise `400 VALIDATION_ERROR`. The caller is not in their own results.
 - Results are ordered by display name, then id, and paginated like every list (`limit` default 20).
 - Display names are not unique: show the results so the user can tell them apart, and invite by `id`.
-- Rate limited (`429 RATE_LIMITED`), so the user directory cannot be walked quickly.
+- Rate limited (`429 RATE_LIMITED`; **Proposed**: 30 searches per minute per IP), so the user directory cannot be walked quickly.
 - An invitation's `user` is also a `UserSummary`: the owner never sees an invitee's email.
 
 ## Access rules (Decided: ADR-005)
@@ -200,6 +200,11 @@ All endpoints are bearer-authenticated and check the access rules above on every
 - **Changing an event** (`PATCH`): send at least one of `name`, `visibility`, `voteLicense`. A new `voteLicense`
   **replaces** the whole license (send all `location_time` fields again). It takes effect immediately; votes already
   cast stay. Unknown fields (`ownerId`, `id`, ...) are `400`.
+- **Invitations** (`/events/{id}/invitations`): owner only (`403 FORBIDDEN` for anyone else who can see the event,
+  `404` if they cannot). `POST` takes `{ userId }`; it takes effect immediately, so the invited user can find the
+  event (and vote, if the license needs an invitation) at once. Errors: `409 ALREADY_INVITED`, `404 NOT_FOUND` for an
+  unknown user, `400` for a malformed id or for inviting the owner. `DELETE` is idempotent (`204` even if that user was
+  not invited) and takes effect immediately. The list is newest invitation first and paginated like every list.
 - `GET /events/{id}`: a private event you may not see is `404 EVENT_NOT_FOUND`, identical to a missing one. Anyone who
   can see an event but is not its owner gets `403 FORBIDDEN` on `PATCH`, `DELETE` and the invitation endpoints.
 
@@ -279,3 +284,4 @@ All endpoints are bearer-authenticated and check the access rules above on every
 | 2026-10-11 | Web client section: CORS allow-list, headers, refresh token in browser storage, multi-tab rule; no type or endpoint shape changes                  | belmqadem | pending     |
 | 2026-10-11 | Added `GET /users?query=` and the `UserSummary` type; `Invitation.user` is now a `UserSummary` instead of a `User` (no email exposed to owners)    | belmqadem | pending     |
 | 2026-10-12 | Clarified `location_time` details (accuracy limit 100 m, window [start, end), time checked first, owner exempt); no type or endpoint shape changes | belmqadem | pending     |
+| 2026-10-12 | Event invitations: owner-only rules, idempotent removal, error codes, and the user search rate limit; no type or endpoint shape changes            | belmqadem | pending     |
