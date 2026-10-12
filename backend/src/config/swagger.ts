@@ -88,6 +88,23 @@ export const openApiDocument = {
           },
         },
       },
+      UserSummary: {
+        type: "object",
+        required: ["id", "displayName"],
+        properties: {
+          id: { type: "string", format: "uuid" },
+          displayName: { type: "string" },
+        },
+      },
+      Invitation: {
+        type: "object",
+        required: ["resourceId", "user", "invitedAt"],
+        properties: {
+          resourceId: { type: "string", format: "uuid" },
+          user: { $ref: "#/components/schemas/UserSummary" },
+          invitedAt: { type: "string", format: "date-time" },
+        },
+      },
       User: {
         type: "object",
         required: ["id", "displayName", "email", "linkedProviders", "createdAt"],
@@ -743,6 +760,251 @@ export const openApiDocument = {
           },
           "404": {
             description: "EVENT_NOT_FOUND",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+        },
+      },
+    },
+    "/api/v1/events/{eventId}/invitations": {
+      get: {
+        summary: "Who is invited (owner only), newest invitation first",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "eventId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "limit",
+            in: "query",
+            schema: { type: "integer", minimum: 1, maximum: 100, default: 20 },
+          },
+          {
+            name: "cursor",
+            in: "query",
+            schema: { type: "string" },
+            description: "nextCursor of the previous page.",
+          },
+        ],
+        responses: {
+          "200": {
+            description: "A page",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["items", "nextCursor"],
+                  properties: {
+                    items: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/Invitation" },
+                    },
+                    nextCursor: { type: "string", nullable: true },
+                  },
+                },
+              },
+            },
+          },
+          "400": {
+            description: "VALIDATION_ERROR",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "401": {
+            description: "UNAUTHENTICATED or TOKEN_EXPIRED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "403": {
+            description: "FORBIDDEN: you can see the event but are not its owner",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "404": {
+            description: "EVENT_NOT_FOUND",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+        },
+      },
+      post: {
+        summary: "Invite a user (owner only); takes effect immediately",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "eventId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["userId"],
+                additionalProperties: false,
+                properties: { userId: { type: "string", format: "uuid" } },
+              },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Invited",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/Invitation" } },
+            },
+          },
+          "400": {
+            description: "VALIDATION_ERROR (also: inviting the owner)",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "401": {
+            description: "UNAUTHENTICATED or TOKEN_EXPIRED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "403": {
+            description: "FORBIDDEN",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "404": {
+            description: "EVENT_NOT_FOUND, or NOT_FOUND for an unknown user",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "409": {
+            description: "ALREADY_INVITED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+        },
+      },
+    },
+    "/api/v1/events/{eventId}/invitations/{userId}": {
+      delete: {
+        summary: "Remove an invitation (owner only); idempotent",
+        description: "204 also when that user was not invited. Takes effect immediately.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "eventId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "userId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        responses: {
+          "204": { description: "Not invited any more" },
+          "400": {
+            description: "VALIDATION_ERROR",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "401": {
+            description: "UNAUTHENTICATED or TOKEN_EXPIRED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "403": {
+            description: "FORBIDDEN",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "404": {
+            description: "EVENT_NOT_FOUND",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+        },
+      },
+    },
+    "/api/v1/users": {
+      get: {
+        summary: "Find users by display name (to invite them)",
+        description:
+          "Case-insensitive prefix match, at least 3 characters, never returns the caller. Only id and displayName are returned. Rate limited.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "query",
+            in: "query",
+            required: true,
+            schema: { type: "string", minLength: 3, maxLength: 50 },
+          },
+          {
+            name: "limit",
+            in: "query",
+            schema: { type: "integer", minimum: 1, maximum: 100, default: 20 },
+          },
+          {
+            name: "cursor",
+            in: "query",
+            schema: { type: "string" },
+            description: "nextCursor of the previous page.",
+          },
+        ],
+        responses: {
+          "200": {
+            description: "A page",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["items", "nextCursor"],
+                  properties: {
+                    items: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/UserSummary" },
+                    },
+                    nextCursor: { type: "string", nullable: true },
+                  },
+                },
+              },
+            },
+          },
+          "400": {
+            description: "VALIDATION_ERROR (query too short, bad limit or cursor)",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "401": {
+            description: "UNAUTHENTICATED or TOKEN_EXPIRED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "429": {
+            description: "RATE_LIMITED",
             content: {
               "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
             },

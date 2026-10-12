@@ -3,8 +3,10 @@ import { HttpError } from "../../http-error.js";
 import {
   createEventSchema,
   eventIdSchema,
+  inviteSchema,
   listQuerySchema,
   updateEventSchema,
+  userIdSchema,
 } from "./schema.js";
 import type { EventService } from "./service.js";
 
@@ -56,6 +58,36 @@ export function createEventController(service: EventService) {
     async remove(req: Request, res: Response): Promise<void> {
       const userId = requireUserId(req);
       await service.remove(userId, eventId(req));
+      res.status(204).end();
+    },
+
+    async listInvitations(req: Request, res: Response): Promise<void> {
+      const userId = requireUserId(req);
+      const page = await service.listInvitations(
+        userId,
+        eventId(req),
+        listQuerySchema.parse(req.query),
+      );
+      noStore(res).status(200).json(page);
+    },
+
+    async invite(req: Request, res: Response): Promise<void> {
+      const userId = requireUserId(req);
+      const invitation = await service.invite(
+        userId,
+        eventId(req),
+        inviteSchema.parse(req.body),
+      );
+      noStore(res).status(201).json(invitation);
+    },
+
+    async removeInvitation(req: Request, res: Response): Promise<void> {
+      const userId = requireUserId(req);
+      await service.removeInvitation(
+        userId,
+        eventId(req),
+        userIdSchema.parse(req.params["userId"]),
+      );
       res.status(204).end();
     },
   };
