@@ -204,12 +204,31 @@ Each decision must be defensible in detail at the defense. Copy the template for
   - Fail closed: an unknown license, or a `location_time` row with missing fields, throws (a 500) instead of allowing.
 - Consequences: the pure rules are cheap to test exhaustively, and a bug can only be in one place. The list queries (`GET /events`, `/playlists`) repeat "public, mine or invited" in SQL, so they must be tested against `canView` to keep the two from drifting. The accuracy limit is a trade-off: it blocks coarse network-based fixes, but a real user with a poor GPS signal indoors may be refused. It does not stop a determined user from faking coordinates (see `docs/security.md`).
 
+### ADR-015: Music catalog: Deezer's public API, with a stored copy of each track
+
+- Status: accepted
+- Date: 2026-10-12
+- Deciders: belmqadem
+- Context: the contract says the client sends only a track id and the backend resolves title, artist, duration and cover. We need a provider, and the app needs a way to find tracks to suggest.
+- Options considered: Deezer's public API, the iTunes Search API, or a catalog we seed in our own database. Spotify was not considered: it needs a client secret and its playback needs Premium, which does not fit a school demo.
+- Decision: Deezer. It needs no key or secret, and a track lookup and a search both return everything `Track` needs (checked by calling it). It sits behind a small `CatalogProvider` interface, like the OAuth verifiers, with a fake in the tests so CI never calls it. The backend exposes `GET /tracks/search` (a thin, rate-limited proxy) so the app talks to one server only. When a track is suggested we look it up once and **store a copy** of its fields in our database.
+- Consequences: the queue keeps working if Deezer is down or changes a title. Deezer's preview links are signed and expire, so we do not store or return them and playback is the app's concern (an open question for the mobile side). A catalog outage affects only search and new suggestions (`502 PROVIDER_UNAVAILABLE`). Metadata is third-party text and image URLs: never rendered as HTML, and cover URLs should be restricted to Deezer's image host (recorded in `docs/security.md`). Deezer's terms of use must be checked before any public release.
+
+### ADR-016: Queue states, advancing, and a queue version
+
+- Status: accepted for the states and advancing; the `version` is **proposed** until the load test
+- Date: 2026-10-12
+- Deciders: belmqadem
+- Context: the contract has `queued`, `playing` and `played` but nothing moves a track between them, and the real-time snapshot of the queue had no way to tell a late snapshot from a fresh one.
+- Options considered for advancing: the owner advances it; the server advances it on a timer from each song's length; or there is no playing state. For the snapshot order: a per-event version counter, server timestamps, or a global sequence.
+- Decision: the owner advances the queue with `POST /events/{id}/queue/advance`. The server chooses the next track itself (most votes, oldest suggestion on ties), so a client cannot pick one. The request names the track the app believes is playing (`currentTrackId`); if that is no longer true the answer is `409 QUEUE_CHANGED` and nothing moves, which makes a double tap harmless instead of skipping a song. The database guarantees at most one `playing` track per event (a partial unique index). A `playing` or `played` track cannot be voted for. Every change to the queue also increases a per-event `version` stored on the event row, and clients ignore any snapshot that is not newer than the one they hold.
+- Why not the alternatives: a timer needs a scheduler that survives restarts and several server processes, plus pause and skip handling; no playing state would let votes reorder a song that is already playing. Timestamps cannot order snapshots reliably across processes, and a global sequence value can be taken in a different order than transactions commit, so a fresher snapshot could carry a smaller number.
+- Consequences: the version is a counter on the event row, so every suggestion, vote and advance of ONE event takes that row's lock briefly. This slightly amends ADR-008, which said votes on different tracks never interact: they now queue for a few milliseconds on their event. Events are independent of each other, so it only limits one very busy event. The load test must measure it; if it is a problem the version can be taken only when a snapshot is built. The owner's device is the one expected to call advance; if it is offline the queue simply stays where it is.
+
 ## Still to decide (record each as an ADR)
 
 TODO:
 
-- Music catalog: which provider supplies tracks (the backend resolves metadata from a track id; the client does not send titles)
-- What "playing" means for Track Vote: who advances the queue and how a track moves from queued to played
 - Location+time license: radius limits, accuracy rules, recurring vs one-off window
 - Load-test tool
 - Scaffold choices worth defending: no npm workspaces (shared types are type-only via a path alias), node-pg-migrate with a raw `pg` driver (no ORM), Vitest + supertest, pino logger, zod env validation, hand-written OpenAPI, zero-dependency commit-msg hook

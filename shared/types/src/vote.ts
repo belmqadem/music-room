@@ -28,5 +28,22 @@ export interface VoteRequest {
 /** Socket.io `event:queue`: the full queue, already ordered, with absolute counts. */
 export interface EventQueueUpdate {
   eventId: string;
+  /**
+   * Grows by at least 1 with every change to the queue (suggestion, vote, advance).
+   * Apply a snapshot only if its version is higher than the one you hold: snapshots
+   * can arrive late or out of order. (Proposed, see ADR-016.)
+   */
+  version: number;
+  /** `playing` first, then `queued` ranked; `played` tracks are history and not included. */
   tracks: EventTrack[];
+}
+
+/** Body of POST /events/{id}/queue/advance (owner only). */
+export interface AdvanceQueueRequest {
+  /**
+   * The track the app believes is playing now, or null if none. If it is not
+   * the one playing, the answer is 409 QUEUE_CHANGED: this is what stops a
+   * double tap from skipping a song.
+   */
+  currentTrackId: string | null;
 }
