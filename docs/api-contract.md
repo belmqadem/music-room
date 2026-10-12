@@ -194,6 +194,14 @@ All endpoints are bearer-authenticated and check the access rules above on every
   license is `location_time`). The backend looks up title and artist from the music catalog itself; the client sends
   only the track id (**TODO** catalog provider).
 - A user has at most one vote per track, and may vote for several tracks.
+- **Listing** (`GET /events`): public events, your own, and private events you are invited to, newest first. `limit`
+  is 1 to 100 (default 20); `nextCursor` is opaque, pass it back as `?cursor=` and never build one. A bad `limit` or
+  `cursor` is `400 VALIDATION_ERROR`.
+- **Changing an event** (`PATCH`): send at least one of `name`, `visibility`, `voteLicense`. A new `voteLicense`
+  **replaces** the whole license (send all `location_time` fields again). It takes effect immediately; votes already
+  cast stay. Unknown fields (`ownerId`, `id`, ...) are `400`.
+- `GET /events/{id}`: a private event you may not see is `404 EVENT_NOT_FOUND`, identical to a missing one. Anyone who
+  can see an event but is not its owner gets `403 FORBIDDEN` on `PATCH`, `DELETE` and the invitation endpoints.
 
 ### Ranking and concurrency (Decided: ADR-008)
 
