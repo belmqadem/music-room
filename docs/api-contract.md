@@ -162,6 +162,11 @@ The license applies to people who can already see the resource.
   (it never trusts a "I am inside" flag) and compares times with **its own clock**. Failures:
   `400 LOCATION_REQUIRED`, `403 OUTSIDE_VOTING_AREA`, `403 OUTSIDE_VOTING_TIME`. Coordinates can still be faked by
   the client; see `docs/security.md`.
+  - Send `accuracyMeters` with the position. A position without it, or worse than **100 m**, is `LOCATION_REQUIRED`
+    (the app should ask for a better fix).
+  - The time window is `startsAt` (included) to `endsAt` (excluded). A position exactly on the radius counts as inside.
+  - The server checks the time first: outside the window the answer is `OUTSIDE_VOTING_TIME` even without a location.
+  - An invitation does not skip the place and time rule. The owner is never restricted by it.
 - `myPermissions` on a resource (`canView`, `canAct`, `canManage`) is a **UI hint**. For `location_time`, `canAct`
   means "eligible if you are in the right place and time". The backend checks everything again on every request.
 
@@ -255,13 +260,14 @@ All endpoints are bearer-authenticated and check the access rules above on every
 
 ## Changelog
 
-| Date       | Change                                                                                                                                          | Author    | Reviewed by |
-| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ----------- |
-| 2026-10-09 | First draft: conventions, auth, rooms/roles model                                                                                               | belmqadem | withdrawn   |
-| 2026-10-09 | Rewritten from the subject: events, playlists, licenses, OAuth, concurrency, real-time                                                          | belmqadem | pending     |
-| 2026-10-10 | Added error codes `NOT_FOUND` (404, unknown route) and `INTERNAL_ERROR` (500); additive, no existing code changed                               | belmqadem | pending     |
-| 2026-10-10 | Clarified refresh rotation (strict reuse detection), logout behaviour and refresh rate limit; no type or endpoint shape changes                 | belmqadem | pending     |
-| 2026-10-11 | Real-time handshake: `connect_error` `data.code` values and the token-checked-once rule; no type or endpoint shape changes                      | belmqadem | pending     |
-| 2026-10-11 | OAuth semantics (login, link, unlink), new error codes `INVALID_PROVIDER_CREDENTIAL` (401) and `PROVIDER_UNAVAILABLE` (502); additive           | belmqadem | pending     |
-| 2026-10-11 | Web client section: CORS allow-list, headers, refresh token in browser storage, multi-tab rule; no type or endpoint shape changes               | belmqadem | pending     |
-| 2026-10-11 | Added `GET /users?query=` and the `UserSummary` type; `Invitation.user` is now a `UserSummary` instead of a `User` (no email exposed to owners) | belmqadem | pending     |
+| Date       | Change                                                                                                                                             | Author    | Reviewed by |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ----------- |
+| 2026-10-09 | First draft: conventions, auth, rooms/roles model                                                                                                  | belmqadem | withdrawn   |
+| 2026-10-09 | Rewritten from the subject: events, playlists, licenses, OAuth, concurrency, real-time                                                             | belmqadem | pending     |
+| 2026-10-10 | Added error codes `NOT_FOUND` (404, unknown route) and `INTERNAL_ERROR` (500); additive, no existing code changed                                  | belmqadem | pending     |
+| 2026-10-10 | Clarified refresh rotation (strict reuse detection), logout behaviour and refresh rate limit; no type or endpoint shape changes                    | belmqadem | pending     |
+| 2026-10-11 | Real-time handshake: `connect_error` `data.code` values and the token-checked-once rule; no type or endpoint shape changes                         | belmqadem | pending     |
+| 2026-10-11 | OAuth semantics (login, link, unlink), new error codes `INVALID_PROVIDER_CREDENTIAL` (401) and `PROVIDER_UNAVAILABLE` (502); additive              | belmqadem | pending     |
+| 2026-10-11 | Web client section: CORS allow-list, headers, refresh token in browser storage, multi-tab rule; no type or endpoint shape changes                  | belmqadem | pending     |
+| 2026-10-11 | Added `GET /users?query=` and the `UserSummary` type; `Invitation.user` is now a `UserSummary` instead of a `User` (no email exposed to owners)    | belmqadem | pending     |
+| 2026-10-12 | Clarified `location_time` details (accuracy limit 100 m, window [start, end), time checked first, owner exempt); no type or endpoint shape changes | belmqadem | pending     |

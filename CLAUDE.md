@@ -90,7 +90,7 @@ start before that's true.
 - Work happens on short-lived branches off `develop`.
 - Naming: `<type>/<scope>-<short-description>`
   - types: `feat`, `fix`, `chore`, `docs`, `test`, `refactor`
-  - scope = the module: `auth`, `rooms`, `track-vote`, `playlist-editor`,
+  - scope = the module: `auth`, `access`, `track-vote`, `playlist-editor`,
     `mobile`, `shared`, `infra`
   - example: `feat/track-vote-ranking`
 

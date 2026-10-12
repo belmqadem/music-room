@@ -17,9 +17,9 @@ music-room/
 │   │   ├── server.ts            # entry point: env, DB/Redis, listen, Socket.io
 │   │   ├── config/              # env validation, logger, OpenAPI document
 │   │   ├── db/                  # postgres.ts, redis.ts, migrations/, models/
-│   │   ├── middleware/          # authenticate, authorize, client-info, error-handler (stubs)
+│   │   ├── middleware/          # authenticate, client-info, request-logger, rate-limit, error-handler
 │   │   ├── sockets/             # Socket.io attach + authenticated /live namespace
-│   │   └── modules/             # auth, rooms, track-vote, playlist-editor, logging
+│   │   └── modules/             # auth, access, track-vote, playlist-editor, logging
 │   │                            #   each: controller/service/repository/schema/routes
 │   └── tests/                   # health.test.ts, unit/, load/ (README only for now)
 │

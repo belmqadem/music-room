@@ -80,7 +80,7 @@ Each decision must be defensible in detail at the defense. Copy the template for
   - Two resources sharing one access engine: `visibility` + one invitation list per resource + a license object per feature. Matches the subject one to one; each feature can be built and defended on its own.
   - A fully generic ACL: more flexibility than the subject asks for and a bigger surface to get wrong.
 - Decision: Event and Playlist are separate resources. Each has `visibility` (public/private, default public), an owner, an invitation list, and a license (`voteLicense` for events, `editLicense` for playlists; default `everyone`). The owner always has full rights. The shared engine ("can this user see / act on this resource?") is one backend module used by both features. Invitations take effect immediately (no accept step).
-- Consequences: the scaffold's `rooms` module becomes this shared access engine (a rename is a follow-up). The location+time license adds a trust problem: coordinates come from the client and can be faked (see `docs/security.md`). A user's own `canVote`/`canEdit` shown in the app is a UI hint; the backend re-checks on every request.
+- Consequences: the scaffold's `rooms` module becomes this shared access engine (renamed to `modules/access`: pure rules in `rules.ts`, loaders in `repository.ts`, HTTP errors in `guards.ts`). The location+time license adds a trust problem: coordinates come from the client and can be faked (see `docs/security.md`). A user's own `canVote`/`canEdit` shown in the app is a UI hint; the backend re-checks on every request.
 
 ### ADR-006: Token lifetimes and password hashing
 
@@ -187,6 +187,22 @@ Each decision must be defensible in detail at the defense. Copy the template for
   - Finding users: search by display name, invite by exact email, or postpone.
 - Decision: (a) separate tables with real foreign keys everywhere (deleting a user or a resource deletes the dependent rows). The common shape is written twice, which is accepted for simplicity, and the shared rules live in one access-engine module in code instead. The vote license is stored as columns (`vote_license` plus `latitude`, `longitude`, `radius_meters`, `starts_at`, `ends_at`) and the database itself refuses an inconsistent license: all five location fields are present exactly when the license is `location_time`, coordinates and radius are in range, and the window starts before it ends. The invitation primary key `(resource, user)` is the "already invited" rule. Users are found by a case-insensitive display-name prefix search that returns only `{ id, displayName }`, at least 3 characters, rate limited.
 - Consequences: a small duplication between events and playlists, balanced by simple SQL and foreign keys. Changing the license shape means a migration, not just a code change. Display names are not unique, so results can look alike (the id is the identity). The search lets any signed-in user list display names by prefix: that is why it never returns emails, is limited to 3+ characters and is rate limited. The owner cannot be invited to their own resource; that rule lives in the service, not the schema.
+
+### ADR-014: How the shared access engine decides, and the location + time rule
+
+- Status: accepted
+- Date: 2026-10-12
+- Deciders: belmqadem
+- Context: Track Vote and Playlist Editor must apply the same visibility and license rules, and the rules are the graded core, so they must be easy to test and to explain. The `location_time` license needs a precise meaning at its edges.
+- Options considered:
+  - Structure: rules written inside each feature's service, one shared module of pure functions, or SQL-only rules.
+  - GPS accuracy: reject a position worse than a fixed limit; require the whole accuracy circle inside the radius; or ignore accuracy.
+  - Edges: fully inclusive time window, or start inclusive and end exclusive.
+- Decision: one module, `modules/access`. `rules.ts` holds pure functions (no database, no clock, no HTTP) taking plain facts and returning a decision, so every combination of visibility, license, role, time and position is tested in a table. `repository.ts` loads the resource and "is this user invited?" in one query. `guards.ts` turns a refusal into the contract's HTTP error. Services must call a guard before doing any work.
+  - Order of questions: view (else `404`, identical to a missing resource), then act (`403 NOT_INVITED`, or the location errors), then manage (`403 FORBIDDEN`, owner only). The owner may always do all three, including on `location_time` events.
+  - For `location_time` the server clock is checked first, then the position. Being invited does NOT skip the place and time rule. A position with no accuracy, or an accuracy worse than 100 m, is `400 LOCATION_REQUIRED`; the distance is computed by the server (haversine) and `<= radius` is inside. The time window is `[startsAt, endsAt)`: open at the start instant, closed at the end instant, so back-to-back windows never overlap.
+  - Fail closed: an unknown license, or a `location_time` row with missing fields, throws (a 500) instead of allowing.
+- Consequences: the pure rules are cheap to test exhaustively, and a bug can only be in one place. The list queries (`GET /events`, `/playlists`) repeat "public, mine or invited" in SQL, so they must be tested against `canView` to keep the two from drifting. The accuracy limit is a trade-off: it blocks coarse network-based fixes, but a real user with a poor GPS signal indoors may be refused. It does not stop a determined user from faking coordinates (see `docs/security.md`).
 
 ## Still to decide (record each as an ADR)
 
