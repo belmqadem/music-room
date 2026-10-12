@@ -306,7 +306,10 @@ export function createAuthService(deps: AuthServiceDependencies): AuthService {
 
     async logout(userId, input) {
       // Always succeeds (idempotent, and no hint about whether the token existed).
-      await revokeFamilyOfUsersToken(pool, hashRefreshToken(input.refreshToken), userId);
+      // Through withTransaction so a deadlock with a concurrent refresh is retried.
+      await withTransaction(pool, (client) =>
+        revokeFamilyOfUsersToken(client, hashRefreshToken(input.refreshToken), userId),
+      );
     },
 
     getUser: getUserById,

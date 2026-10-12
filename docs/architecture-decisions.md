@@ -225,6 +225,16 @@ Each decision must be defensible in detail at the defense. Copy the template for
 - Why not the alternatives: a timer needs a scheduler that survives restarts and several server processes, plus pause and skip handling; no playing state would let votes reorder a song that is already playing. Timestamps cannot order snapshots reliably across processes, and a global sequence value can be taken in a different order than transactions commit, so a fresher snapshot could carry a smaller number.
 - Consequences: the version is a counter on the event row, so every suggestion, vote and advance of ONE event takes that row's lock briefly. This slightly amends ADR-008, which said votes on different tracks never interact: they now queue for a few milliseconds on their event. Events are independent of each other, so it only limits one very busy event. The load test must measure it; if it is a problem the version can be taken only when a snapshot is built. The owner's device is the one expected to call advance; if it is offline the queue simply stays where it is.
 
+### ADR-017: Run transactions again when Postgres picks them as a deadlock victim
+
+- Status: accepted
+- Date: 2026-10-12
+- Deciders: belmqadem
+- Context: the concurrency tests failed now and then. Postgres' own log showed deadlocks in the refresh-token path: when several requests replay one used token, each revokes the same family of rows while the others lock them too, in a different order. Postgres cancels one transaction on purpose, and that request got a `500` instead of `401 INVALID_REFRESH_TOKEN`. It only appeared under load (125 isolated rounds never showed it), and the same pattern can occur anywhere two transactions touch several shared rows.
+- Options considered: lock the rows in a fixed order everywhere; move "revoked" into a single row per session so revoking locks one row; or retry the transaction when Postgres reports a deadlock. Retrying is what the Postgres manual recommends: nothing was wrong with the request, so running it again is safe.
+- Decision: `withTransaction` runs the whole transaction again when Postgres reports a deadlock (`40P01`) or a serialization failure (`40001`), up to 3 attempts, after a short random pause. Nothing else is retried. The work inside a transaction must therefore touch only the database, because it may run more than once. Logout now goes through it too. A test creates a real deadlock on demand and checks that both transactions end up committed.
+- Consequences: one fix for every transaction in the app, present and future (votes, advance, playlist edits). A retried refresh re-reads the token, sees it is used, revokes the family and answers 401 as it should. The deadlocks still happen inside Postgres (its counter keeps rising); they are now invisible to the client. A cheaper cure, ordering the locks, would shrink their number but could not guarantee zero, so it is not a substitute. The same load test that measures the queue version (ADR-016) will show if retries become frequent.
+
 ## Still to decide (record each as an ADR)
 
 TODO:
