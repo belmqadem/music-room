@@ -351,16 +351,24 @@ describe.skipIf(!databaseUrl)("social login, link and unlink", () => {
       expect(response.body.error.code).toBe("INVALID_CREDENTIALS");
     });
 
+    // One round only hits the race window now and then (a few milliseconds wide), so
+    // run many rounds, each with a brand-new account: a bug here showed up as a
+    // wrong EMAIL_TAKEN for the owner of the very account being created.
     it("lets exactly one account be created when the first logins arrive together", async () => {
-      const credential = googleCredential("racer");
+      for (let round = 0; round < 20; round++) {
+        const credential = googleCredential(`racer-${round}`);
 
-      const responses = await Promise.all(
-        Array.from({ length: 8 }, () => oauthLogin("google", { credential })),
-      );
+        const responses = await Promise.all(
+          Array.from({ length: 8 }, () => oauthLogin("google", { credential })),
+        );
 
-      expect(responses.map((r) => r.status)).toEqual(Array(8).fill(200));
-      expect(new Set(responses.map((r) => r.body.user.id)).size).toBe(1);
-      expect(await countUsers()).toBe(1);
+        expect(
+          responses.map((r) => r.status),
+          `round ${round}`,
+        ).toEqual(Array(8).fill(200));
+        expect(new Set(responses.map((r) => r.body.user.id)).size).toBe(1);
+      }
+      expect(await countUsers()).toBe(20);
     });
 
     // The winner is a transaction we hold open. The login under test reaches its
