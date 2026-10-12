@@ -23,6 +23,7 @@ export type ApiErrorCode =
   | "ALREADY_INVITED"
   | "TRACK_ALREADY_QUEUED"
   | "TRACK_NOT_VOTABLE"
+  | "QUEUE_CHANGED"
   | "ANCHOR_NOT_FOUND"
   | "RATE_LIMITED"
   | "NOT_FOUND"

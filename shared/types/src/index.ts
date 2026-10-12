@@ -25,6 +25,7 @@ export type {
   SuggestTrackRequest,
   VoteRequest,
   EventQueueUpdate,
+  AdvanceQueueRequest,
 } from "./vote";
 export type {
   Playlist,

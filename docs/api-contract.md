@@ -30,16 +30,16 @@ Every non-2xx response has this body (type `ApiError`):
 - `details` is optional extra data (e.g. failed fields, or the existing track on `TRACK_ALREADY_QUEUED`).
 - Messages never include internals (stack traces, SQL, whether an email exists).
 
-| HTTP | Meaning                                                      | Codes                                                                                                                                             |
-| ---- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 400  | Malformed or invalid request                                 | `VALIDATION_ERROR`, `LOCATION_REQUIRED`                                                                                                           |
-| 401  | Not authenticated                                            | `UNAUTHENTICATED`, `TOKEN_EXPIRED`, `INVALID_CREDENTIALS`, `INVALID_REFRESH_TOKEN`, `INVALID_PROVIDER_CREDENTIAL`                                 |
-| 403  | You can see it, but may not do this                          | `FORBIDDEN`, `NOT_INVITED`, `OUTSIDE_VOTING_AREA`, `OUTSIDE_VOTING_TIME`                                                                          |
-| 404  | Does not exist **or you may not know it exists**             | `EVENT_NOT_FOUND`, `PLAYLIST_NOT_FOUND`, `TRACK_NOT_FOUND`, `NOT_FOUND` (unknown route)                                                           |
-| 409  | Conflicts with current state                                 | `EMAIL_TAKEN`, `PROVIDER_ACCOUNT_LINKED`, `LAST_LOGIN_METHOD`, `ALREADY_INVITED`, `TRACK_ALREADY_QUEUED`, `TRACK_NOT_VOTABLE`, `ANCHOR_NOT_FOUND` |
-| 429  | Rate limited                                                 | `RATE_LIMITED`                                                                                                                                    |
-| 502  | The social provider could not be reached or answered badly   | `PROVIDER_UNAVAILABLE`                                                                                                                            |
-| 500  | Unexpected server error (details are logged, never returned) | `INTERNAL_ERROR`                                                                                                                                  |
+| HTTP | Meaning                                                      | Codes                                                                                                                                                              |
+| ---- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 400  | Malformed or invalid request                                 | `VALIDATION_ERROR`, `LOCATION_REQUIRED`                                                                                                                            |
+| 401  | Not authenticated                                            | `UNAUTHENTICATED`, `TOKEN_EXPIRED`, `INVALID_CREDENTIALS`, `INVALID_REFRESH_TOKEN`, `INVALID_PROVIDER_CREDENTIAL`                                                  |
+| 403  | You can see it, but may not do this                          | `FORBIDDEN`, `NOT_INVITED`, `OUTSIDE_VOTING_AREA`, `OUTSIDE_VOTING_TIME`                                                                                           |
+| 404  | Does not exist **or you may not know it exists**             | `EVENT_NOT_FOUND`, `PLAYLIST_NOT_FOUND`, `TRACK_NOT_FOUND`, `NOT_FOUND` (unknown route)                                                                            |
+| 409  | Conflicts with current state                                 | `EMAIL_TAKEN`, `PROVIDER_ACCOUNT_LINKED`, `LAST_LOGIN_METHOD`, `ALREADY_INVITED`, `TRACK_ALREADY_QUEUED`, `TRACK_NOT_VOTABLE`, `QUEUE_CHANGED`, `ANCHOR_NOT_FOUND` |
+| 429  | Rate limited                                                 | `RATE_LIMITED`                                                                                                                                                     |
+| 502  | The social provider or music catalog could not be reached    | `PROVIDER_UNAVAILABLE`                                                                                                                                             |
+| 500  | Unexpected server error (details are logged, never returned) | `INTERNAL_ERROR`                                                                                                                                                   |
 
 ### Required client headers
 
@@ -174,25 +174,26 @@ The license applies to people who can already see the resource.
 
 All endpoints are bearer-authenticated and check the access rules above on every call.
 
-| Method | Path                                      | Who may call it        | Purpose                                             | Success                  | Errors                                    |
-| ------ | ----------------------------------------- | ---------------------- | --------------------------------------------------- | ------------------------ | ----------------------------------------- |
-| POST   | `/events`                                 | any authenticated user | Create an event (caller is owner)                   | 201 `MusicEvent`         | 400                                       |
-| GET    | `/events`                                 | any authenticated user | Page of events you can see (public + yours/invited) | 200 page of `MusicEvent` | —                                         |
-| GET    | `/events/{eventId}`                       | anyone who can see it  | Event details incl. `myPermissions`                 | 200 `MusicEvent`         | 404                                       |
-| PATCH  | `/events/{eventId}`                       | owner                  | Change name, visibility, vote license               | 200 `MusicEvent`         | 400, 403, 404                             |
-| DELETE | `/events/{eventId}`                       | owner                  | Delete the event                                    | 204                      | 403, 404                                  |
-| GET    | `/events/{eventId}/invitations`           | owner                  | List invited users                                  | 200 page of `Invitation` | 403, 404                                  |
-| POST   | `/events/{eventId}/invitations`           | owner                  | Invite a user                                       | 201 `Invitation`         | 400, 403, 404, 409 `ALREADY_INVITED`      |
-| DELETE | `/events/{eventId}/invitations/{userId}`  | owner                  | Remove an invitation                                | 204                      | 403, 404                                  |
-| GET    | `/events/{eventId}/tracks`                | anyone who can see it  | The queue, **already ordered** (see Ranking)        | 200 `EventTrack[]`       | 404                                       |
-| POST   | `/events/{eventId}/tracks`                | anyone allowed to act  | Suggest a track (counts as your vote)               | 201 `EventTrack`         | 400, 403, 404, 409 `TRACK_ALREADY_QUEUED` |
-| PUT    | `/events/{eventId}/tracks/{trackId}/vote` | anyone allowed to act  | Vote for a track (**idempotent**)                   | 200 `EventTrack`         | 400, 403, 404, 409 `TRACK_NOT_VOTABLE`    |
-| DELETE | `/events/{eventId}/tracks/{trackId}/vote` | anyone allowed to act  | Withdraw your vote (**idempotent**)                 | 200 `EventTrack`         | 403, 404, 409 `TRACK_NOT_VOTABLE`         |
+| Method | Path                                      | Who may call it        | Purpose                                             | Success                  | Errors                                                           |
+| ------ | ----------------------------------------- | ---------------------- | --------------------------------------------------- | ------------------------ | ---------------------------------------------------------------- |
+| POST   | `/events`                                 | any authenticated user | Create an event (caller is owner)                   | 201 `MusicEvent`         | 400                                                              |
+| GET    | `/events`                                 | any authenticated user | Page of events you can see (public + yours/invited) | 200 page of `MusicEvent` | —                                                                |
+| GET    | `/events/{eventId}`                       | anyone who can see it  | Event details incl. `myPermissions`                 | 200 `MusicEvent`         | 404                                                              |
+| PATCH  | `/events/{eventId}`                       | owner                  | Change name, visibility, vote license               | 200 `MusicEvent`         | 400, 403, 404                                                    |
+| DELETE | `/events/{eventId}`                       | owner                  | Delete the event                                    | 204                      | 403, 404                                                         |
+| GET    | `/events/{eventId}/invitations`           | owner                  | List invited users                                  | 200 page of `Invitation` | 403, 404                                                         |
+| POST   | `/events/{eventId}/invitations`           | owner                  | Invite a user                                       | 201 `Invitation`         | 400, 403, 404, 409 `ALREADY_INVITED`                             |
+| DELETE | `/events/{eventId}/invitations/{userId}`  | owner                  | Remove an invitation                                | 204                      | 403, 404                                                         |
+| GET    | `/events/{eventId}/tracks`                | anyone who can see it  | The queue, **already ordered** (see Ranking)        | 200 `EventQueueUpdate`   | 404                                                              |
+| POST   | `/events/{eventId}/tracks`                | anyone allowed to act  | Suggest a track (counts as your vote)               | 201 `EventTrack`         | 400, 403, 404 `TRACK_NOT_FOUND`, 409 `TRACK_ALREADY_QUEUED`, 502 |
+| PUT    | `/events/{eventId}/tracks/{trackId}/vote` | anyone allowed to act  | Vote for a track (**idempotent**)                   | 200 `EventTrack`         | 400, 403, 404, 409 `TRACK_NOT_VOTABLE`                           |
+| DELETE | `/events/{eventId}/tracks/{trackId}/vote` | anyone allowed to act  | Withdraw your vote (**idempotent**)                 | 200 `EventTrack`         | 403, 404, 409 `TRACK_NOT_VOTABLE`                                |
+| POST   | `/events/{eventId}/queue/advance`         | owner                  | Move to the next track (body: `currentTrackId`)     | 200 `EventQueueUpdate`   | 400, 403, 404, 409 `QUEUE_CHANGED`                               |
 
 - Request bodies: `CreateEventRequest`, `UpdateEventRequest`, `InviteRequest` (`{ userId }`),
   `SuggestTrackRequest` (`{ providerTrackId, location? }`, `location` is a `GeoPoint`), `VoteRequest` (`{ location? }`, only needed when the
-  license is `location_time`). The backend looks up title and artist from the music catalog itself; the client sends
-  only the track id (**TODO** catalog provider).
+  license is `location_time`), `AdvanceQueueRequest` (`{ currentTrackId }`). The backend looks up title and artist
+  from the music catalog itself; the client sends only the track id (see "Music catalog").
 - A user has at most one vote per track, and may vote for several tracks.
 - **Listing** (`GET /events`): public events, your own, and private events you are invited to, newest first. `limit`
   is 1 to 100 (default 20); `nextCursor` is opaque, pass it back as `?cursor=` and never build one. A bad `limit` or
@@ -207,6 +208,39 @@ All endpoints are bearer-authenticated and check the access rules above on every
   not invited) and takes effect immediately. The list is newest invitation first and paginated like every list.
 - `GET /events/{id}`: a private event you may not see is `404 EVENT_NOT_FOUND`, identical to a missing one. Anyone who
   can see an event but is not its owner gets `403 FORBIDDEN` on `PATCH`, `DELETE` and the invitation endpoints.
+
+### Music catalog and track search (Decided: ADR-015)
+
+| Method | Path             | Auth   | Purpose                                   | Success           | Errors             |
+| ------ | ---------------- | ------ | ----------------------------------------- | ----------------- | ------------------ |
+| GET    | `/tracks/search` | bearer | Search the catalog (`?query=`, `?limit=`) | 200 `Page<Track>` | 400, 401, 429, 502 |
+
+- Tracks come from Deezer's public catalog. The app finds tracks with `GET /tracks/search?query=daft+punk&limit=10`
+  (bearer): it returns `Page<Track>` (`nextCursor` is always `null`: one page, at most 25 results; `query` is 2 to 100
+  characters). The app then suggests one by sending only its `providerTrackId`.
+- When a track is suggested, the backend asks the catalog for it and **stores a copy** of title, artist, duration and
+  cover. The queue never depends on the catalog afterwards. An id the catalog does not know is `404 TRACK_NOT_FOUND`;
+  if the catalog cannot be reached it is `502 PROVIDER_UNAVAILABLE` (retry later). Search is rate limited like user
+  search (**Proposed**: 30 per minute per IP).
+- Titles, artists and cover URLs come from a third party: never render them as HTML. `Track` has no audio link:
+  Deezer's preview links expire, so playback is the app's concern.
+
+### Queue states and advancing (Decided: ADR-016)
+
+- Each queue entry is `queued` (can be voted for), `playing` (at most one per event, frozen: no more votes) or
+  `played` (history). `GET /events/{id}/tracks` returns the `playing` track first, then the `queued` ones in ranking
+  order, as an `EventQueueUpdate`. `played` tracks are not returned.
+- The **owner** moves the queue: `POST /events/{id}/queue/advance` with `{ currentTrackId }`, where `currentTrackId` is
+  the track the app believes is playing, or `null` if none is. The server marks it `played` and starts the best
+  `queued` track (most votes, oldest suggestion on ties); if nothing is queued, nothing plays. The answer is the new
+  `EventQueueUpdate`.
+- If `currentTrackId` is not what is really playing (for example the owner double-tapped "next", or a second device
+  advanced first), the answer is `409 QUEUE_CHANGED` and **nothing moves**, so no song is skipped. `details` holds the
+  current `EventQueueUpdate`; the app shows it.
+- Voting on a track that is `playing`, `played` or gone is `409 TRACK_NOT_VOTABLE`. Suggesting a track that is already
+  `queued` is `409 TRACK_ALREADY_QUEUED`; suggesting one that is `playing` or `played` is allowed (it queues again).
+- `version` (**Proposed**): every change to the queue (suggestion, vote, advance) increases the event's `version`.
+  Keep the highest version you have seen and ignore any snapshot, from REST or from the socket, that is not higher.
 
 ### Ranking and concurrency (Decided: ADR-008)
 
@@ -264,8 +298,8 @@ All endpoints are bearer-authenticated and check the access rules above on every
   runs the same "can this user see it?" check as REST; on failure it answers `NOT_FOUND`. `unsubscribe` leaves.
   The client's claim is never trusted.
 - Server -> client (after the change is committed):
-  - `event:queue` -> `EventQueueUpdate` `{ eventId, tracks: EventTrack[] }`: the full ordered queue with absolute
-    vote counts (applying it twice or out of order is harmless).
+  - `event:queue` -> `EventQueueUpdate` `{ eventId, version, tracks }`: the full ordered queue with absolute vote
+    counts. Apply it only if `version` is higher than the one you hold (a late snapshot must not replace a newer one).
   - `playlist:updated` -> `PlaylistSnapshot` `{ playlistId, version, tracks }`: apply only if `version` is newer.
 - When someone is uninvited or a resource becomes private, the server removes their sockets from its channel
   (**TODO**: implement and test; otherwise they keep receiving updates).
@@ -273,15 +307,16 @@ All endpoints are bearer-authenticated and check the access rules above on every
 
 ## Changelog
 
-| Date       | Change                                                                                                                                             | Author    | Reviewed by |
-| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ----------- |
-| 2026-10-09 | First draft: conventions, auth, rooms/roles model                                                                                                  | belmqadem | withdrawn   |
-| 2026-10-09 | Rewritten from the subject: events, playlists, licenses, OAuth, concurrency, real-time                                                             | belmqadem | pending     |
-| 2026-10-10 | Added error codes `NOT_FOUND` (404, unknown route) and `INTERNAL_ERROR` (500); additive, no existing code changed                                  | belmqadem | pending     |
-| 2026-10-10 | Clarified refresh rotation (strict reuse detection), logout behaviour and refresh rate limit; no type or endpoint shape changes                    | belmqadem | pending     |
-| 2026-10-11 | Real-time handshake: `connect_error` `data.code` values and the token-checked-once rule; no type or endpoint shape changes                         | belmqadem | pending     |
-| 2026-10-11 | OAuth semantics (login, link, unlink), new error codes `INVALID_PROVIDER_CREDENTIAL` (401) and `PROVIDER_UNAVAILABLE` (502); additive              | belmqadem | pending     |
-| 2026-10-11 | Web client section: CORS allow-list, headers, refresh token in browser storage, multi-tab rule; no type or endpoint shape changes                  | belmqadem | pending     |
-| 2026-10-11 | Added `GET /users?query=` and the `UserSummary` type; `Invitation.user` is now a `UserSummary` instead of a `User` (no email exposed to owners)    | belmqadem | pending     |
-| 2026-10-12 | Clarified `location_time` details (accuracy limit 100 m, window [start, end), time checked first, owner exempt); no type or endpoint shape changes | belmqadem | pending     |
-| 2026-10-12 | Event invitations: owner-only rules, idempotent removal, error codes, and the user search rate limit; no type or endpoint shape changes            | belmqadem | pending     |
+| Date       | Change                                                                                                                                                                                                                                               | Author    | Reviewed by |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ----------- |
+| 2026-10-09 | First draft: conventions, auth, rooms/roles model                                                                                                                                                                                                    | belmqadem | withdrawn   |
+| 2026-10-09 | Rewritten from the subject: events, playlists, licenses, OAuth, concurrency, real-time                                                                                                                                                               | belmqadem | pending     |
+| 2026-10-10 | Added error codes `NOT_FOUND` (404, unknown route) and `INTERNAL_ERROR` (500); additive, no existing code changed                                                                                                                                    | belmqadem | pending     |
+| 2026-10-10 | Clarified refresh rotation (strict reuse detection), logout behaviour and refresh rate limit; no type or endpoint shape changes                                                                                                                      | belmqadem | pending     |
+| 2026-10-11 | Real-time handshake: `connect_error` `data.code` values and the token-checked-once rule; no type or endpoint shape changes                                                                                                                           | belmqadem | pending     |
+| 2026-10-11 | OAuth semantics (login, link, unlink), new error codes `INVALID_PROVIDER_CREDENTIAL` (401) and `PROVIDER_UNAVAILABLE` (502); additive                                                                                                                | belmqadem | pending     |
+| 2026-10-11 | Web client section: CORS allow-list, headers, refresh token in browser storage, multi-tab rule; no type or endpoint shape changes                                                                                                                    | belmqadem | pending     |
+| 2026-10-11 | Added `GET /users?query=` and the `UserSummary` type; `Invitation.user` is now a `UserSummary` instead of a `User` (no email exposed to owners)                                                                                                      | belmqadem | pending     |
+| 2026-10-12 | Clarified `location_time` details (accuracy limit 100 m, window [start, end), time checked first, owner exempt); no type or endpoint shape changes                                                                                                   | belmqadem | pending     |
+| 2026-10-12 | Event invitations: owner-only rules, idempotent removal, error codes, and the user search rate limit; no type or endpoint shape changes                                                                                                              | belmqadem | pending     |
+| 2026-10-12 | Track Vote: catalog search `GET /tracks/search`, `POST /events/{id}/queue/advance` with `QUEUE_CHANGED`, queue states, `EventQueueUpdate.version` (**Proposed**) and `GET .../tracks` now returns `EventQueueUpdate`; new error code `QUEUE_CHANGED` | belmqadem | pending     |
