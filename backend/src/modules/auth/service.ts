@@ -153,20 +153,34 @@ export function createAuthService(deps: AuthServiceDependencies): AuthService {
     identity: ProviderIdentity,
   ) {
     return withTransaction(pool, async (client) => {
-      const linked = await findUserByIdentity(client, provider, identity.providerUserId);
-      if (linked) {
-        const session = await startSession(
+      const loginAs = async (user: UserRecord) => ({
+        session: await startSession(
           client,
-          linked,
-          await findLinkedProviders(client, linked.id),
-        );
-        return { session, created: false };
-      }
+          user,
+          await findLinkedProviders(client, user.id),
+        ),
+        created: false,
+      });
+
+      const linked = await findUserByIdentity(client, provider, identity.providerUserId);
+      if (linked) return loginAs(linked);
+
       // NO automatic linking by email (ADR-007): the user must log in and link.
       if (
         identity.verifiedEmail &&
         (await findUserByEmail(client, identity.verifiedEmail))
       ) {
+        // But that email may belong to the account ANOTHER request has just created
+        // for this very provider account (two first logins at the same moment): it
+        // committed between our two lookups. Look again: if this provider account is
+        // linked now, this is a login, not a conflict. (Its user and its link are
+        // committed together, so if we can see one we can see the other.)
+        const justLinked = await findUserByIdentity(
+          client,
+          provider,
+          identity.providerUserId,
+        );
+        if (justLinked) return loginAs(justLinked);
         throw new HttpError(
           409,
           "EMAIL_TAKEN",
@@ -292,7 +306,10 @@ export function createAuthService(deps: AuthServiceDependencies): AuthService {
 
     async logout(userId, input) {
       // Always succeeds (idempotent, and no hint about whether the token existed).
-      await revokeFamilyOfUsersToken(pool, hashRefreshToken(input.refreshToken), userId);
+      // Through withTransaction so a deadlock with a concurrent refresh is retried.
+      await withTransaction(pool, (client) =>
+        revokeFamilyOfUsersToken(client, hashRefreshToken(input.refreshToken), userId),
+      );
     },
 
     getUser: getUserById,

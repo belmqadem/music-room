@@ -289,15 +289,20 @@ describe.skipIf(!databaseUrl)("refresh and logout", () => {
       expect(responses.map((r) => r.status).sort()).toEqual([200, 401]);
     });
 
-    it("lets exactly one of 10 simultaneous refreshes win", async () => {
-      const session = await registerUser();
+    // Several requests replaying one token at once used to deadlock inside Postgres
+    // (each revoked the same family of rows in its own order) and some got a 500
+    // instead of 401. A single round rarely showed it, so run many.
+    it("lets exactly one of 10 simultaneous refreshes win, round after round", async () => {
+      for (let round = 0; round < 25; round++) {
+        const session = await registerUser(`racer-${round}`); // a new account each round
 
-      const responses = await Promise.all(
-        Array.from({ length: 10 }, () => refresh(session.refreshToken)),
-      );
+        const responses = await Promise.all(
+          Array.from({ length: 10 }, () => refresh(session.refreshToken)),
+        );
 
-      expect(responses.filter((r) => r.status === 200)).toHaveLength(1);
-      expect(responses.filter((r) => r.status === 401)).toHaveLength(9);
+        const statuses = responses.map((r) => r.status).sort();
+        expect(statuses, `round ${round}`).toEqual([200, ...Array(9).fill(401)]);
+      }
     });
 
     it("(strict) also invalidates the winner's new token, so a retry logs the user out", async () => {
