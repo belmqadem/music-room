@@ -187,7 +187,7 @@ All endpoints are bearer-authenticated and check the access rules above on every
 | GET    | `/events/{eventId}/tracks`                | anyone who can see it  | The queue, **already ordered** (see Ranking)        | 200 `EventQueueUpdate`   | 404                                                              |
 | POST   | `/events/{eventId}/tracks`                | anyone allowed to act  | Suggest a track (counts as your vote)               | 201 `EventTrack`         | 400, 403, 404 `TRACK_NOT_FOUND`, 409 `TRACK_ALREADY_QUEUED`, 502 |
 | PUT    | `/events/{eventId}/tracks/{trackId}/vote` | anyone allowed to act  | Vote for a track (**idempotent**)                   | 200 `EventTrack`         | 400, 403, 404, 409 `TRACK_NOT_VOTABLE`                           |
-| DELETE | `/events/{eventId}/tracks/{trackId}/vote` | anyone allowed to act  | Withdraw your vote (**idempotent**)                 | 200 `EventTrack`         | 403, 404, 409 `TRACK_NOT_VOTABLE`                                |
+| DELETE | `/events/{eventId}/tracks/{trackId}/vote` | anyone who can see it  | Withdraw your own vote (**idempotent**)             | 200 `EventTrack`         | 404, 409 `TRACK_NOT_VOTABLE`                                     |
 | POST   | `/events/{eventId}/queue/advance`         | owner                  | Move to the next track (body: `currentTrackId`)     | 200 `EventQueueUpdate`   | 400, 403, 404, 409 `QUEUE_CHANGED`                               |
 
 - Request bodies: `CreateEventRequest`, `UpdateEventRequest`, `InviteRequest` (`{ userId }`),
@@ -195,6 +195,13 @@ All endpoints are bearer-authenticated and check the access rules above on every
   license is `location_time`), `AdvanceQueueRequest` (`{ currentTrackId }`). The backend looks up title and artist
   from the music catalog itself; the client sends only the track id (see "Music catalog").
 - A user has at most one vote per track, and may vote for several tracks.
+- **Withdrawing a vote** needs only that you can still see the event: no license and **no location**, and `DELETE` has
+  no body. So someone who voted and then left the area, or lost their invitation, can always take their vote back.
+  (Only `PUT` and suggesting need the license, and for `location_time` the `location`.) You can only remove your own
+  vote. Withdrawing when you have not voted is `200` and changes nothing.
+- **Suggesting** counts as your vote (`voteCount` starts at 1, `votedByMe` is true). If you are not allowed, the answer
+  is `403`/`400`/`404` **before** the catalog is asked. The `PUT` vote body is optional (only `{ location }`).
+- Repeating a vote or a withdrawal changes neither the count nor the queue `version`.
 - **Listing** (`GET /events`): public events, your own, and private events you are invited to, newest first. `limit`
   is 1 to 100 (default 20); `nextCursor` is opaque, pass it back as `?cursor=` and never build one. A bad `limit` or
   `cursor` is `400 VALIDATION_ERROR`.
@@ -320,3 +327,4 @@ All endpoints are bearer-authenticated and check the access rules above on every
 | 2026-10-12 | Clarified `location_time` details (accuracy limit 100 m, window [start, end), time checked first, owner exempt); no type or endpoint shape changes                                                                                                   | belmqadem | pending     |
 | 2026-10-12 | Event invitations: owner-only rules, idempotent removal, error codes, and the user search rate limit; no type or endpoint shape changes                                                                                                              | belmqadem | pending     |
 | 2026-10-12 | Track Vote: catalog search `GET /tracks/search`, `POST /events/{id}/queue/advance` with `QUEUE_CHANGED`, queue states, `EventQueueUpdate.version` (**Proposed**) and `GET .../tracks` now returns `EventQueueUpdate`; new error code `QUEUE_CHANGED` | belmqadem | pending     |
+| 2026-10-13 | Track Vote queue: withdrawing a vote needs only that you can see the event (was: the full vote license); optional `PUT` body; suggest is checked before the catalog is asked                                                                         | belmqadem | pending     |

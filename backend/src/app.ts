@@ -18,6 +18,7 @@ import {
 } from "./modules/track-vote/catalog.js";
 import { createCatalogRoutes } from "./modules/track-vote/catalog-routes.js";
 import { createCatalogService } from "./modules/track-vote/catalog-service.js";
+import { createQueueService } from "./modules/track-vote/queue-service.js";
 import { createUserRoutes } from "./modules/users/routes.js";
 import { createUserService } from "./modules/users/service.js";
 import { createEventService } from "./modules/track-vote/service.js";
@@ -44,6 +45,9 @@ export interface AppDependencies {
   refreshLimit?: RateLimitSettings;
   userSearchLimit?: RateLimitSettings;
   catalogSearchLimit?: RateLimitSettings;
+  suggestLimit?: RateLimitSettings;
+  /** Tests only: the server clock the location_time window is judged by. */
+  clock?: () => Date;
 }
 
 // Builds the Express app WITHOUT listening, so tests can drive it in-process
@@ -105,7 +109,15 @@ export function createApp(deps: AppDependencies): Express {
     "/api/v1",
     createEventRoutes({
       service: createEventService({ pool: deps.pool }),
+      queue: createQueueService({
+        pool: deps.pool,
+        catalog: deps.catalog ?? unconfiguredCatalog,
+        logger: deps.logger,
+        ...(deps.clock && { clock: deps.clock }),
+      }),
       jwtSecret: deps.jwtSecret,
+      ...(deps.redis && { redis: deps.redis }),
+      ...(deps.suggestLimit && { suggestLimit: deps.suggestLimit }),
     }),
   );
 

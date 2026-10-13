@@ -295,7 +295,10 @@ describe.skipIf(!databaseUrl)("track vote schema constraints", () => {
     it("serves the ranking from its partial index", async () => {
       const { owner, eventId } = await setup();
       await insertTrack(eventId, owner);
+      // The planner may pick another index (and sort) when the table is tiny or its statistics
+      // change, so forbid sorting: the only way left to read the rows in ranking order is the ranking index.
       await client.query("SET LOCAL enable_seqscan = off");
+      await client.query("SET LOCAL enable_sort = off");
 
       const plan = await client.query<{ "QUERY PLAN": string }>(
         `EXPLAIN SELECT id FROM event_tracks WHERE event_id = $1 AND status = 'queued'

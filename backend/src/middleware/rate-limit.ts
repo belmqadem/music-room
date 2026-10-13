@@ -40,6 +40,13 @@ export const DEFAULT_CATALOG_SEARCH_LIMIT: RateLimitSettings = {
   limit: 30,
 };
 
+// Suggesting a track (one catalog request each). Voting is not limited here: a vote is
+// idempotent and cheap; a per-user vote limit belongs to the load-test work.
+export const DEFAULT_SUGGEST_LIMIT: RateLimitSettings = {
+  windowMs: 60 * 1000,
+  limit: 30,
+};
+
 /**
  * Limits requests per IP. With `redis`, counters live in Redis (shared by all
  * server processes, survive restarts); without it they are in memory (tests).

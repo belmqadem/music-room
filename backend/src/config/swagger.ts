@@ -120,6 +120,41 @@ export const openApiDocument = {
           },
         },
       },
+      EventTrack: {
+        type: "object",
+        required: [
+          "id",
+          "eventId",
+          "track",
+          "suggestedBy",
+          "voteCount",
+          "votedByMe",
+          "status",
+          "suggestedAt",
+        ],
+        properties: {
+          id: { type: "string", format: "uuid" },
+          eventId: { type: "string", format: "uuid" },
+          track: { $ref: "#/components/schemas/Track" },
+          suggestedBy: { type: "string", format: "uuid" },
+          voteCount: { type: "integer", minimum: 0 },
+          votedByMe: { type: "boolean" },
+          status: { type: "string", enum: ["queued", "playing", "played"] },
+          suggestedAt: { type: "string", format: "date-time" },
+        },
+      },
+      EventQueueUpdate: {
+        type: "object",
+        required: ["eventId", "version", "tracks"],
+        properties: {
+          eventId: { type: "string", format: "uuid" },
+          version: {
+            type: "integer",
+            description: "Ignore a snapshot whose version is not higher than yours.",
+          },
+          tracks: { type: "array", items: { $ref: "#/components/schemas/EventTrack" } },
+        },
+      },
       User: {
         type: "object",
         required: ["id", "displayName", "email", "linkedProviders", "createdAt"],
@@ -1085,6 +1120,283 @@ export const openApiDocument = {
           },
           "502": {
             description: "PROVIDER_UNAVAILABLE: the catalog could not be reached",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+        },
+      },
+    },
+    "/api/v1/events/{eventId}/tracks": {
+      get: {
+        summary: "The queue: playing track first, then queued tracks in ranking order",
+        description:
+          "Already ordered; do not re-sort. `version` grows with every change: ignore any snapshot whose version is not higher than the one you hold. Anyone who can see the event may read it.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "eventId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "The queue",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/EventQueueUpdate" },
+              },
+            },
+          },
+          "400": {
+            description: "VALIDATION_ERROR",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "401": {
+            description: "UNAUTHENTICATED or TOKEN_EXPIRED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "404": {
+            description: "EVENT_NOT_FOUND",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+        },
+      },
+      post: {
+        summary: "Suggest a track (counts as your vote)",
+        description:
+          "Send only the catalog id; title, artist and cover come from the catalog. Needs the vote license; the catalog is not asked if you are refused. Rate limited.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "eventId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                additionalProperties: false,
+                required: ["providerTrackId"],
+                properties: {
+                  providerTrackId: { type: "string", example: "3135556" },
+                  location: {
+                    type: "object",
+                    additionalProperties: false,
+                    required: ["latitude", "longitude"],
+                    properties: {
+                      latitude: { type: "number", minimum: -90, maximum: 90 },
+                      longitude: { type: "number", minimum: -180, maximum: 180 },
+                      accuracyMeters: {
+                        type: "number",
+                        minimum: 0,
+                        description: "Worse than 100 m counts as no usable location.",
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "The new queue entry",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/EventTrack" } },
+            },
+          },
+          "400": {
+            description: "VALIDATION_ERROR or LOCATION_REQUIRED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "401": {
+            description: "UNAUTHENTICATED or TOKEN_EXPIRED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "403": {
+            description: "NOT_INVITED, OUTSIDE_VOTING_AREA or OUTSIDE_VOTING_TIME",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "404": {
+            description: "EVENT_NOT_FOUND or TRACK_NOT_FOUND",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "409": {
+            description:
+              "TRACK_ALREADY_QUEUED: details holds the existing entry; vote for it instead",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "429": {
+            description: "RATE_LIMITED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "502": {
+            description: "PROVIDER_UNAVAILABLE",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+        },
+      },
+    },
+    "/api/v1/events/{eventId}/tracks/{trackId}/vote": {
+      put: {
+        summary: "Vote for a queued track (idempotent)",
+        description:
+          "Repeating it changes nothing. The body is optional and only carries `location` for location_time events.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "eventId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "trackId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        requestBody: {
+          required: false,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  location: {
+                    type: "object",
+                    additionalProperties: false,
+                    required: ["latitude", "longitude"],
+                    properties: {
+                      latitude: { type: "number", minimum: -90, maximum: 90 },
+                      longitude: { type: "number", minimum: -180, maximum: 180 },
+                      accuracyMeters: {
+                        type: "number",
+                        minimum: 0,
+                        description: "Worse than 100 m counts as no usable location.",
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "The entry with its new count",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/EventTrack" } },
+            },
+          },
+          "400": {
+            description: "VALIDATION_ERROR or LOCATION_REQUIRED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "401": {
+            description: "UNAUTHENTICATED or TOKEN_EXPIRED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "403": {
+            description: "NOT_INVITED, OUTSIDE_VOTING_AREA or OUTSIDE_VOTING_TIME",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "404": {
+            description: "EVENT_NOT_FOUND or TRACK_NOT_FOUND",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "409": {
+            description: "TRACK_NOT_VOTABLE: the track is playing or played",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+        },
+      },
+      delete: {
+        summary: "Withdraw your own vote (idempotent)",
+        description:
+          "Needs only that you can still see the event: no license and no location, so someone who left the area or lost an invitation can undo their vote.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "eventId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "trackId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "The entry with its new count",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/EventTrack" } },
+            },
+          },
+          "400": {
+            description: "VALIDATION_ERROR",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "401": {
+            description: "UNAUTHENTICATED or TOKEN_EXPIRED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "404": {
+            description: "EVENT_NOT_FOUND or TRACK_NOT_FOUND",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "409": {
+            description: "TRACK_NOT_VOTABLE: the track is playing or played",
             content: {
               "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
             },
