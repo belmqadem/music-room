@@ -105,6 +105,21 @@ export const openApiDocument = {
           invitedAt: { type: "string", format: "date-time" },
         },
       },
+      Track: {
+        type: "object",
+        required: ["providerTrackId", "title", "artist", "durationSeconds", "coverUrl"],
+        properties: {
+          providerTrackId: { type: "string", example: "3135556" },
+          title: { type: "string" },
+          artist: { type: "string" },
+          durationSeconds: { type: "integer" },
+          coverUrl: {
+            type: "string",
+            nullable: true,
+            description: "https image on Deezer's own host, or null.",
+          },
+        },
+      },
       User: {
         type: "object",
         required: ["id", "displayName", "email", "linkedProviders", "createdAt"],
@@ -1005,6 +1020,71 @@ export const openApiDocument = {
           },
           "429": {
             description: "RATE_LIMITED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+        },
+      },
+    },
+    "/api/v1/tracks/search": {
+      get: {
+        summary: "Search the music catalog (Deezer) for tracks to suggest",
+        description:
+          "One page of best matches, at most 25; nextCursor is always null. Rate limited because each search is a request to Deezer.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "query",
+            in: "query",
+            required: true,
+            schema: { type: "string", minLength: 2, maxLength: 100 },
+          },
+          {
+            name: "limit",
+            in: "query",
+            schema: { type: "integer", minimum: 1, maximum: 25, default: 10 },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Matching tracks",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["items", "nextCursor"],
+                  properties: {
+                    items: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/Track" },
+                    },
+                    nextCursor: { type: "string", nullable: true },
+                  },
+                },
+              },
+            },
+          },
+          "400": {
+            description: "VALIDATION_ERROR",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "401": {
+            description: "UNAUTHENTICATED or TOKEN_EXPIRED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "429": {
+            description: "RATE_LIMITED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "502": {
+            description: "PROVIDER_UNAVAILABLE: the catalog could not be reached",
             content: {
               "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
             },

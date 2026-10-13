@@ -33,6 +33,13 @@ export const DEFAULT_USER_SEARCH_LIMIT: RateLimitSettings = {
   limit: 30,
 };
 
+// Catalog search (suggest screen). Every search is one request to Deezer, which has
+// its own quota, so this protects that quota as much as our server.
+export const DEFAULT_CATALOG_SEARCH_LIMIT: RateLimitSettings = {
+  windowMs: 60 * 1000,
+  limit: 30,
+};
+
 /**
  * Limits requests per IP. With `redis`, counters live in Redis (shared by all
  * server processes, survive restarts); without it they are in memory (tests).
