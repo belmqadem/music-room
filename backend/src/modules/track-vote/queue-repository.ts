@@ -210,3 +210,45 @@ export async function bumpQueueVersion(db: Queryable, eventId: string): Promise<
     eventId,
   ]);
 }
+
+/** The track that is playing now, if any (an event has at most one). */
+export async function findPlayingTrack(
+  db: Queryable,
+  eventId: string,
+  userId: string,
+): Promise<TrackRecord | null> {
+  const { rows } = await db.query<TrackRow>(
+    `SELECT ${TRACK_SELECT} FROM event_tracks t WHERE t.event_id = $2 AND t.status = 'playing'`,
+    [userId, eventId],
+  );
+  return rows[0] ? toTrack(rows[0]) : null;
+}
+
+// started_at / ended_at use clock_timestamp(), NOT now(): now() is the moment the
+// TRANSACTION began, and a request that began waiting for the event's lock early can run
+// after one that began later. It would then stamp an end earlier than the start that
+// the other request just wrote, and the lifecycle constraint would reject it.
+export async function finishTrack(db: Queryable, trackId: string): Promise<void> {
+  await db.query(
+    "UPDATE event_tracks SET status = 'played', ended_at = clock_timestamp() WHERE id = $1",
+    [trackId],
+  );
+}
+
+/**
+ * Starts the best queued track: most votes, then oldest suggestion, then id (the same
+ * order as the queue). Returns false if nothing is queued. The caller holds the event's
+ * lock and has already finished the previous track, so the one-playing-track index holds.
+ */
+export async function startBestQueuedTrack(
+  db: Queryable,
+  eventId: string,
+): Promise<boolean> {
+  const result = await db.query(
+    `UPDATE event_tracks SET status = 'playing', started_at = clock_timestamp()
+     WHERE id = (SELECT id FROM event_tracks WHERE event_id = $1 AND status = 'queued'
+                 ORDER BY vote_count DESC, suggested_at, id LIMIT 1)`,
+    [eventId],
+  );
+  return result.rowCount === 1;
+}

@@ -298,9 +298,14 @@ describe.skipIf(!databaseUrl)("auth flow (register, login, me)", () => {
 
     it("reports linked social accounts in the user", async () => {
       const registration = await registerBob();
+      // A value of its own: other test files run in parallel and also use a Google account id,
+      // and this row is COMMITTED, so a shared literal would make their inserts collide.
       await pool.query(
-        "INSERT INTO oauth_identities (user_id, provider, provider_user_id) VALUES ($1, 'google', 'g-1')",
-        [registration.body.user.id],
+        "INSERT INTO oauth_identities (user_id, provider, provider_user_id) VALUES ($1, 'google', $2)",
+        [
+          registration.body.user.id,
+          `auth-flow-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        ],
       );
 
       const response = await login({ email: email("bob"), password: PASSWORD });

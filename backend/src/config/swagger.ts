@@ -1404,6 +1404,77 @@ export const openApiDocument = {
         },
       },
     },
+    "/api/v1/events/{eventId}/queue/advance": {
+      post: {
+        summary: "Move to the next track (owner only)",
+        description:
+          "The server picks the next track itself: most votes, then oldest suggestion. `currentTrackId` is the track the app believes is playing (null if none). If that is not the truth, nothing moves and the answer is 409 QUEUE_CHANGED, whose details hold the current queue: this makes a double tap harmless. With nothing playing and nothing queued it does nothing (200, version unchanged).",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "eventId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                additionalProperties: false,
+                required: ["currentTrackId"],
+                properties: {
+                  currentTrackId: { type: "string", format: "uuid", nullable: true },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "The new queue",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/EventQueueUpdate" },
+              },
+            },
+          },
+          "400": {
+            description: "VALIDATION_ERROR",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "401": {
+            description: "UNAUTHENTICATED or TOKEN_EXPIRED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "403": {
+            description: "FORBIDDEN: you can see the event but are not its owner",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "404": {
+            description: "EVENT_NOT_FOUND",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "409": {
+            description: "QUEUE_CHANGED: nothing moved; details holds the current queue",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+        },
+      },
+    },
     "/health": {
       get: {
         summary: "Liveness check",
