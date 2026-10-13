@@ -370,7 +370,11 @@ describe.skipIf(!databaseUrl)("track vote schema constraints", () => {
         [trackId, second],
       );
 
-      const { rows } = await client.query("SELECT count(*) FROM event_track_votes");
+      // Only the rows of THIS test: other test files run in parallel and commit votes of their own.
+      const { rows } = await client.query(
+        "SELECT count(*) FROM event_track_votes WHERE track_id = ANY($1)",
+        [[trackId, other["id"]]],
+      );
       expect(Number(rows[0].count)).toBe(3);
     });
 
