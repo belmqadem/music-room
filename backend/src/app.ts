@@ -12,6 +12,12 @@ import {
   unconfiguredVerifier,
   type ProviderVerifiers,
 } from "./modules/auth/provider-verifier.js";
+import {
+  unconfiguredCatalog,
+  type CatalogProvider,
+} from "./modules/track-vote/catalog.js";
+import { createCatalogRoutes } from "./modules/track-vote/catalog-routes.js";
+import { createCatalogService } from "./modules/track-vote/catalog-service.js";
 import { createUserRoutes } from "./modules/users/routes.js";
 import { createUserService } from "./modules/users/service.js";
 import { createEventService } from "./modules/track-vote/service.js";
@@ -25,6 +31,8 @@ export interface AppDependencies {
   logger: Logger;
   /** Rate-limit counters live here; without it they are kept in memory (tests). */
   redis?: Redis;
+  /** The music catalog. Omitted (tests): searches answer 502 PROVIDER_UNAVAILABLE. */
+  catalog?: CatalogProvider;
   /** Browser origins allowed to call the API (web client). Default: none. */
   allowedOrigins?: string[];
   /** Google/Facebook checkers. Omitted (tests): both providers answer 502 PROVIDER_UNAVAILABLE. */
@@ -35,6 +43,7 @@ export interface AppDependencies {
   registerLimit?: RateLimitSettings;
   refreshLimit?: RateLimitSettings;
   userSearchLimit?: RateLimitSettings;
+  catalogSearchLimit?: RateLimitSettings;
 }
 
 // Builds the Express app WITHOUT listening, so tests can drive it in-process
@@ -107,6 +116,19 @@ export function createApp(deps: AppDependencies): Express {
       jwtSecret: deps.jwtSecret,
       ...(deps.redis && { redis: deps.redis }),
       ...(deps.userSearchLimit && { searchLimit: deps.userSearchLimit }),
+    }),
+  );
+
+  app.use(
+    "/api/v1",
+    createCatalogRoutes({
+      service: createCatalogService({
+        catalog: deps.catalog ?? unconfiguredCatalog,
+        logger: deps.logger,
+      }),
+      jwtSecret: deps.jwtSecret,
+      ...(deps.redis && { redis: deps.redis }),
+      ...(deps.catalogSearchLimit && { searchLimit: deps.catalogSearchLimit }),
     }),
   );
 

@@ -4,6 +4,7 @@ import { loadConfig, loadEnvFileIfPresent } from "./config/env.js";
 import { createLogger } from "./config/logger.js";
 import { assertPostgresReachable, createPostgresPool } from "./db/postgres.js";
 import { createRedisClient } from "./db/redis.js";
+import { createDeezerCatalog } from "./modules/track-vote/deezer-catalog.js";
 import { createProviderVerifiers } from "./modules/auth/providers.js";
 import { attachSockets } from "./sockets/index.js";
 
@@ -26,6 +27,7 @@ async function main(): Promise<void> {
     jwtSecret: config.JWT_ACCESS_SECRET,
     allowedOrigins: config.ALLOWED_ORIGINS,
     providerVerifiers: createProviderVerifiers(config, logger),
+    catalog: createDeezerCatalog(),
   });
   const httpServer = createServer(app);
   const io = attachSockets(httpServer, {
