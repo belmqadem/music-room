@@ -4,21 +4,24 @@ import type { Logger } from "pino";
 import { uniqueViolationOf } from "../../db/pg-errors.js";
 import { withTransaction } from "../../db/postgres.js";
 import { HttpError } from "../../http-error.js";
-import { requireAct, requireView, toHttpError } from "../access/guards.js";
+import { requireAct, requireManage, requireView, toHttpError } from "../access/guards.js";
 import { CatalogUnavailableError, type CatalogProvider } from "./catalog.js";
 import { accessOf, findEvent } from "./repository.js";
 import {
   adjustVoteCount,
   bumpQueueVersion,
   deleteVote,
+  finishTrack,
+  findPlayingTrack,
   findQueuedByProviderTrack,
   findTrack,
   insertSuggestedTrack,
   insertVote,
   readQueue,
+  startBestQueuedTrack,
   type TrackRecord,
 } from "./queue-repository.js";
-import type { SuggestTrackInput, VoteBodyInput } from "./schema.js";
+import type { AdvanceQueueInput, SuggestTrackInput, VoteBodyInput } from "./schema.js";
 
 export interface QueueService {
   getQueue(userId: string, eventId: string): Promise<EventQueueUpdate>;
@@ -30,6 +33,11 @@ export interface QueueService {
     input: VoteBodyInput,
   ): Promise<EventTrack>;
   withdrawVote(userId: string, eventId: string, trackId: string): Promise<EventTrack>;
+  advance(
+    userId: string,
+    eventId: string,
+    input: AdvanceQueueInput,
+  ): Promise<EventQueueUpdate>;
 }
 
 // Name of the partial unique index in the event_tracks migration.
@@ -52,6 +60,13 @@ export function toApiTrack(record: TrackRecord): EventTrack {
     status: record.status,
     suggestedAt: record.suggestedAt.toISOString(),
   };
+}
+
+function toQueueUpdate(
+  eventId: string,
+  queue: { version: number; tracks: TrackRecord[] },
+): EventQueueUpdate {
+  return { eventId, version: queue.version, tracks: queue.tracks.map(toApiTrack) };
 }
 
 const trackNotFound = () => new HttpError(404, "TRACK_NOT_FOUND", "Track not found.");
@@ -86,7 +101,7 @@ export function createQueueService(deps: {
 
       const queue = await readQueue(pool, eventId, userId);
       if (!queue) throw toHttpError("event", "NOT_FOUND"); // deleted a moment ago
-      return { eventId, version: queue.version, tracks: queue.tracks.map(toApiTrack) };
+      return toQueueUpdate(eventId, queue);
     },
 
     async suggest(userId, eventId, input) {
@@ -222,6 +237,47 @@ export function createQueueService(deps: {
         const voteCount = await adjustVoteCount(client, trackId, -1);
         await bumpQueueVersion(client, eventId);
         return toApiTrack({ ...track, voteCount, votedByMe: false });
+      });
+    },
+
+    async advance(userId, eventId, input) {
+      // Only the owner moves the queue ("owner controls playback").
+      const early = await findEvent(pool, eventId, userId);
+      if (!early) throw toHttpError("event", "NOT_FOUND");
+      const earlyAccess = accessOf(early, userId);
+      requireManage("event", earlyAccess.resource, earlyAccess.subject);
+
+      return withTransaction(pool, async (client) => {
+        const event = await findEvent(client, eventId, userId, { lock: "no-key" });
+        if (!event) throw toHttpError("event", "NOT_FOUND");
+        const { resource, subject } = accessOf(event, userId);
+        requireManage("event", resource, subject);
+
+        const readCurrentQueue = async () => {
+          const queue = await readQueue(client, eventId, userId);
+          if (!queue) throw toHttpError("event", "NOT_FOUND");
+          return toQueueUpdate(eventId, queue);
+        };
+
+        // The app names the track it thinks is playing. If that is not the truth (a double
+        // tap, or a second device advanced first) NOTHING moves, so no song is skipped.
+        const playing = await findPlayingTrack(client, eventId, userId);
+        if ((playing?.id ?? null) !== input.currentTrackId) {
+          throw new HttpError(
+            409,
+            "QUEUE_CHANGED",
+            "The queue has changed. Here is the current state.",
+            await readCurrentQueue(),
+          );
+        }
+
+        if (playing) await finishTrack(client, playing.id);
+        const started = await startBestQueuedTrack(client, eventId);
+        // Nothing was playing and nothing is queued: there was nothing to do.
+        if (!playing && !started) return readCurrentQueue();
+
+        await bumpQueueVersion(client, eventId);
+        return readCurrentQueue();
       });
     },
   };

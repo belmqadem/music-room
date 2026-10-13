@@ -89,3 +89,8 @@ export const voteBodySchema = z.strictObject({ location: geoPointSchema.optional
 export type VoteBodyInput = z.infer<typeof voteBodySchema>;
 
 export const trackIdSchema = z.uuid();
+
+// Advancing the queue (owner only). The client says which track it BELIEVES is playing
+// (null when none); the server alone decides which track comes next.
+export const advanceQueueSchema = z.strictObject({ currentTrackId: z.uuid().nullable() });
+export type AdvanceQueueInput = z.infer<typeof advanceQueueSchema>;

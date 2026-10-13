@@ -49,5 +49,6 @@ export function createEventRoutes(options: {
   );
   router.put("/events/:eventId/tracks/:trackId/vote", queue.vote);
   router.delete("/events/:eventId/tracks/:trackId/vote", queue.withdrawVote);
+  router.post("/events/:eventId/queue/advance", queue.advance);
   return router;
 }

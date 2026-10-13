@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { HttpError } from "../../http-error.js";
 import {
+  advanceQueueSchema,
   eventIdSchema,
   suggestTrackSchema,
   trackIdSchema,
@@ -54,6 +55,14 @@ export function createQueueController(service: QueueService) {
       noStore(res)
         .status(200)
         .json(await service.withdrawVote(userId, eventId(req), trackId(req)));
+    },
+
+    async advance(req: Request, res: Response): Promise<void> {
+      const userId = requireUserId(req);
+      const body = advanceQueueSchema.parse(req.body);
+      noStore(res)
+        .status(200)
+        .json(await service.advance(userId, eventId(req), body));
     },
   };
 }
