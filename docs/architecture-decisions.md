@@ -235,6 +235,16 @@ Each decision must be defensible in detail at the defense. Copy the template for
 - Decision: `withTransaction` runs the whole transaction again when Postgres reports a deadlock (`40P01`) or a serialization failure (`40001`), up to 3 attempts, after a short random pause. Nothing else is retried. The work inside a transaction must therefore touch only the database, because it may run more than once. Logout now goes through it too. A test creates a real deadlock on demand and checks that both transactions end up committed.
 - Consequences: one fix for every transaction in the app, present and future (votes, advance, playlist edits). A retried refresh re-reads the token, sees it is used, revokes the family and answers 401 as it should. The deadlocks still happen inside Postgres (its counter keeps rising); they are now invisible to the client. A cheaper cure, ordering the locks, would shrink their number but could not guarantee zero, so it is not a substitute. The same load test that measures the queue version (ADR-016) will show if retries become frequent.
 
+### ADR-018: Changing a queue: lock the event first, read fresh, check twice
+
+- Status: accepted
+- Date: 2026-10-13
+- Deciders: belmqadem
+- Context: suggesting, voting, withdrawing (and soon advancing) all change one event's queue, while the owner can change the event's license, visibility and invitations at any moment. The permission must be judged on the data as it is when the change happens, and these requests must not deadlock each other.
+- Options considered: rely on the unique keys and atomic counters alone; take row locks in whatever order the code reaches them; or one fixed recipe for every queue change.
+- Decision: one recipe. (1) A cheap permission check with no lock, so a forbidden user is refused without waiting for the lock and without making us call the catalog. (2) One transaction that first locks the event row (`FOR NO KEY UPDATE`), then reads the facts, checks the permission again, and only then touches track and vote rows, always in the order event, then track, then vote. (3) The lock is its own statement and the facts are read by the NEXT statement: when a statement waits for a row lock, Postgres re-reads only that row, so a single `SELECT ... FOR UPDATE` would keep an "is this user invited?" answer from before the wait (found by a test: a removed invitation still counted). (4) The version is raised only when something really changed. The catalog is called after the cheap check and outside the transaction.
+- Consequences: the counters stay exact even without the lock, because the vote's primary key and the atomic `vote_count + 1` already guarantee it (ADR-008); the lock is what makes the permission decision fresh and the order of locks fixed. Requests for one event run one after the other, a few milliseconds each (see ADR-016; the load test measures it). A request can wait on the lock without a time limit if some transaction is stuck; a `lock_timeout` is an open item. Invitation changes do not take this lock, so an invitation removed while a vote is already running may still let that vote through: it is ordered just before the removal.
+
 ## Still to decide (record each as an ADR)
 
 TODO:
