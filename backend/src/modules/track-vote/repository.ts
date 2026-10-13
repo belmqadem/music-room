@@ -2,6 +2,7 @@ import type pg from "pg";
 import { eventLicenseFromColumns } from "../access/repository.js";
 import type { AccessLicense } from "../access/rules.js";
 import type { ListCursor } from "./cursor.js";
+import type { AccessResource, AccessSubject } from "../access/rules.js";
 
 // All SQL for events lives here. Functions take `db` so the caller decides
 // whether they run on the pool or inside a transaction.
@@ -111,17 +112,33 @@ export async function insertEvent(
 }
 
 /**
- * One event, with whether `userId` is invited. `lock` takes a row lock until
- * the transaction ends, so concurrent updates to one event run one after the other.
+ * One event, with whether `userId` is invited. `lock` takes a row lock until the
+ * transaction ends, so concurrent changes to one event run one after the other:
+ *  - "update": for changing the event itself (name, visibility, license, delete);
+ *  - "no-key": for changing its queue (suggest, vote, advance). It still excludes
+ *    every other change, but does not block unrelated rows that merely point at the event.
+ * Anything that changes an event's queue takes this lock FIRST and its track rows
+ * after, always in that order, so two such requests can never deadlock each other.
  */
 export async function findEvent(
   db: Queryable,
   eventId: string,
   userId: string,
-  options: { lock?: boolean } = {},
+  options: { lock?: "update" | "no-key" } = {},
 ): Promise<EventRecord | null> {
+  if (options.lock) {
+    // The lock is taken by its OWN statement, and the facts are read by the next one.
+    // A single "SELECT ... FOR UPDATE" would be wrong: while it waits for the lock,
+    // Postgres re-reads only the locked row; the "is this user invited?" subquery keeps
+    // the snapshot from BEFORE the wait, so an invitation removed in the meantime
+    // would still count. A new statement starts with a fresh snapshot.
+    await db.query(
+      `SELECT 1 FROM events WHERE id = $1 ${options.lock === "update" ? "FOR UPDATE" : "FOR NO KEY UPDATE"}`,
+      [eventId],
+    );
+  }
   const { rows } = await db.query<EventRow>(
-    `SELECT ${EVENT_SELECT} FROM events e WHERE e.id = $2 ${options.lock ? "FOR UPDATE OF e" : ""}`,
+    `SELECT ${EVENT_SELECT} FROM events e WHERE e.id = $2`,
     [userId, eventId],
   );
   return rows[0] ? toRecord(rows[0]) : null;
@@ -257,4 +274,19 @@ export async function deleteInvitation(
     eventId,
     userId,
   ]);
+}
+
+/** What the access engine needs to know, from an event row and the user who asked. */
+export function accessOf(
+  record: EventRecord,
+  userId: string,
+): { resource: AccessResource; subject: AccessSubject } {
+  return {
+    resource: {
+      ownerId: record.ownerId,
+      visibility: record.visibility,
+      license: record.license,
+    },
+    subject: { userId, isInvited: record.isInvited },
+  };
 }

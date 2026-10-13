@@ -62,3 +62,30 @@ export const inviteSchema = z.strictObject({ userId: z.uuid() });
 export type InviteInput = z.infer<typeof inviteSchema>;
 
 export const userIdSchema = z.uuid();
+
+// ---- Suggesting and voting -------------------------------------------------
+
+// The position the phone reports, sent with a vote or suggestion (used only when the
+// event's license is location_time; the server computes the distance itself).
+const geoPointSchema = z.strictObject({
+  latitude: z.number().min(-90).max(90),
+  longitude: z.number().min(-180).max(180),
+  accuracyMeters: z.number().min(0).max(1_000_000).optional(),
+});
+
+// The client sends only the catalog's track id. Title, artist and cover come from the
+// catalog, never from the client. Ids are validated again by the catalog adapter.
+export const suggestTrackSchema = z.strictObject({
+  providerTrackId: z
+    .string()
+    .min(1)
+    .max(64)
+    .regex(/^[A-Za-z0-9_-]+$/),
+  location: geoPointSchema.optional(),
+});
+export type SuggestTrackInput = z.infer<typeof suggestTrackSchema>;
+
+export const voteBodySchema = z.strictObject({ location: geoPointSchema.optional() });
+export type VoteBodyInput = z.infer<typeof voteBodySchema>;
+
+export const trackIdSchema = z.uuid();

@@ -7,6 +7,7 @@ import { requireManage, requireView, toHttpError } from "../access/guards.js";
 import { permissionsOf, type AccessLicense } from "../access/rules.js";
 import { decodeCursor, encodeCursor } from "./cursor.js";
 import {
+  accessOf,
   deleteEvent,
   deleteInvitation,
   findEvent,
@@ -91,15 +92,6 @@ function toApiEvent(record: EventRecord, userId: string): MusicEvent {
   };
 }
 
-const accessOf = (record: EventRecord, userId: string) => ({
-  resource: {
-    ownerId: record.ownerId,
-    visibility: record.visibility,
-    license: record.license,
-  },
-  subject: { userId, isInvited: record.isInvited },
-});
-
 /** Business rules for events. Every method checks authorization BEFORE doing the work. */
 export function createEventService(deps: { pool: pg.Pool }): EventService {
   const { pool } = deps;
@@ -144,7 +136,7 @@ export function createEventService(deps: { pool: pg.Pool }): EventService {
       return withTransaction(pool, async (client) => {
         // Lock the row: two simultaneous PATCHes (one changing the name, one the
         // visibility) run one after the other, so neither overwrites the other.
-        const current = await findEvent(client, eventId, userId, { lock: true });
+        const current = await findEvent(client, eventId, userId, { lock: "update" });
         if (!current) throw toHttpError("event", "NOT_FOUND");
         const { resource, subject } = accessOf(current, userId);
         requireManage("event", resource, subject);
@@ -165,7 +157,7 @@ export function createEventService(deps: { pool: pg.Pool }): EventService {
 
     async remove(userId, eventId) {
       await withTransaction(pool, async (client) => {
-        const current = await findEvent(client, eventId, userId, { lock: true });
+        const current = await findEvent(client, eventId, userId, { lock: "update" });
         if (!current) throw toHttpError("event", "NOT_FOUND");
         const { resource, subject } = accessOf(current, userId);
         requireManage("event", resource, subject);
