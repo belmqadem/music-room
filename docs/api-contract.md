@@ -241,6 +241,7 @@ All endpoints are bearer-authenticated and check the access rules above on every
   the track the app believes is playing, or `null` if none is. The server marks it `played` and starts the best
   `queued` track (most votes, oldest suggestion on ties); if nothing is queued, nothing plays. The answer is the new
   `EventQueueUpdate`.
+  With nothing playing and nothing queued there is nothing to do: `200`, the queue unchanged and its `version` too.
 - If `currentTrackId` is not what is really playing (for example the owner double-tapped "next", or a second device
   advanced first), the answer is `409 QUEUE_CHANGED` and **nothing moves**, so no song is skipped. `details` holds the
   current `EventQueueUpdate`; the app shows it.
@@ -328,3 +329,4 @@ All endpoints are bearer-authenticated and check the access rules above on every
 | 2026-10-12 | Event invitations: owner-only rules, idempotent removal, error codes, and the user search rate limit; no type or endpoint shape changes                                                                                                              | belmqadem | pending     |
 | 2026-10-12 | Track Vote: catalog search `GET /tracks/search`, `POST /events/{id}/queue/advance` with `QUEUE_CHANGED`, queue states, `EventQueueUpdate.version` (**Proposed**) and `GET .../tracks` now returns `EventQueueUpdate`; new error code `QUEUE_CHANGED` | belmqadem | pending     |
 | 2026-10-13 | Track Vote queue: withdrawing a vote needs only that you can see the event (was: the full vote license); optional `PUT` body; suggest is checked before the catalog is asked                                                                         | belmqadem | pending     |
+| 2026-10-13 | Advance: nothing playing and nothing queued is a `200` no-op; wording only, no type or endpoint shape changes                                                                                                                                        | belmqadem | pending     |
