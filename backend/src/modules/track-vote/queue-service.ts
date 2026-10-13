@@ -4,6 +4,7 @@ import type { Logger } from "pino";
 import { uniqueViolationOf } from "../../db/pg-errors.js";
 import { withTransaction } from "../../db/postgres.js";
 import { HttpError } from "../../http-error.js";
+import { noRealtime, type RealtimeEvents } from "../../realtime-events.js";
 import { requireAct, requireManage, requireView, toHttpError } from "../access/guards.js";
 import { CatalogUnavailableError, type CatalogProvider } from "./catalog.js";
 import { accessOf, findEvent } from "./repository.js";
@@ -72,6 +73,26 @@ function toQueueUpdate(
 const trackNotFound = () => new HttpError(404, "TRACK_NOT_FOUND", "Track not found.");
 
 /**
+ * The queue of an event as `userId` sees it (with THEIR votedByMe). Anyone who can see
+ * the event may read it; a private event they may not see is "not found". Used by the
+ * REST endpoint and by the real-time `subscribe` acknowledgement.
+ */
+export async function readQueueFor(
+  pool: pg.Pool,
+  userId: string,
+  eventId: string,
+): Promise<EventQueueUpdate> {
+  const event = await findEvent(pool, eventId, userId);
+  if (!event) throw toHttpError("event", "NOT_FOUND");
+  const { resource, subject } = accessOf(event, userId);
+  requireView("event", resource, subject);
+
+  const queue = await readQueue(pool, eventId, userId);
+  if (!queue) throw toHttpError("event", "NOT_FOUND"); // deleted a moment ago
+  return toQueueUpdate(eventId, queue);
+}
+
+/**
  * Suggesting, voting and reading the queue of an event (ADR-008, ADR-014, ADR-016).
  *
  * Every request that CHANGES the queue follows the same recipe:
@@ -88,21 +109,15 @@ export function createQueueService(deps: {
   logger: Logger;
   /** Tests only: the server clock the location_time window is judged by. */
   clock?: () => Date;
+  /** Told about every real change to the queue, after it is committed. */
+  events?: RealtimeEvents;
 }): QueueService {
   const { pool, catalog, logger } = deps;
   const now = deps.clock ?? (() => new Date());
+  const events = deps.events ?? noRealtime;
 
   return {
-    async getQueue(userId, eventId) {
-      const event = await findEvent(pool, eventId, userId);
-      if (!event) throw toHttpError("event", "NOT_FOUND");
-      const { resource, subject } = accessOf(event, userId);
-      requireView("event", resource, subject);
-
-      const queue = await readQueue(pool, eventId, userId);
-      if (!queue) throw toHttpError("event", "NOT_FOUND"); // deleted a moment ago
-      return toQueueUpdate(eventId, queue);
-    },
+    getQueue: (userId, eventId) => readQueueFor(pool, userId, eventId),
 
     async suggest(userId, eventId, input) {
       const context = () => ({ now: now(), position: input.location });
@@ -133,7 +148,7 @@ export function createQueueService(deps: {
 
       // 2. The change itself.
       try {
-        return await withTransaction(pool, async (client) => {
+        const created = await withTransaction(pool, async (client) => {
           const event = await findEvent(client, eventId, userId, { lock: "no-key" });
           if (!event) throw toHttpError("event", "NOT_FOUND");
           const { resource, subject } = accessOf(event, userId);
@@ -151,6 +166,8 @@ export function createQueueService(deps: {
           await bumpQueueVersion(client, eventId);
           return toApiTrack(record);
         });
+        events.queueChanged(eventId);
+        return created;
       } catch (error) {
         // The song is already queued (someone suggested it just before us). The
         // database decides, so this also holds if two requests ever do overlap.
@@ -180,7 +197,10 @@ export function createQueueService(deps: {
       const earlyAccess = accessOf(early, userId);
       requireAct("event", earlyAccess.resource, earlyAccess.subject, context());
 
-      return withTransaction(pool, async (client) => {
+      let changed = false;
+      const result = await withTransaction(pool, async (client) => {
+        changed = false; // the work may run again after a deadlock retry
+
         const event = await findEvent(client, eventId, userId, { lock: "no-key" });
         if (!event) throw toHttpError("event", "NOT_FOUND");
         const { resource, subject } = accessOf(event, userId);
@@ -202,8 +222,11 @@ export function createQueueService(deps: {
         }
         const voteCount = await adjustVoteCount(client, trackId, 1);
         await bumpQueueVersion(client, eventId);
+        changed = true;
         return toApiTrack({ ...track, voteCount, votedByMe: true });
       });
+      if (changed) events.queueChanged(eventId);
+      return result;
     },
 
     async withdrawVote(userId, eventId, trackId) {
@@ -215,7 +238,10 @@ export function createQueueService(deps: {
       const earlyAccess = accessOf(early, userId);
       requireView("event", earlyAccess.resource, earlyAccess.subject);
 
-      return withTransaction(pool, async (client) => {
+      let changed = false;
+      const result = await withTransaction(pool, async (client) => {
+        changed = false; // the work may run again after a deadlock retry
+
         const event = await findEvent(client, eventId, userId, { lock: "no-key" });
         if (!event) throw toHttpError("event", "NOT_FOUND");
         const { resource, subject } = accessOf(event, userId);
@@ -236,8 +262,11 @@ export function createQueueService(deps: {
         }
         const voteCount = await adjustVoteCount(client, trackId, -1);
         await bumpQueueVersion(client, eventId);
+        changed = true;
         return toApiTrack({ ...track, voteCount, votedByMe: false });
       });
+      if (changed) events.queueChanged(eventId);
+      return result;
     },
 
     async advance(userId, eventId, input) {
@@ -247,7 +276,10 @@ export function createQueueService(deps: {
       const earlyAccess = accessOf(early, userId);
       requireManage("event", earlyAccess.resource, earlyAccess.subject);
 
-      return withTransaction(pool, async (client) => {
+      let changed = false;
+      const result = await withTransaction(pool, async (client) => {
+        changed = false; // the work may run again after a deadlock retry
+
         const event = await findEvent(client, eventId, userId, { lock: "no-key" });
         if (!event) throw toHttpError("event", "NOT_FOUND");
         const { resource, subject } = accessOf(event, userId);
@@ -277,8 +309,11 @@ export function createQueueService(deps: {
         if (!playing && !started) return readCurrentQueue();
 
         await bumpQueueVersion(client, eventId);
+        changed = true;
         return readCurrentQueue();
       });
+      if (changed) events.queueChanged(eventId);
+      return result;
     },
   };
 }

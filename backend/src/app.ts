@@ -19,6 +19,7 @@ import {
 import { createCatalogRoutes } from "./modules/track-vote/catalog-routes.js";
 import { createCatalogService } from "./modules/track-vote/catalog-service.js";
 import { createQueueService } from "./modules/track-vote/queue-service.js";
+import type { RealtimeEvents } from "./realtime-events.js";
 import { createUserRoutes } from "./modules/users/routes.js";
 import { createUserService } from "./modules/users/service.js";
 import { createEventService } from "./modules/track-vote/service.js";
@@ -48,6 +49,8 @@ export interface AppDependencies {
   suggestLimit?: RateLimitSettings;
   /** Tests only: the server clock the location_time window is judged by. */
   clock?: () => Date;
+  /** Told about changes so live subscribers hear about them. Default: nobody is told. */
+  realtime?: RealtimeEvents;
 }
 
 // Builds the Express app WITHOUT listening, so tests can drive it in-process
@@ -108,12 +111,16 @@ export function createApp(deps: AppDependencies): Express {
   app.use(
     "/api/v1",
     createEventRoutes({
-      service: createEventService({ pool: deps.pool }),
+      service: createEventService({
+        pool: deps.pool,
+        ...(deps.realtime && { events: deps.realtime }),
+      }),
       queue: createQueueService({
         pool: deps.pool,
         catalog: deps.catalog ?? unconfiguredCatalog,
         logger: deps.logger,
         ...(deps.clock && { clock: deps.clock }),
+        ...(deps.realtime && { events: deps.realtime }),
       }),
       jwtSecret: deps.jwtSecret,
       ...(deps.redis && { redis: deps.redis }),
