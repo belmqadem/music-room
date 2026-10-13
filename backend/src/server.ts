@@ -6,7 +6,7 @@ import { assertPostgresReachable, createPostgresPool } from "./db/postgres.js";
 import { createRedisClient } from "./db/redis.js";
 import { createDeezerCatalog } from "./modules/track-vote/deezer-catalog.js";
 import { createProviderVerifiers } from "./modules/auth/providers.js";
-import { attachSockets } from "./sockets/index.js";
+import { createRealtime } from "./sockets/index.js";
 
 // Entry point: the only place that reads the environment, opens connections
 // and listens. Any failure during startup exits the process with code 1.
@@ -20,6 +20,13 @@ async function main(): Promise<void> {
   await assertPostgresReachable(pool);
   await redis.connect();
 
+  // Sockets first (without a server yet): the app's services announce changes to them.
+  const realtime = createRealtime({
+    jwtSecret: config.JWT_ACCESS_SECRET,
+    logger,
+    pool,
+    allowedOrigins: config.ALLOWED_ORIGINS,
+  });
   const app = createApp({
     pool,
     redis,
@@ -28,13 +35,11 @@ async function main(): Promise<void> {
     allowedOrigins: config.ALLOWED_ORIGINS,
     providerVerifiers: createProviderVerifiers(config, logger),
     catalog: createDeezerCatalog(),
+    realtime: realtime.events,
   });
   const httpServer = createServer(app);
-  const io = attachSockets(httpServer, {
-    jwtSecret: config.JWT_ACCESS_SECRET,
-    logger,
-    allowedOrigins: config.ALLOWED_ORIGINS,
-  });
+  const io = realtime.io;
+  io.attach(httpServer);
 
   httpServer.listen(config.PORT, () => {
     logger.info({ port: config.PORT }, "server listening");

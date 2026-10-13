@@ -6,6 +6,7 @@ import type { Server } from "socket.io";
 import { io as connect, type Socket } from "socket.io-client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { signAccessToken } from "../../src/modules/auth/access-token.js";
+import { createPostgresPool } from "../../src/db/postgres.js";
 import { attachSockets } from "../../src/sockets/index.js";
 
 const SECRET = "s".repeat(32);
@@ -27,6 +28,8 @@ beforeEach(async () => {
   io = attachSockets(httpServer, {
     jwtSecret: SECRET,
     logger,
+    // A handshake touches no database, and a pool never connects until it is queried.
+    pool: createPostgresPool("postgres://nobody:nothing@localhost:1/none"),
     allowedOrigins: ["http://localhost:8081"],
   });
   await new Promise<void>((resolve) => httpServer.listen(0, resolve));

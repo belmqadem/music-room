@@ -3,6 +3,7 @@ import type pg from "pg";
 import { withTransaction } from "../../db/postgres.js";
 import { foreignKeyViolationOf, uniqueViolationOf } from "../../db/pg-errors.js";
 import { HttpError } from "../../http-error.js";
+import { noRealtime, type RealtimeEvents } from "../../realtime-events.js";
 import { requireManage, requireView, toHttpError } from "../access/guards.js";
 import { permissionsOf, type AccessLicense } from "../access/rules.js";
 import { decodeCursor, encodeCursor } from "./cursor.js";
@@ -93,8 +94,13 @@ function toApiEvent(record: EventRecord, userId: string): MusicEvent {
 }
 
 /** Business rules for events. Every method checks authorization BEFORE doing the work. */
-export function createEventService(deps: { pool: pg.Pool }): EventService {
+export function createEventService(deps: {
+  pool: pg.Pool;
+  /** Told about changes of who may see an event, after they are committed. */
+  events?: RealtimeEvents;
+}): EventService {
   const { pool } = deps;
+  const events = deps.events ?? noRealtime;
 
   return {
     async create(userId, input) {
@@ -133,7 +139,9 @@ export function createEventService(deps: { pool: pg.Pool }): EventService {
     },
 
     async update(userId, eventId, input) {
-      return withTransaction(pool, async (client) => {
+      let visibilityChanged = false;
+      const result = await withTransaction(pool, async (client) => {
+        visibilityChanged = false; // the work may run again after a deadlock retry
         // Lock the row: two simultaneous PATCHes (one changing the name, one the
         // visibility) run one after the other, so neither overwrites the other.
         const current = await findEvent(client, eventId, userId, { lock: "update" });
@@ -151,8 +159,12 @@ export function createEventService(deps: { pool: pg.Pool }): EventService {
         const updated = await findEvent(client, eventId, userId);
         if (!updated)
           throw new HttpError(500, "INTERNAL_ERROR", "Event vanished during update.");
+        visibilityChanged = updated.visibility !== current.visibility;
         return toApiEvent(updated, userId);
       });
+      // Only a change of visibility changes who may SEE the event (the license does not).
+      if (visibilityChanged) events.accessChanged(eventId);
+      return result;
     },
 
     async remove(userId, eventId) {
@@ -163,6 +175,7 @@ export function createEventService(deps: { pool: pg.Pool }): EventService {
         requireManage("event", resource, subject);
         await deleteEvent(client, eventId);
       });
+      events.eventDeleted(eventId);
     },
 
     async listInvitations(userId, eventId, query) {
@@ -224,6 +237,8 @@ export function createEventService(deps: { pool: pg.Pool }): EventService {
       requireManage("event", resource, subject);
       // Idempotent: removing an invitation that is already gone is not an error.
       await deleteInvitation(pool, eventId, invitedUserId);
+      // A private event stops being visible to that user: close their live channel too.
+      events.accessChanged(eventId);
     },
   };
 }

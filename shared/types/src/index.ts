@@ -26,7 +26,15 @@ export type {
   VoteRequest,
   EventQueueUpdate,
   AdvanceQueueRequest,
+  QueueEntry,
+  QueueSnapshot,
 } from "./vote";
+export type {
+  SubscribeRequest,
+  SubscribeAck,
+  UnsubscribeAck,
+  AccessLost,
+} from "./realtime";
 export type {
   Playlist,
   PlaylistEntry,

@@ -47,3 +47,17 @@ export interface AdvanceQueueRequest {
    */
   currentTrackId: string | null;
 }
+
+/** A queue entry as broadcast to a whole room: the same for everyone, so no `votedByMe`. */
+export type QueueEntry = Omit<EventTrack, "votedByMe">;
+
+/**
+ * Socket.io `event:queue`: ONE payload sent to everybody subscribed to the event, so it
+ * cannot say which tracks you voted for (ADR-019). Keep your own `votedByMe` per track from
+ * the REST answers and the subscribe acknowledgement, and merge it into each snapshot.
+ */
+export interface QueueSnapshot {
+  eventId: string;
+  version: number;
+  tracks: QueueEntry[];
+}
