@@ -302,31 +302,45 @@ All endpoints are bearer-authenticated and check the access rules above on every
 - The token is checked only at the handshake. A connected socket keeps working after the 15-minute token expires,
   so permissions are re-checked on every `subscribe`, and the app should reconnect with a fresh token when it
   refreshes. (Decided; see `docs/security.md`.)
-- Client -> server: `subscribe` with `{ resource: "event" | "playlist", id }` and an acknowledgement. The server
-  runs the same "can this user see it?" check as REST; on failure it answers `NOT_FOUND`. `unsubscribe` leaves.
-  The client's claim is never trusted.
-- Server -> client (after the change is committed):
-  - `event:queue` -> `EventQueueUpdate` `{ eventId, version, tracks }`: the full ordered queue with absolute vote
-    counts. Apply it only if `version` is higher than the one you hold (a late snapshot must not replace a newer one).
-  - `playlist:updated` -> `PlaylistSnapshot` `{ playlistId, version, tracks }`: apply only if `version` is newer.
-- When someone is uninvited or a resource becomes private, the server removes their sockets from its channel
-  (**TODO**: implement and test; otherwise they keep receiving updates).
+- Client -> server, each with an acknowledgement:
+  - `subscribe` with `SubscribeRequest` `{ resource: "event", id }`. The server runs the same "can this user see it?"
+    check as REST, joins you to the event's channel, checks again, and answers `{ ok: true, snapshot }` where
+    `snapshot` is the current `EventQueueUpdate` **with your own `votedByMe`**. Otherwise `{ ok: false, error }`:
+    `NOT_FOUND` (missing, or private and you may not see it: the same answer), `VALIDATION_ERROR` (bad payload) or
+    `RATE_LIMITED` (more than 25 subscriptions on one socket). `resource: "playlist"` is `NOT_FOUND` until the
+    Playlist Editor exists. The client's claim is never trusted; only the token from the handshake identifies you.
+  - `unsubscribe` with the same payload leaves the channel (`{ ok: true }`, also if you were not in it).
+- Server -> client (sent after the change is committed):
+  - `event:queue` -> `QueueSnapshot` `{ eventId, version, tracks }`: the full ordered queue (`playing` first, then
+    `queued` ranked) with absolute vote counts, **the same for everybody, so without `votedByMe`** (ADR-019). Apply it
+    only if `version` is higher than the one you hold; keep your own `votedByMe` per track (from REST answers and the
+    subscribe acknowledgement) and merge it in. A vote made on your other device shows up in your `votedByMe` only after
+    the next REST read or re-subscribe. Several quick changes may be sent as one snapshot: you always get the
+    latest state, not every step.
+  - `event:access-lost` -> `AccessLost` `{ resource: "event", id, reason }`: you were removed from the channel because
+    you can no longer see the event (`no_access`: uninvited, or it became private) or it was deleted (`deleted`). You
+    receive no more updates for it; the REST calls now answer `404` as well.
+  - `playlist:updated` -> `PlaylistSnapshot` `{ playlistId, version, tracks }`: apply only if `version` is newer
+    (not sent yet).
+- Reconnecting: subscriptions do not survive a disconnect. After reconnecting, subscribe again; the acknowledgement
+  brings you up to date.
 - Payloads are full snapshots for simplicity; switch to deltas only if load tests justify it.
 
 ## Changelog
 
-| Date       | Change                                                                                                                                                                                                                                               | Author    | Reviewed by |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ----------- |
-| 2026-10-09 | First draft: conventions, auth, rooms/roles model                                                                                                                                                                                                    | belmqadem | withdrawn   |
-| 2026-10-09 | Rewritten from the subject: events, playlists, licenses, OAuth, concurrency, real-time                                                                                                                                                               | belmqadem | pending     |
-| 2026-10-10 | Added error codes `NOT_FOUND` (404, unknown route) and `INTERNAL_ERROR` (500); additive, no existing code changed                                                                                                                                    | belmqadem | pending     |
-| 2026-10-10 | Clarified refresh rotation (strict reuse detection), logout behaviour and refresh rate limit; no type or endpoint shape changes                                                                                                                      | belmqadem | pending     |
-| 2026-10-11 | Real-time handshake: `connect_error` `data.code` values and the token-checked-once rule; no type or endpoint shape changes                                                                                                                           | belmqadem | pending     |
-| 2026-10-11 | OAuth semantics (login, link, unlink), new error codes `INVALID_PROVIDER_CREDENTIAL` (401) and `PROVIDER_UNAVAILABLE` (502); additive                                                                                                                | belmqadem | pending     |
-| 2026-10-11 | Web client section: CORS allow-list, headers, refresh token in browser storage, multi-tab rule; no type or endpoint shape changes                                                                                                                    | belmqadem | pending     |
-| 2026-10-11 | Added `GET /users?query=` and the `UserSummary` type; `Invitation.user` is now a `UserSummary` instead of a `User` (no email exposed to owners)                                                                                                      | belmqadem | pending     |
-| 2026-10-12 | Clarified `location_time` details (accuracy limit 100 m, window [start, end), time checked first, owner exempt); no type or endpoint shape changes                                                                                                   | belmqadem | pending     |
-| 2026-10-12 | Event invitations: owner-only rules, idempotent removal, error codes, and the user search rate limit; no type or endpoint shape changes                                                                                                              | belmqadem | pending     |
-| 2026-10-12 | Track Vote: catalog search `GET /tracks/search`, `POST /events/{id}/queue/advance` with `QUEUE_CHANGED`, queue states, `EventQueueUpdate.version` (**Proposed**) and `GET .../tracks` now returns `EventQueueUpdate`; new error code `QUEUE_CHANGED` | belmqadem | pending     |
-| 2026-10-13 | Track Vote queue: withdrawing a vote needs only that you can see the event (was: the full vote license); optional `PUT` body; suggest is checked before the catalog is asked                                                                         | belmqadem | pending     |
-| 2026-10-13 | Advance: nothing playing and nothing queued is a `200` no-op; wording only, no type or endpoint shape changes                                                                                                                                        | belmqadem | pending     |
+| Date       | Change                                                                                                                                                                                                                                                                                  | Author    | Reviewed by |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ----------- |
+| 2026-10-09 | First draft: conventions, auth, rooms/roles model                                                                                                                                                                                                                                       | belmqadem | withdrawn   |
+| 2026-10-09 | Rewritten from the subject: events, playlists, licenses, OAuth, concurrency, real-time                                                                                                                                                                                                  | belmqadem | pending     |
+| 2026-10-10 | Added error codes `NOT_FOUND` (404, unknown route) and `INTERNAL_ERROR` (500); additive, no existing code changed                                                                                                                                                                       | belmqadem | pending     |
+| 2026-10-10 | Clarified refresh rotation (strict reuse detection), logout behaviour and refresh rate limit; no type or endpoint shape changes                                                                                                                                                         | belmqadem | pending     |
+| 2026-10-11 | Real-time handshake: `connect_error` `data.code` values and the token-checked-once rule; no type or endpoint shape changes                                                                                                                                                              | belmqadem | pending     |
+| 2026-10-11 | OAuth semantics (login, link, unlink), new error codes `INVALID_PROVIDER_CREDENTIAL` (401) and `PROVIDER_UNAVAILABLE` (502); additive                                                                                                                                                   | belmqadem | pending     |
+| 2026-10-11 | Web client section: CORS allow-list, headers, refresh token in browser storage, multi-tab rule; no type or endpoint shape changes                                                                                                                                                       | belmqadem | pending     |
+| 2026-10-11 | Added `GET /users?query=` and the `UserSummary` type; `Invitation.user` is now a `UserSummary` instead of a `User` (no email exposed to owners)                                                                                                                                         | belmqadem | pending     |
+| 2026-10-12 | Clarified `location_time` details (accuracy limit 100 m, window [start, end), time checked first, owner exempt); no type or endpoint shape changes                                                                                                                                      | belmqadem | pending     |
+| 2026-10-12 | Event invitations: owner-only rules, idempotent removal, error codes, and the user search rate limit; no type or endpoint shape changes                                                                                                                                                 | belmqadem | pending     |
+| 2026-10-12 | Track Vote: catalog search `GET /tracks/search`, `POST /events/{id}/queue/advance` with `QUEUE_CHANGED`, queue states, `EventQueueUpdate.version` (**Proposed**) and `GET .../tracks` now returns `EventQueueUpdate`; new error code `QUEUE_CHANGED`                                    | belmqadem | pending     |
+| 2026-10-13 | Track Vote queue: withdrawing a vote needs only that you can see the event (was: the full vote license); optional `PUT` body; suggest is checked before the catalog is asked                                                                                                            | belmqadem | pending     |
+| 2026-10-13 | Advance: nothing playing and nothing queued is a `200` no-op; wording only, no type or endpoint shape changes                                                                                                                                                                           | belmqadem | pending     |
+| 2026-10-13 | Real-time: `subscribe`/`unsubscribe` acknowledgements, `event:queue` is one shared `QueueSnapshot` without `votedByMe` (**contract change**, ADR-019), new `event:access-lost`; types `QueueEntry`, `QueueSnapshot`, `SubscribeRequest`, `SubscribeAck`, `UnsubscribeAck`, `AccessLost` | belmqadem | pending     |
