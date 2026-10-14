@@ -25,6 +25,7 @@ export type ApiErrorCode =
   | "TRACK_NOT_VOTABLE"
   | "QUEUE_CHANGED"
   | "ANCHOR_NOT_FOUND"
+  | "PLAYLIST_FULL"
   | "RATE_LIMITED"
   | "NOT_FOUND"
   | "PROVIDER_UNAVAILABLE"
