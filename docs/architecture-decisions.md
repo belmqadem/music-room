@@ -266,10 +266,24 @@ Each decision must be defensible in detail at the defense. Copy the template for
 - Why not the others: (b) writes less but needs rebalancing code and keys that are hard to read in a test or at a defense; (c) makes the simple read, the 'move after' lookup and the invariant all harder. Both only pay off for lists far bigger than the limit we set.
 - Consequences: every insert, move or removal costs up to n row updates inside the lock; the load test must confirm this at 500 entries with many editors. Two entries moved at once are applied one after the other and the last wins, exactly as ADR-009 says. Positions are an internal detail and are never sent to clients (they get the ordered list).
 
+### ADR-021: How the load tests are run: a limited container, per-user addresses, a fake catalog, our own harness
+
+- Status: accepted
+- Date: 2026-10-14
+- Deciders: belmqadem
+- Context: the subject asks for load-test results that justify the server specs we choose. A number such as "carries 1,000 users" means nothing unless the server's resources are stated and the test measures our code, not the network or a third party.
+- Options considered: the tool (our own Node harness, Artillery, or k6 in Docker); where the server runs (on the laptop with no limit, or in a container with fixed CPU and memory); how a single load generator avoids our per-IP rate limits (switch the limits off, or make every virtual user look like a different client).
+- Decision:
+  - Tool: **our own Node harness** (built on `socket.io-client`, already a dependency). It can measure what a generic tool cannot: the time from "a vote was answered" to "every listener received the snapshot", and whether the result is still correct (exact vote counts, versions that only grow).
+  - Server: the backend runs **in a container with stated resources** (`BACKEND_CPUS`, `BACKEND_MEMORY`), built from `backend/Dockerfile` as compiled JavaScript, as a non-root user. `make loadtest-up` starts it with Postgres and Redis. The results are therefore "this spec carries this load", and a different spec is one setting away. Design target: **1,000 connected users**.
+  - Rate limits stay ON. A new `TRUST_PROXY` setting (number of reverse proxies in front of the server, default 0) makes the server read the client address from `X-Forwarded-For`, counted from the right; the load generator gives every virtual user its own address, the way real users behind a proxy look. This is also what a real deployment needs, so it closes the old "trust proxy" TODO.
+  - A **fake catalog** (`CATALOG_PROVIDER=fake`) so no load test calls Deezer. The configuration refuses it when `NODE_ENV=production`, and the container runs with `NODE_ENV=test` for that reason (nothing else depends on it).
+  - Users and tokens are created directly in the database and signed with the secret, so the test does not spend its time hashing passwords; password hashing is a deliberate cost (ADR-006) measured separately.
+- Consequences: the load generator runs on the laptop next to the container, so very high numbers measure the laptop as much as the server (the harness reports its own CPU, and the results say so). `TRUST_PROXY` must be the REAL number of proxies: a client can write anything in `X-Forwarded-For`, and a value that is too high lets it pick its own address and dodge the limits (tests pin this down). Docker's own VM (2 CPUs, 3.8 GB here) caps what can be measured; the results state the VM size.
+
 ## Still to decide (record each as an ADR)
 
 TODO:
 
 - Location+time license: radius limits, accuracy rules, recurring vs one-off window
-- Load-test tool
 - Scaffold choices worth defending: no npm workspaces (shared types are type-only via a path alias), node-pg-migrate with a raw `pg` driver (no ORM), Vitest + supertest, pino logger, zod env validation, hand-written OpenAPI, zero-dependency commit-msg hook
