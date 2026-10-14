@@ -66,6 +66,13 @@ const envSchema = z
         message:
           'ALLOWED_ORIGINS must be comma-separated origins like "https://app.example.com" (no "*", path or trailing slash)',
       }),
+    // How many reverse proxies stand in front of this server (0 = none, the default). With N,
+    // the client address for rate limiting is read from X-Forwarded-For, counted from the right
+    // past N proxies. Set it ONLY to the real number: a client can write anything in that header,
+    // and too high a number lets it choose its own address and dodge the per-IP limits.
+    TRUST_PROXY: z.coerce.number().int().min(0).max(10).default(0),
+    // Where track metadata comes from. "fake" is for load tests only and is refused in production.
+    CATALOG_PROVIDER: z.enum(["deezer", "fake"]).default("deezer"),
     FACEBOOK_APP_ID: blankToUndefined,
     // Server-side only: never sent to the app, never committed.
     FACEBOOK_APP_SECRET: blankToUndefined,
@@ -77,7 +84,12 @@ const envSchema = z
       message: "FACEBOOK_APP_ID and FACEBOOK_APP_SECRET must be set together",
       path: ["FACEBOOK_APP_SECRET"],
     },
-  );
+  )
+  .refine((env) => !(env.CATALOG_PROVIDER === "fake" && env.NODE_ENV === "production"), {
+    message:
+      "CATALOG_PROVIDER=fake is for load tests and is refused when NODE_ENV=production",
+    path: ["CATALOG_PROVIDER"],
+  });
 
 export type Config = z.infer<typeof envSchema>;
 

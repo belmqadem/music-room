@@ -8,6 +8,8 @@
   },
   "scripts": {
     "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/backend/src/server.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "migrate": "node-pg-migrate -m src/db/migrations --migration-file-language sql",
