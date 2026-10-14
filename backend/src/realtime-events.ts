@@ -13,10 +13,20 @@ export interface RealtimeEvents {
   accessChanged(eventId: string): void;
   /** The event no longer exists: tell and remove all its subscribers. */
   eventDeleted(eventId: string): void;
+
+  /** The tracks of this playlist changed: send the new snapshot to its subscribers. */
+  playlistChanged(playlistId: string): void;
+  /** Who may see this playlist may have changed: remove subscribers who no longer may. */
+  playlistAccessChanged(playlistId: string): void;
+  /** The playlist no longer exists: tell and remove all its subscribers. */
+  playlistDeleted(playlistId: string): void;
 }
 
 export const noRealtime: RealtimeEvents = {
   queueChanged() {},
   accessChanged() {},
   eventDeleted() {},
+  playlistChanged() {},
+  playlistAccessChanged() {},
+  playlistDeleted() {},
 };

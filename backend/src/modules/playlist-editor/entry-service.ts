@@ -3,6 +3,7 @@ import type pg from "pg";
 import type { Logger } from "pino";
 import { withTransaction } from "../../db/postgres.js";
 import { HttpError } from "../../http-error.js";
+import { noRealtime, type RealtimeEvents } from "../../realtime-events.js";
 import { requireAct, requireView, toHttpError } from "../access/guards.js";
 import { CatalogUnavailableError, type CatalogProvider } from "../track-vote/catalog.js";
 import {
@@ -50,7 +51,10 @@ const toApiEntry = (record: EntryRecord): PlaylistEntry => ({
 });
 
 // Positions are an internal detail: clients get the list in order and never a number.
-function toSnapshot(playlistId: string, snapshot: SnapshotRecord): PlaylistSnapshot {
+export function toPlaylistSnapshot(
+  playlistId: string,
+  snapshot: SnapshotRecord,
+): PlaylistSnapshot {
   return {
     playlistId,
     version: snapshot.version,
@@ -69,6 +73,26 @@ const playlistFull = () =>
   new HttpError(409, "PLAYLIST_FULL", `A playlist holds at most ${MAX_ENTRIES} tracks.`);
 
 /**
+ * The tracks of a playlist as `userId` sees them. Anyone who can see the playlist may read
+ * it; a private playlist they may not see is "not found". Used by the REST endpoint and by
+ * the real-time `subscribe` acknowledgement.
+ */
+export async function readPlaylistSnapshotFor(
+  pool: pg.Pool,
+  userId: string,
+  playlistId: string,
+): Promise<PlaylistSnapshot> {
+  const playlist = await findPlaylist(pool, playlistId, userId);
+  if (!playlist) throw toHttpError("playlist", "NOT_FOUND");
+  const { resource, subject } = accessOf(playlist, userId);
+  requireView("playlist", resource, subject);
+
+  const snapshot = await readSnapshot(pool, playlistId);
+  if (!snapshot) throw toHttpError("playlist", "NOT_FOUND"); // deleted a moment ago
+  return toPlaylistSnapshot(playlistId, snapshot);
+}
+
+/**
  * Editing the tracks of a playlist (ADR-009, ADR-018, ADR-020). Every edit follows the same
  * recipe as the event queue:
  *  1. a cheap permission check with no lock, so a forbidden user is turned away before they
@@ -81,8 +105,11 @@ export function createEntryService(deps: {
   pool: pg.Pool;
   catalog: CatalogProvider;
   logger: Logger;
+  /** Told about every real change to the list, after it is committed. */
+  events?: RealtimeEvents;
 }): EntryService {
   const { pool, catalog, logger } = deps;
+  const events = deps.events ?? noRealtime;
   const context = () => ({ now: new Date() }); // playlists have no time or place rule
 
   /** The playlist as `userId` is allowed to edit it, or the HTTP error that says why not. */
@@ -101,17 +128,12 @@ export function createEntryService(deps: {
   async function currentSnapshot(db: Pick<pg.Pool, "query">, playlistId: string) {
     const snapshot = await readSnapshot(db, playlistId);
     if (!snapshot) throw toHttpError("playlist", "NOT_FOUND"); // deleted a moment ago
-    return toSnapshot(playlistId, snapshot);
+    return toPlaylistSnapshot(playlistId, snapshot);
   }
 
   return {
-    async getSnapshot(userId, playlistId) {
-      const playlist = await findPlaylist(pool, playlistId, userId);
-      if (!playlist) throw toHttpError("playlist", "NOT_FOUND");
-      const { resource, subject } = accessOf(playlist, userId);
-      requireView("playlist", resource, subject);
-      return currentSnapshot(pool, playlistId);
-    },
+    getSnapshot: (userId, playlistId) =>
+      readPlaylistSnapshotFor(pool, userId, playlistId),
 
     async add(userId, playlistId, input) {
       // 1. Early checks, no lock: not allowed, or no room left, means no catalog call at all.
@@ -136,7 +158,7 @@ export function createEntryService(deps: {
       if (!track) throw new HttpError(404, "TRACK_NOT_FOUND", "Track not found.");
 
       // 2. The change itself.
-      return withTransaction(pool, async (client) => {
+      const result = await withTransaction(pool, async (client) => {
         await requireEditable(client, userId, playlistId, "no-key");
 
         const size = await countEntries(client, playlistId);
@@ -164,12 +186,16 @@ export function createEntryService(deps: {
         await bumpPlaylistVersion(client, playlistId);
         return currentSnapshot(client, playlistId);
       });
+      events.playlistChanged(playlistId);
+      return result;
     },
 
     async move(userId, playlistId, entryId, input) {
       await requireEditable(pool, userId, playlistId);
 
-      return withTransaction(pool, async (client) => {
+      let changed = false;
+      const result = await withTransaction(pool, async (client) => {
+        changed = false; // the work may run again after a deadlock retry
         await requireEditable(client, userId, playlistId, "no-key");
 
         const from = await findEntryPosition(client, playlistId, entryId);
@@ -189,14 +215,19 @@ export function createEntryService(deps: {
 
         await moveEntry(client, playlistId, entryId, from, to);
         await bumpPlaylistVersion(client, playlistId);
+        changed = true;
         return currentSnapshot(client, playlistId);
       });
+      if (changed) events.playlistChanged(playlistId);
+      return result;
     },
 
     async remove(userId, playlistId, entryId) {
       await requireEditable(pool, userId, playlistId);
 
-      return withTransaction(pool, async (client) => {
+      let changed = false;
+      const result = await withTransaction(pool, async (client) => {
+        changed = false; // the work may run again after a deadlock retry
         await requireEditable(client, userId, playlistId, "no-key");
 
         const position = await findEntryPosition(client, playlistId, entryId);
@@ -205,8 +236,11 @@ export function createEntryService(deps: {
 
         await removeEntryAt(client, playlistId, entryId, position);
         await bumpPlaylistVersion(client, playlistId);
+        changed = true;
         return currentSnapshot(client, playlistId);
       });
+      if (changed) events.playlistChanged(playlistId);
+      return result;
     },
   };
 }

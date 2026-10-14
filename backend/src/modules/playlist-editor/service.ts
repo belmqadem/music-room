@@ -3,6 +3,7 @@ import type pg from "pg";
 import { foreignKeyViolationOf, uniqueViolationOf } from "../../db/pg-errors.js";
 import { withTransaction } from "../../db/postgres.js";
 import { HttpError } from "../../http-error.js";
+import { noRealtime, type RealtimeEvents } from "../../realtime-events.js";
 import { decodeCursor, encodeCursor } from "../../list-cursor.js";
 import { requireManage, requireView, toHttpError } from "../access/guards.js";
 import { permissionsOf, type AccessLicense } from "../access/rules.js";
@@ -85,8 +86,13 @@ const toApiInvitation = (record: InvitationRecord): Invitation => ({
 });
 
 /** Business rules for playlists. Every method checks authorization BEFORE doing the work. */
-export function createPlaylistService(deps: { pool: pg.Pool }): PlaylistService {
+export function createPlaylistService(deps: {
+  pool: pg.Pool;
+  /** Told about changes of who may see a playlist, after they are committed. */
+  events?: RealtimeEvents;
+}): PlaylistService {
   const { pool } = deps;
+  const events = deps.events ?? noRealtime;
 
   return {
     async create(userId, input) {
@@ -125,7 +131,9 @@ export function createPlaylistService(deps: { pool: pg.Pool }): PlaylistService 
     },
 
     async update(userId, playlistId, input) {
-      return withTransaction(pool, async (client) => {
+      let visibilityChanged = false;
+      const result = await withTransaction(pool, async (client) => {
+        visibilityChanged = false; // the work may run again after a deadlock retry
         // Lock the row: two simultaneous PATCHes (one changing the name, one the
         // visibility) run one after the other, so neither overwrites the other.
         const current = await findPlaylist(client, playlistId, userId, {
@@ -143,8 +151,12 @@ export function createPlaylistService(deps: { pool: pg.Pool }): PlaylistService 
         const updated = await findPlaylist(client, playlistId, userId);
         if (!updated)
           throw new HttpError(500, "INTERNAL_ERROR", "Playlist vanished during update.");
+        visibilityChanged = updated.visibility !== current.visibility;
         return toApiPlaylist(updated, userId);
       });
+      // Only a change of visibility changes who may SEE the playlist (the license does not).
+      if (visibilityChanged) events.playlistAccessChanged(playlistId);
+      return result;
     },
 
     async remove(userId, playlistId) {
@@ -157,6 +169,7 @@ export function createPlaylistService(deps: { pool: pg.Pool }): PlaylistService 
         requireManage("playlist", resource, subject);
         await deletePlaylist(client, playlistId);
       });
+      events.playlistDeleted(playlistId);
     },
 
     async listInvitations(userId, playlistId, query) {
@@ -219,6 +232,8 @@ export function createPlaylistService(deps: { pool: pg.Pool }): PlaylistService 
       requireManage("playlist", resource, subject);
       // Idempotent: removing an invitation that is already gone is not an error.
       await deleteInvitation(pool, playlistId, invitedUserId);
+      // A private playlist stops being visible to that user: close their live channel too.
+      events.playlistAccessChanged(playlistId);
     },
   };
 }

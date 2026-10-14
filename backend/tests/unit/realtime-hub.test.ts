@@ -3,17 +3,23 @@ import pino from "pino";
 import { Writable } from "node:stream";
 import type { Server } from "socket.io";
 import { describe, expect, it } from "vitest";
-import { createRealtimeHub, eventRoom } from "../../src/sockets/realtime.js";
+import {
+  createRealtimeHub,
+  eventRoom,
+  playlistRoom,
+} from "../../src/sockets/realtime.js";
 
 // The hub against a FAKE Socket.io and a FAKE database, so the moment each read finishes
 // is under the test's control. (tests/integration/realtime.test.ts uses real sockets.)
 const EVENT = "11111111-1111-4111-8111-111111111111";
+const PLAYLIST = "33333333-3333-4333-8333-333333333333";
 
 function setup(options: { subscribers?: number } = {}) {
   const emitted: { room: string; name: string; payload: unknown }[] = [];
   const rooms = new Map<string, Set<string>>();
   if ((options.subscribers ?? 1) > 0) {
     rooms.set(eventRoom(EVENT), new Set(["socket-1"]));
+    rooms.set(playlistRoom(PLAYLIST), new Set(["socket-3"]));
   }
   const live = {
     adapter: { rooms },
@@ -35,7 +41,12 @@ function setup(options: { subscribers?: number } = {}) {
       new Promise((resolve, reject) => {
         reads.push({
           release: (version) =>
-            resolve({ rows: [{ queue_version: String(version), id: null }] }),
+            resolve({
+              // events read `queue_version`, playlists read `version`
+              rows: [
+                { queue_version: String(version), version: String(version), id: null },
+              ],
+            }),
           noSuchEvent: () => resolve({ rows: [] }),
           fail: reject,
         });
@@ -151,7 +162,7 @@ describe("queue broadcasts", () => {
     reads[0]!.fail(new Error("database down"));
     await settle();
 
-    expect(logLines.join("")).toContain("queue broadcast failed");
+    expect(logLines.join("")).toContain("event broadcast failed");
   });
 
   it("can broadcast again after a failure (the failed attempt does not wedge the event)", async () => {
@@ -177,5 +188,93 @@ describe("queue broadcasts", () => {
     await settle();
 
     expect(JSON.stringify(emitted)).not.toContain("votedByMe");
+  });
+});
+
+describe("playlist broadcasts", () => {
+  it("sends the snapshot as playlist:updated to the playlist's own room", async () => {
+    const { hub, emitted, reads, settle } = setup();
+
+    hub.playlistChanged(PLAYLIST);
+    await settle();
+    reads[0]!.release(7);
+    await settle();
+
+    expect(emitted).toEqual([
+      {
+        room: playlistRoom(PLAYLIST),
+        name: "playlist:updated",
+        payload: { playlistId: PLAYLIST, version: 7, tracks: [] },
+      },
+    ]);
+  });
+
+  it("coalesces a burst of edits into one trailing read, like the event queue", async () => {
+    const { hub, emitted, reads, settle } = setup();
+
+    hub.playlistChanged(PLAYLIST);
+    await settle();
+    for (let i = 0; i < 29; i++) hub.playlistChanged(PLAYLIST);
+    await settle();
+    expect(reads).toHaveLength(1);
+    reads[0]!.release(10);
+    await settle();
+    expect(reads).toHaveLength(2);
+    reads[1]!.release(40);
+    await settle();
+
+    expect(emitted.map((e) => (e.payload as { version: number }).version)).toEqual([
+      10, 40,
+    ]);
+  });
+
+  it("does not send the same version twice", async () => {
+    const { hub, emitted, reads, settle } = setup();
+    hub.playlistChanged(PLAYLIST);
+    await settle();
+    hub.playlistChanged(PLAYLIST);
+    await settle();
+    reads[0]!.release(12);
+    await settle();
+    reads[1]!.release(12);
+    await settle();
+
+    expect(emitted).toHaveLength(1);
+  });
+
+  it("works independently of an event with the same moment: each has its own room and its own flight", async () => {
+    const { hub, reads, emitted, settle } = setup();
+
+    hub.queueChanged(EVENT);
+    hub.playlistChanged(PLAYLIST);
+    await settle();
+    expect(reads).toHaveLength(2);
+    reads[0]!.release(1);
+    reads[1]!.release(2);
+    await settle();
+
+    expect(emitted.map((e) => e.room).sort()).toEqual(
+      [eventRoom(EVENT), playlistRoom(PLAYLIST)].sort(),
+    );
+  });
+
+  it("does not read the database when nobody follows the playlist", async () => {
+    const { hub, reads, settle } = setup({ subscribers: 0 });
+
+    hub.playlistChanged(PLAYLIST);
+    await settle();
+
+    expect(reads).toHaveLength(0);
+  });
+
+  it("never throws and logs a failure", async () => {
+    const { hub, reads, logLines, settle } = setup();
+
+    expect(() => hub.playlistChanged(PLAYLIST)).not.toThrow();
+    await settle();
+    reads[0]!.fail(new Error("database down"));
+    await settle();
+
+    expect(logLines.join("")).toContain("playlist broadcast failed");
   });
 });
