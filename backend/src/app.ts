@@ -22,6 +22,7 @@ import { createQueueService } from "./modules/track-vote/queue-service.js";
 import type { RealtimeEvents } from "./realtime-events.js";
 import { createUserRoutes } from "./modules/users/routes.js";
 import { createUserService } from "./modules/users/service.js";
+import { createEntryService } from "./modules/playlist-editor/entry-service.js";
 import { createPlaylistRoutes } from "./modules/playlist-editor/routes.js";
 import { createPlaylistService } from "./modules/playlist-editor/service.js";
 import { createEventService } from "./modules/track-vote/service.js";
@@ -49,6 +50,7 @@ export interface AppDependencies {
   userSearchLimit?: RateLimitSettings;
   catalogSearchLimit?: RateLimitSettings;
   suggestLimit?: RateLimitSettings;
+  playlistAddLimit?: RateLimitSettings;
   /** Tests only: the server clock the location_time window is judged by. */
   clock?: () => Date;
   /** Told about changes so live subscribers hear about them. Default: nobody is told. */
@@ -157,7 +159,14 @@ export function createApp(deps: AppDependencies): Express {
     "/api/v1",
     createPlaylistRoutes({
       service: createPlaylistService({ pool: deps.pool }),
+      entries: createEntryService({
+        pool: deps.pool,
+        catalog: deps.catalog ?? unconfiguredCatalog,
+        logger: deps.logger,
+      }),
       jwtSecret: deps.jwtSecret,
+      ...(deps.redis && { redis: deps.redis }),
+      ...(deps.playlistAddLimit && { addLimit: deps.playlistAddLimit }),
     }),
   );
 

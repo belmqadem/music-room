@@ -47,6 +47,13 @@ export const DEFAULT_SUGGEST_LIMIT: RateLimitSettings = {
   limit: 30,
 };
 
+// Adding a track to a playlist (one catalog request each). Moves and removals are cheap
+// and need no catalog, so they are not limited here.
+export const DEFAULT_PLAYLIST_ADD_LIMIT: RateLimitSettings = {
+  windowMs: 60 * 1000,
+  limit: 30,
+};
+
 /**
  * Limits requests per IP. With `redis`, counters live in Redis (shared by all
  * server processes, survive restarts); without it they are in memory (tests).

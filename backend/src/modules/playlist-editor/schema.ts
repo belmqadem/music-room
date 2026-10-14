@@ -42,3 +42,24 @@ export const inviteSchema = z.strictObject({ userId: z.uuid() });
 export type InviteInput = z.infer<typeof inviteSchema>;
 
 export const userIdSchema = z.uuid();
+
+// ---- Editing the tracks ------------------------------------------------------
+
+export const entryIdSchema = z.uuid();
+
+// The client sends only the catalog's track id. Title, artist and cover come from the
+// catalog, never from the client. `afterEntryId` omitted means "at the end".
+export const addTrackSchema = z.strictObject({
+  providerTrackId: z
+    .string()
+    .min(1)
+    .max(64)
+    .regex(/^[A-Za-z0-9_-]+$/),
+  afterEntryId: entryIdSchema.optional(),
+});
+export type AddTrackInput = z.infer<typeof addTrackSchema>;
+
+// `afterEntryId: null` means "to the start"; the key itself is required, so a body that
+// forgets it is an error, not a surprise move.
+export const moveTrackSchema = z.strictObject({ afterEntryId: entryIdSchema.nullable() });
+export type MoveTrackInput = z.infer<typeof moveTrackSchema>;
