@@ -53,6 +53,12 @@ export interface AppDependencies {
   playlistAddLimit?: RateLimitSettings;
   /** Tests only: the server clock the location_time window is judged by. */
   clock?: () => Date;
+  /**
+   * How many reverse proxies stand in front of the server (0 = none). With N, the client
+   * address used by the rate limiters comes from X-Forwarded-For, counted from the right
+   * past N proxies. See TRUST_PROXY in config/env.ts.
+   */
+  trustProxy?: number;
   /** Told about changes so live subscribers hear about them. Default: nobody is told. */
   realtime?: RealtimeEvents;
 }
@@ -63,6 +69,7 @@ export interface AppDependencies {
 export function createApp(deps: AppDependencies): Express {
   const app = express();
   app.disable("x-powered-by"); // do not advertise the framework
+  if (deps.trustProxy) app.set("trust proxy", deps.trustProxy);
   app.use(createRequestLogger(deps.logger));
   app.use(
     cors({

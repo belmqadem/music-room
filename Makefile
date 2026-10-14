@@ -2,7 +2,7 @@
 # Dependencies are installed from lockfiles (npm ci); nothing third-party is committed.
 
 .DEFAULT_GOAL := help
-.PHONY: help install dev dev-mobile db-up db-down migrate lint typecheck test test-integration format format-check clean
+.PHONY: help install dev dev-mobile db-up db-down loadtest-up loadtest-down migrate lint typecheck test test-integration format format-check clean
 
 # Loads the root .env into the environment of a command (used by `migrate`).
 LOAD_ENV = set -a; . ./.env; set +a;
@@ -28,6 +28,12 @@ db-up: ## Start Postgres + Redis and wait until healthy
 
 db-down: ## Stop Postgres + Redis (data volumes are kept)
 	docker compose down
+
+loadtest-up: ## Build and start the backend CONTAINER with fixed resources (BACKEND_CPUS / BACKEND_MEMORY in .env) plus Postgres + Redis, for load tests
+	docker compose --profile loadtest up -d --build --wait
+
+loadtest-down: ## Stop the load-test backend (Postgres + Redis keep running; use db-down to stop them)
+	docker compose --profile loadtest stop backend
 
 migrate: ## Apply pending database migrations (needs db-up)
 	$(LOAD_ENV) npm run migrate --prefix backend -- up

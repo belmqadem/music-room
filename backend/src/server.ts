@@ -5,6 +5,7 @@ import { createLogger } from "./config/logger.js";
 import { assertPostgresReachable, createPostgresPool } from "./db/postgres.js";
 import { createRedisClient } from "./db/redis.js";
 import { createDeezerCatalog } from "./modules/track-vote/deezer-catalog.js";
+import { createFakeCatalog } from "./modules/track-vote/fake-catalog.js";
 import { createProviderVerifiers } from "./modules/auth/providers.js";
 import { createRealtime } from "./sockets/index.js";
 
@@ -34,7 +35,9 @@ async function main(): Promise<void> {
     jwtSecret: config.JWT_ACCESS_SECRET,
     allowedOrigins: config.ALLOWED_ORIGINS,
     providerVerifiers: createProviderVerifiers(config, logger),
-    catalog: createDeezerCatalog(),
+    catalog:
+      config.CATALOG_PROVIDER === "fake" ? createFakeCatalog() : createDeezerCatalog(),
+    trustProxy: config.TRUST_PROXY,
     realtime: realtime.events,
   });
   const httpServer = createServer(app);

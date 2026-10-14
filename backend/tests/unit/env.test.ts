@@ -127,4 +127,52 @@ describe("loadConfig", () => {
       );
     });
   });
+
+  describe("TRUST_PROXY and CATALOG_PROVIDER", () => {
+    it("default to trusting no proxy and the real catalog", () => {
+      const config = loadConfig(validEnv);
+
+      expect(config.TRUST_PROXY).toBe(0);
+      expect(config.CATALOG_PROVIDER).toBe("deezer");
+    });
+
+    it("read the number of proxies from a string", () => {
+      expect(loadConfig({ ...validEnv, TRUST_PROXY: "2" }).TRUST_PROXY).toBe(2);
+    });
+
+    it.each(["-1", "11", "1.5", "yes", ""])(
+      "reject the TRUST_PROXY value %j",
+      (value) => {
+        // An empty string coerces to 0, which is a valid (and safe) value.
+        if (value === "") {
+          expect(loadConfig({ ...validEnv, TRUST_PROXY: value }).TRUST_PROXY).toBe(0);
+          return;
+        }
+        expect(() => loadConfig({ ...validEnv, TRUST_PROXY: value })).toThrowError(
+          /TRUST_PROXY/,
+        );
+      },
+    );
+
+    it("accept the fake catalog outside production", () => {
+      for (const NODE_ENV of ["development", "test"]) {
+        expect(
+          loadConfig({ ...validEnv, NODE_ENV, CATALOG_PROVIDER: "fake" })
+            .CATALOG_PROVIDER,
+        ).toBe("fake");
+      }
+    });
+
+    it("refuse the fake catalog in production", () => {
+      expect(() =>
+        loadConfig({ ...validEnv, NODE_ENV: "production", CATALOG_PROVIDER: "fake" }),
+      ).toThrowError(/CATALOG_PROVIDER=fake is for load tests/);
+    });
+
+    it("reject an unknown catalog name", () => {
+      expect(() => loadConfig({ ...validEnv, CATALOG_PROVIDER: "spotify" })).toThrowError(
+        /CATALOG_PROVIDER/,
+      );
+    });
+  });
 });

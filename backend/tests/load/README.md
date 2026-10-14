@@ -1,14 +1,12 @@
 # Load tests
 
-This folder will hold the **ramp-up scripts and their results**, required by the
-subject to justify the server specs we choose.
+Ramp-up scripts and their results, required by the subject to justify the server specs.
+The decisions behind them are in ADR-021 (`docs/architecture-decisions.md`); the written
+analysis goes in `docs/ramp-up-results.md`.
 
-- Scripts: simulate growing numbers of simultaneous users (voting, editing
-  playlists, socket connections) and record latency / error rate.
-- Results: raw outputs go here; the written analysis goes in
-  `docs/ramp-up-results.md`.
-- These are NOT run by `make test` (they need a running server and are slow).
-
-TODO: choose a tool (e.g. k6 or autocannon) and record the decision in
-`docs/architecture-decisions.md`. Third-party tools must be installed by the
-Makefile, never committed.
+- The server under test runs **in a container with stated resources**:
+  `make loadtest-up` (spec from `BACKEND_CPUS` / `BACKEND_MEMORY` in `.env`),
+  `make loadtest-down` to stop it. It uses a fake catalog, so Deezer is never called.
+- The harness (ours, TypeScript, run with `tsx`) simulates growing numbers of users voting,
+  editing playlists and holding live sockets, and records latency, errors and correctness.
+- These are NOT run by `make test`: they need the container and are slow.
