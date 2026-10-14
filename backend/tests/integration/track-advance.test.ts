@@ -237,6 +237,7 @@ describe.skipIf(!databaseUrl)("advancing the queue", () => {
         expect(outcome).not.toBe("still waiting");
         expect((outcome as request.Response).status).toBe(403);
       } finally {
+        await holder.query("ROLLBACK").catch(() => undefined); // never hand a connection back inside an open transaction
         holder.release();
       }
     });
@@ -501,6 +502,7 @@ describe.skipIf(!databaseUrl)("advancing the queue", () => {
           played.started_at.getTime(),
         );
       } finally {
+        await holder.query("ROLLBACK").catch(() => undefined); // never hand a connection back inside an open transaction
         holder.release();
       }
     });
