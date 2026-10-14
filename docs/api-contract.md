@@ -30,16 +30,16 @@ Every non-2xx response has this body (type `ApiError`):
 - `details` is optional extra data (e.g. failed fields, or the existing track on `TRACK_ALREADY_QUEUED`).
 - Messages never include internals (stack traces, SQL, whether an email exists).
 
-| HTTP | Meaning                                                      | Codes                                                                                                                                                              |
-| ---- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 400  | Malformed or invalid request                                 | `VALIDATION_ERROR`, `LOCATION_REQUIRED`                                                                                                                            |
-| 401  | Not authenticated                                            | `UNAUTHENTICATED`, `TOKEN_EXPIRED`, `INVALID_CREDENTIALS`, `INVALID_REFRESH_TOKEN`, `INVALID_PROVIDER_CREDENTIAL`                                                  |
-| 403  | You can see it, but may not do this                          | `FORBIDDEN`, `NOT_INVITED`, `OUTSIDE_VOTING_AREA`, `OUTSIDE_VOTING_TIME`                                                                                           |
-| 404  | Does not exist **or you may not know it exists**             | `EVENT_NOT_FOUND`, `PLAYLIST_NOT_FOUND`, `TRACK_NOT_FOUND`, `NOT_FOUND` (unknown route)                                                                            |
-| 409  | Conflicts with current state                                 | `EMAIL_TAKEN`, `PROVIDER_ACCOUNT_LINKED`, `LAST_LOGIN_METHOD`, `ALREADY_INVITED`, `TRACK_ALREADY_QUEUED`, `TRACK_NOT_VOTABLE`, `QUEUE_CHANGED`, `ANCHOR_NOT_FOUND` |
-| 429  | Rate limited                                                 | `RATE_LIMITED`                                                                                                                                                     |
-| 502  | The social provider or music catalog could not be reached    | `PROVIDER_UNAVAILABLE`                                                                                                                                             |
-| 500  | Unexpected server error (details are logged, never returned) | `INTERNAL_ERROR`                                                                                                                                                   |
+| HTTP | Meaning                                                      | Codes                                                                                                                                                                               |
+| ---- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 400  | Malformed or invalid request                                 | `VALIDATION_ERROR`, `LOCATION_REQUIRED`                                                                                                                                             |
+| 401  | Not authenticated                                            | `UNAUTHENTICATED`, `TOKEN_EXPIRED`, `INVALID_CREDENTIALS`, `INVALID_REFRESH_TOKEN`, `INVALID_PROVIDER_CREDENTIAL`                                                                   |
+| 403  | You can see it, but may not do this                          | `FORBIDDEN`, `NOT_INVITED`, `OUTSIDE_VOTING_AREA`, `OUTSIDE_VOTING_TIME`                                                                                                            |
+| 404  | Does not exist **or you may not know it exists**             | `EVENT_NOT_FOUND`, `PLAYLIST_NOT_FOUND`, `TRACK_NOT_FOUND`, `NOT_FOUND` (unknown route)                                                                                             |
+| 409  | Conflicts with current state                                 | `EMAIL_TAKEN`, `PROVIDER_ACCOUNT_LINKED`, `LAST_LOGIN_METHOD`, `ALREADY_INVITED`, `TRACK_ALREADY_QUEUED`, `TRACK_NOT_VOTABLE`, `QUEUE_CHANGED`, `ANCHOR_NOT_FOUND`, `PLAYLIST_FULL` |
+| 429  | Rate limited                                                 | `RATE_LIMITED`                                                                                                                                                                      |
+| 502  | The social provider or music catalog could not be reached    | `PROVIDER_UNAVAILABLE`                                                                                                                                                              |
+| 500  | Unexpected server error (details are logged, never returned) | `INTERNAL_ERROR`                                                                                                                                                                    |
 
 ### Required client headers
 
@@ -283,6 +283,31 @@ All endpoints are bearer-authenticated and check the access rules above on every
   appear twice.
 - Editing a playlist you can see but may not edit: `403 NOT_INVITED` (license `invited_only`).
 
+### Playlist rules (Decided: ADR-020)
+
+Playlists follow the same access rules as events (public by default, private means only the owner and invited users;
+see "Access rules"), the same listing (newest first, `limit` and an opaque `cursor`), the same `PATCH` (at least one
+field, a new `editLicense` replaces the old one, takes effect immediately), the same invitation endpoints and the same
+`403`/`404` behaviour as events (see "Events"). Only the differences are listed here.
+
+- **Who may edit**: license `everyone` (default) means anyone who can see the playlist; `invited_only` means the owner
+  and invited users, others get `403 NOT_INVITED`. There is no location rule for playlists. Anyone allowed to edit may
+  add, move and remove **any** entry, not only their own. Reading (`GET`) needs only that you can see the playlist.
+- **Order**: `GET .../tracks` returns the entries in playlist order and the current `version`, as a `PlaylistSnapshot`.
+  Every edit answers with the new `PlaylistSnapshot` (`201` for add, `200` otherwise). Clients do not compute positions.
+- **Adding** (`POST .../tracks`): send the catalog id, as for events; the backend resolves title, artist and cover
+  (`404 TRACK_NOT_FOUND`, `502 PROVIDER_UNAVAILABLE`) and refuses before asking the catalog if you may not edit.
+  `afterEntryId` omitted appends; an `afterEntryId` that is not an entry of this playlist is `409 ANCHOR_NOT_FOUND`.
+  Adding is rate limited like suggesting (**Proposed**: 30 per minute per IP).
+- **Size limit**: a playlist holds at most **500** entries; adding the 501st is `409 PLAYLIST_FULL`.
+- **Moving** (`POST .../tracks/{entryId}/move`): `afterEntryId` is the entry it must follow, or `null` for the start. An
+  `entryId` that is not in this playlist is `404 TRACK_NOT_FOUND`; an `afterEntryId` that is not is `409
+ANCHOR_NOT_FOUND`. Moving an entry after itself, or to the place it already has, changes nothing: `200`, the
+  snapshot, and the `version` stays the same.
+- **Removing** (`DELETE .../tracks/{entryId}`): `200` with the snapshot. An entry that is already gone is not an
+  error and changes nothing (the `version` stays).
+- `version` rises by 1 for every edit that really changes the list, and only then.
+
 ### Concurrency (Decided: ADR-009)
 
 - Edits are expressed by intent ("after this entry"), never by index, and applied one at a time per playlist on the
@@ -303,12 +328,12 @@ All endpoints are bearer-authenticated and check the access rules above on every
   so permissions are re-checked on every `subscribe`, and the app should reconnect with a fresh token when it
   refreshes. (Decided; see `docs/security.md`.)
 - Client -> server, each with an acknowledgement:
-  - `subscribe` with `SubscribeRequest` `{ resource: "event", id }`. The server runs the same "can this user see it?"
-    check as REST, joins you to the event's channel, checks again, and answers `{ ok: true, snapshot }` where
-    `snapshot` is the current `EventQueueUpdate` **with your own `votedByMe`**. Otherwise `{ ok: false, error }`:
+  - `subscribe` with `SubscribeRequest` `{ resource: "event" | "playlist", id }`. The server runs the same "can this
+    user see it?" check as REST, joins you to its channel, checks again, and answers `{ ok: true, snapshot }` where
+    `snapshot` is the current `EventQueueUpdate` **with your own `votedByMe`** (event) or the current
+    `PlaylistSnapshot` (playlist). Otherwise `{ ok: false, error }`:
     `NOT_FOUND` (missing, or private and you may not see it: the same answer), `VALIDATION_ERROR` (bad payload) or
-    `RATE_LIMITED` (more than 25 subscriptions on one socket). `resource: "playlist"` is `NOT_FOUND` until the
-    Playlist Editor exists. The client's claim is never trusted; only the token from the handshake identifies you.
+    `RATE_LIMITED` (more than 25 subscriptions on one socket, events and playlists together). The client's claim is never trusted; only the token from the handshake identifies you.
   - `unsubscribe` with the same payload leaves the channel (`{ ok: true }`, also if you were not in it).
 - Server -> client (sent after the change is committed):
   - `event:queue` -> `QueueSnapshot` `{ eventId, version, tracks }`: the full ordered queue (`playing` first, then
@@ -317,11 +342,13 @@ All endpoints are bearer-authenticated and check the access rules above on every
     subscribe acknowledgement) and merge it in. A vote made on your other device shows up in your `votedByMe` only after
     the next REST read or re-subscribe. Several quick changes may be sent as one snapshot: you always get the
     latest state, not every step.
-  - `event:access-lost` -> `AccessLost` `{ resource: "event", id, reason }`: you were removed from the channel because
-    you can no longer see the event (`no_access`: uninvited, or it became private) or it was deleted (`deleted`). You
+  - `event:access-lost` -> `AccessLost` `{ resource: "event" | "playlist", id, reason }`: you were removed from the
+    channel because you can no longer see it (`no_access`: uninvited, or it became private) or it was deleted
+    (`deleted`). (The event name is `event:access-lost` for both kinds; read `resource`.) You
     receive no more updates for it; the REST calls now answer `404` as well.
-  - `playlist:updated` -> `PlaylistSnapshot` `{ playlistId, version, tracks }`: apply only if `version` is newer
-    (not sent yet).
+  - `playlist:updated` -> `PlaylistSnapshot` `{ playlistId, version, tracks }`: the full ordered list, the same for
+    everybody. Apply it only if `version` is higher than the one you hold. Several quick edits may arrive as one
+    snapshot. Sent after every committed edit, never for a request that changed nothing.
 - Reconnecting: subscriptions do not survive a disconnect. After reconnecting, subscribe again; the acknowledgement
   brings you up to date.
 - Payloads are full snapshots for simplicity; switch to deltas only if load tests justify it.
@@ -344,3 +371,4 @@ All endpoints are bearer-authenticated and check the access rules above on every
 | 2026-10-13 | Track Vote queue: withdrawing a vote needs only that you can see the event (was: the full vote license); optional `PUT` body; suggest is checked before the catalog is asked                                                                                                            | belmqadem | pending     |
 | 2026-10-13 | Advance: nothing playing and nothing queued is a `200` no-op; wording only, no type or endpoint shape changes                                                                                                                                                                           | belmqadem | pending     |
 | 2026-10-13 | Real-time: `subscribe`/`unsubscribe` acknowledgements, `event:queue` is one shared `QueueSnapshot` without `votedByMe` (**contract change**, ADR-019), new `event:access-lost`; types `QueueEntry`, `QueueSnapshot`, `SubscribeRequest`, `SubscribeAck`, `UnsubscribeAck`, `AccessLost` | belmqadem | pending     |
+| 2026-10-14 | Playlist Editor: error code `PLAYLIST_FULL` (409, limit 500 entries), rules for no-op moves and removals, `subscribe` and `access-lost` now cover playlists, `playlist:updated` described; types `SubscribeAck` (snapshot union) and `AccessLost.resource` extended                     | belmqadem | pending     |
