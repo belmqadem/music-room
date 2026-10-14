@@ -158,11 +158,15 @@ export function createApp(deps: AppDependencies): Express {
   app.use(
     "/api/v1",
     createPlaylistRoutes({
-      service: createPlaylistService({ pool: deps.pool }),
+      service: createPlaylistService({
+        pool: deps.pool,
+        ...(deps.realtime && { events: deps.realtime }),
+      }),
       entries: createEntryService({
         pool: deps.pool,
         catalog: deps.catalog ?? unconfiguredCatalog,
         logger: deps.logger,
+        ...(deps.realtime && { events: deps.realtime }),
       }),
       jwtSecret: deps.jwtSecret,
       ...(deps.redis && { redis: deps.redis }),

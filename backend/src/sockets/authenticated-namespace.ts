@@ -6,10 +6,18 @@ import { z } from "zod";
 import { HttpError } from "../http-error.js";
 import { parseClientInfo, type ClientInfo } from "../middleware/client-info.js";
 import { AccessTokenError, verifyAccessToken } from "../modules/auth/access-token.js";
-import { accessOf, findEvent } from "../modules/track-vote/repository.js";
+import {
+  accessOf as eventAccessOf,
+  findEvent,
+} from "../modules/track-vote/repository.js";
+import {
+  accessOf as playlistAccessOf,
+  findPlaylist,
+} from "../modules/playlist-editor/repository.js";
+import { readPlaylistSnapshotFor } from "../modules/playlist-editor/entry-service.js";
 import { readQueueFor } from "../modules/track-vote/queue-service.js";
 import { requireView, toHttpError } from "../modules/access/guards.js";
-import { eventRoom } from "./realtime.js";
+import { ROOM_PREFIXES, roomOf, type Kind } from "./realtime.js";
 
 declare module "socket.io" {
   interface SocketData {
@@ -49,7 +57,41 @@ function failureFrom(error: unknown, logger: Logger): Failure {
 }
 
 const subscriptionCount = (socket: Socket): number =>
-  [...socket.rooms].filter((room) => room.startsWith("event:")).length;
+  [...socket.rooms].filter((room) =>
+    ROOM_PREFIXES.some((prefix) => room.startsWith(prefix)),
+  ).length;
+
+/**
+ * What differs between following an event and following a playlist: how to ask "may this
+ * user see it?" and where the current state comes from. Everything else is shared.
+ */
+const FOLLOWABLE: Record<
+  Kind,
+  {
+    mayView(pool: pg.Pool, userId: string, id: string): Promise<void>;
+    snapshot(pool: pg.Pool, userId: string, id: string): Promise<SubscribeSnapshot>;
+  }
+> = {
+  event: {
+    async mayView(pool, userId, id) {
+      const event = await findEvent(pool, id, userId);
+      if (!event) throw toHttpError("event", "NOT_FOUND");
+      const access = eventAccessOf(event, userId);
+      requireView("event", access.resource, access.subject);
+    },
+    snapshot: (pool, userId, id) => readQueueFor(pool, userId, id),
+  },
+  playlist: {
+    async mayView(pool, userId, id) {
+      const playlist = await findPlaylist(pool, id, userId);
+      if (!playlist) throw toHttpError("playlist", "NOT_FOUND");
+      const access = playlistAccessOf(playlist, userId);
+      requireView("playlist", access.resource, access.subject);
+    },
+    snapshot: (pool, userId, id) => readPlaylistSnapshotFor(pool, userId, id),
+  },
+};
+type SubscribeSnapshot = Extract<SubscribeAck, { ok: true }>["snapshot"];
 
 /**
  * The "/live" namespace carries real-time room events (votes, playlist edits).
@@ -97,8 +139,8 @@ export function registerAuthenticatedNamespace(
     const { userId, client } = socket.data;
     deps.logger.info({ socketId: socket.id, userId, client }, "socket connected");
 
-    // subscribe: follow the live queue of an event. The identity is the one from the
-    // handshake; whatever the message claims about who is asking is never used.
+    // subscribe: follow the live state of an event or a playlist. The identity is the one
+    // from the handshake; whatever the message claims about who is asking is never used.
     socket.on("subscribe", async (payload: unknown, callback: unknown) => {
       const ack: (reply: SubscribeAck) => void =
         typeof callback === "function"
@@ -107,12 +149,10 @@ export function registerAuthenticatedNamespace(
       const parsed = subscriptionSchema.safeParse(payload);
       if (!parsed.success)
         return ack(failure("VALIDATION_ERROR", "Invalid subscription."));
-      if (parsed.data.resource !== "event") {
-        return ack(failure("NOT_FOUND", "Playlists cannot be followed live yet."));
-      }
 
-      const eventId = parsed.data.id;
-      const room = eventRoom(eventId);
+      const kind = parsed.data.resource;
+      const id = parsed.data.id;
+      const room = roomOf(kind, id);
       if (
         !socket.rooms.has(room) &&
         subscriptionCount(socket) >= MAX_SUBSCRIPTIONS_PER_SOCKET
@@ -120,27 +160,24 @@ export function registerAuthenticatedNamespace(
         return ack(failure("RATE_LIMITED", "Too many subscriptions on this connection."));
       }
       try {
-        // 1. May this user see the event? Asked BEFORE joining, so a stranger is never in the room.
-        const event = await findEvent(deps.pool, eventId, userId);
-        if (!event) throw toHttpError("event", "NOT_FOUND");
-        const access = accessOf(event, userId);
-        requireView("event", access.resource, access.subject);
+        // 1. May this user see it? Asked BEFORE joining, so a stranger is never in the room.
+        await FOLLOWABLE[kind].mayView(deps.pool, userId, id);
 
         await socket.join(room);
 
         // 2. Asked again AFTER joining, and this is the one that counts: access removed
         // between the first look and the join would otherwise leave them in the room, and it
-        // also reads the queue, so nothing that changes from now on can be missed.
-        const snapshot = await readQueueFor(deps.pool, userId, eventId);
+        // also reads the current state, so nothing that changes from now on can be missed.
+        const snapshot = await FOLLOWABLE[kind].snapshot(deps.pool, userId, id);
         deps.logger.info(
-          { socketId: socket.id, userId, eventId, client },
+          { socketId: socket.id, userId, kind, id, client },
           "socket subscribed",
         );
         ack({ ok: true, snapshot });
       } catch (error) {
         await socket.leave(room);
         deps.logger.info(
-          { socketId: socket.id, userId, eventId, client },
+          { socketId: socket.id, userId, kind, id, client },
           "socket subscription refused",
         );
         ack(failureFrom(error, deps.logger));
@@ -155,7 +192,7 @@ export function registerAuthenticatedNamespace(
       const parsed = subscriptionSchema.safeParse(payload);
       if (!parsed.success)
         return ack(failure("VALIDATION_ERROR", "Invalid subscription."));
-      if (parsed.data.resource === "event") await socket.leave(eventRoom(parsed.data.id));
+      await socket.leave(roomOf(parsed.data.resource, parsed.data.id));
       ack({ ok: true });
     });
     socket.on("disconnect", (reason) => {

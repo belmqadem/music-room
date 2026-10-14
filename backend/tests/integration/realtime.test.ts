@@ -12,6 +12,7 @@ import { signAccessToken } from "../../src/modules/auth/access-token.js";
 import type { CatalogProvider } from "../../src/modules/track-vote/catalog.js";
 import { createRealtime } from "../../src/sockets/index.js";
 import { MAX_SUBSCRIPTIONS_PER_SOCKET } from "../../src/sockets/authenticated-namespace.js";
+import { Inbox } from "../helpers/socket-inbox.js";
 
 // Real-time updates with a REAL Socket.io server and client over a real Postgres
 // (set TEST_DATABASE_URL; see `make test-integration`). The catalog is a fake.
@@ -39,43 +40,6 @@ const song = (id: string): Track => ({
   durationSeconds: 200,
   coverUrl: null,
 });
-
-/** Collects what a socket receives, so a test can wait for a message or prove there was none. */
-class Inbox<T> {
-  readonly messages: T[] = [];
-  private waiters: (() => void)[] = [];
-
-  constructor(socket: Socket, event: string) {
-    socket.on(event, (message: T) => {
-      this.messages.push(message);
-      this.waiters.splice(0).forEach((wake) => wake());
-    });
-  }
-
-  /** Resolves once `count` messages have arrived in total. */
-  async waitFor(count: number, timeoutMs = 3000): Promise<T[]> {
-    const deadline = Date.now() + timeoutMs;
-    while (this.messages.length < count) {
-      const remaining = deadline - Date.now();
-      if (remaining <= 0)
-        throw new Error(`expected ${count} messages, got ${this.messages.length}`);
-      await new Promise<void>((resolve) => {
-        const timer = setTimeout(resolve, remaining);
-        this.waiters.push(() => {
-          clearTimeout(timer);
-          resolve();
-        });
-      });
-    }
-    return this.messages;
-  }
-
-  /** Waits a moment and proves that nothing (more) arrived. */
-  async expectNoMoreThan(count: number, quietMs = 400): Promise<void> {
-    await new Promise((resolve) => setTimeout(resolve, quietMs));
-    expect(this.messages.length).toBeLessThanOrEqual(count);
-  }
-}
 
 describe.skipIf(!databaseUrl)("real-time queue updates", () => {
   let pool: pg.Pool;
@@ -262,17 +226,17 @@ describe.skipIf(!databaseUrl)("real-time queue updates", () => {
       expect(ack).toMatchObject({ ok: false, error: { code: "VALIDATION_ERROR" } });
     });
 
-    it("answers NOT_FOUND for a playlist, which cannot be followed live yet", async () => {
+    it("does not mix the two kinds up: an event id is not a playlist, and the other way round", async () => {
       const owner = await makeUser("owner");
-      const eventId = await createEvent(owner); // a REAL, visible id: only the resource kind is wrong
+      const eventId = await createEvent(owner); // a REAL, visible event
       const socket = await connectAs(owner);
 
-      const ack = await socket.emitWithAck("subscribe", {
+      const asPlaylist = await socket.emitWithAck("subscribe", {
         resource: "playlist",
         id: eventId,
       });
 
-      expect(ack).toMatchObject({ ok: false, error: { code: "NOT_FOUND" } });
+      expect(asPlaylist).toMatchObject({ ok: false, error: { code: "NOT_FOUND" } });
       expect(await subscribersOf(eventId)).toBe(0);
     });
 
