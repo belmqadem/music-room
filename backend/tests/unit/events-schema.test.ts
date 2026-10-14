@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decodeCursor, encodeCursor } from "../../src/modules/track-vote/cursor.js";
+import { decodeCursor, encodeCursor } from "../../src/list-cursor.js";
 import {
   createEventSchema,
   eventIdSchema,

@@ -1,7 +1,8 @@
 import { z } from "zod";
-import { HttpError } from "../../http-error.js";
+import { HttpError } from "./http-error.js";
 
-// List cursors (keyset pagination): "the last row I saw was (created_at, id)".
+// List cursors (keyset pagination): "the last row I saw was (created_at, id)". Shared by every
+// list that is ordered by a timestamp and an id (events, playlists, invitations).
 // created_at is kept as the TEXT Postgres printed, not as a JavaScript Date:
 // Postgres stores microseconds and a Date only has milliseconds, so a Date
 // would round, and rows could be skipped or repeated at a page boundary.

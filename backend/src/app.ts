@@ -22,6 +22,8 @@ import { createQueueService } from "./modules/track-vote/queue-service.js";
 import type { RealtimeEvents } from "./realtime-events.js";
 import { createUserRoutes } from "./modules/users/routes.js";
 import { createUserService } from "./modules/users/service.js";
+import { createPlaylistRoutes } from "./modules/playlist-editor/routes.js";
+import { createPlaylistService } from "./modules/playlist-editor/service.js";
 import { createEventService } from "./modules/track-vote/service.js";
 import { createEventRoutes } from "./modules/track-vote/routes.js";
 import { createAuthRoutes } from "./modules/auth/routes.js";
@@ -148,6 +150,14 @@ export function createApp(deps: AppDependencies): Express {
       jwtSecret: deps.jwtSecret,
       ...(deps.redis && { redis: deps.redis }),
       ...(deps.catalogSearchLimit && { searchLimit: deps.catalogSearchLimit }),
+    }),
+  );
+
+  app.use(
+    "/api/v1",
+    createPlaylistRoutes({
+      service: createPlaylistService({ pool: deps.pool }),
+      jwtSecret: deps.jwtSecret,
     }),
   );
 

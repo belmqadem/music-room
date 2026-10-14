@@ -6,7 +6,7 @@ import { HttpError } from "../../http-error.js";
 import { noRealtime, type RealtimeEvents } from "../../realtime-events.js";
 import { requireManage, requireView, toHttpError } from "../access/guards.js";
 import { permissionsOf, type AccessLicense } from "../access/rules.js";
-import { decodeCursor, encodeCursor } from "./cursor.js";
+import { decodeCursor, encodeCursor } from "../../list-cursor.js";
 import {
   accessOf,
   deleteEvent,
