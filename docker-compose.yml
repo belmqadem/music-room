@@ -33,6 +33,38 @@ services:
       timeout: 3s
       retries: 10
 
+  # The backend itself, ONLY for load tests: `make loadtest-up`. It runs with fixed, stated
+  # resources so that "this server spec carries N users" is a measurement and not a guess.
+  # Change them with BACKEND_CPUS / BACKEND_MEMORY (see .env.example).
+  backend:
+    profiles: ["loadtest"]
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    cpus: ${BACKEND_CPUS:-1}
+    mem_limit: ${BACKEND_MEMORY:-512m}
+    environment:
+      # "test", not "production": the fake catalog is refused in production. Nothing else
+      # depends on NODE_ENV except pretty-printed logs in development.
+      NODE_ENV: test
+      LOG_LEVEL: warn
+      PORT: "3000"
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?set JWT_ACCESS_SECRET in .env}
+      # The load generator gives every virtual user its own X-Forwarded-For address, the way
+      # real users behind a proxy look, so the per-IP rate limits stay ON during the test.
+      TRUST_PROXY: "1"
+      # No calls to Deezer during a load test: we measure OUR server.
+      CATALOG_PROVIDER: fake
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:-3000}:3000"
+
 volumes:
   postgres_data:
   redis_data:
