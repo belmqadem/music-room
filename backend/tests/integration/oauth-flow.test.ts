@@ -403,6 +403,7 @@ describe.skipIf(!databaseUrl)("social login, link and unlink", () => {
           expect(response.body.user.id).toBe(rows[0].id);
           expect(await countUsers()).toBe(1);
         } finally {
+          await winner.query("ROLLBACK").catch(() => undefined); // never hand a connection back inside an open transaction
           winner.release();
         }
       },

@@ -155,6 +155,49 @@ export const openApiDocument = {
           tracks: { type: "array", items: { $ref: "#/components/schemas/EventTrack" } },
         },
       },
+      EditLicense: {
+        oneOf: [
+          {
+            type: "object",
+            required: ["type"],
+            properties: { type: { enum: ["everyone"] } },
+          },
+          {
+            type: "object",
+            required: ["type"],
+            properties: { type: { enum: ["invited_only"] } },
+          },
+        ],
+      },
+      Playlist: {
+        type: "object",
+        required: [
+          "id",
+          "name",
+          "ownerId",
+          "visibility",
+          "editLicense",
+          "createdAt",
+          "myPermissions",
+        ],
+        properties: {
+          id: { type: "string", format: "uuid" },
+          name: { type: "string" },
+          ownerId: { type: "string", format: "uuid" },
+          visibility: { type: "string", enum: ["public", "private"] },
+          editLicense: { $ref: "#/components/schemas/EditLicense" },
+          createdAt: { type: "string", format: "date-time" },
+          myPermissions: {
+            type: "object",
+            required: ["canView", "canAct", "canManage"],
+            properties: {
+              canView: { type: "boolean" },
+              canAct: { type: "boolean" },
+              canManage: { type: "boolean" },
+            },
+          },
+        },
+      },
       User: {
         type: "object",
         required: ["id", "displayName", "email", "linkedProviders", "createdAt"],
@@ -1468,6 +1511,424 @@ export const openApiDocument = {
           },
           "409": {
             description: "QUEUE_CHANGED: nothing moved; details holds the current queue",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+        },
+      },
+    },
+    "/api/v1/playlists": {
+      post: {
+        summary: "Create a playlist (the caller becomes its owner)",
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                additionalProperties: false,
+                required: ["name"],
+                properties: {
+                  name: { type: "string", minLength: 1, maxLength: 100 },
+                  visibility: { type: "string", enum: ["public", "private"] },
+                  editLicense: { $ref: "#/components/schemas/EditLicense" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "The new playlist",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/Playlist" } },
+            },
+          },
+          "400": {
+            description: "VALIDATION_ERROR",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "401": {
+            description: "UNAUTHENTICATED or TOKEN_EXPIRED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+        },
+      },
+      get: {
+        summary: "Playlists you can see, newest first",
+        description:
+          "Public playlists, your own, and private ones you are invited to. Paginated with limit (1 to 100, default 20) and an opaque cursor.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "limit",
+            in: "query",
+            schema: { type: "integer", minimum: 1, maximum: 100, default: 20 },
+          },
+          {
+            name: "cursor",
+            in: "query",
+            schema: { type: "string" },
+            description: "nextCursor of the previous page.",
+          },
+        ],
+        responses: {
+          "200": {
+            description: "A page",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["items", "nextCursor"],
+                  properties: {
+                    items: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/Playlist" },
+                    },
+                    nextCursor: { type: "string", nullable: true },
+                  },
+                },
+              },
+            },
+          },
+          "400": {
+            description: "VALIDATION_ERROR (bad limit or cursor)",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "401": {
+            description: "UNAUTHENTICATED or TOKEN_EXPIRED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+        },
+      },
+    },
+    "/api/v1/playlists/{playlistId}": {
+      get: {
+        summary: "One playlist",
+        description:
+          "A private playlist you may not see is 404, the same as one that does not exist.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "playlistId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "The playlist, with myPermissions (a UI hint)",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/Playlist" } },
+            },
+          },
+          "400": {
+            description: "VALIDATION_ERROR",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "401": {
+            description: "UNAUTHENTICATED or TOKEN_EXPIRED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "404": {
+            description: "PLAYLIST_NOT_FOUND",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+        },
+      },
+      patch: {
+        summary: "Change name, visibility or edit license (owner only)",
+        description:
+          "At least one field. A new editLicense replaces the old one. Takes effect immediately.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "playlistId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                additionalProperties: false,
+                minProperties: 1,
+                properties: {
+                  name: { type: "string", minLength: 1, maxLength: 100 },
+                  visibility: { type: "string", enum: ["public", "private"] },
+                  editLicense: { $ref: "#/components/schemas/EditLicense" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "The updated playlist",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/Playlist" } },
+            },
+          },
+          "400": {
+            description: "VALIDATION_ERROR",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "401": {
+            description: "UNAUTHENTICATED or TOKEN_EXPIRED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "403": {
+            description: "FORBIDDEN: you can see the playlist but are not its owner",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "404": {
+            description: "PLAYLIST_NOT_FOUND",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+        },
+      },
+      delete: {
+        summary: "Delete the playlist, its entries and its invitations (owner only)",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "playlistId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        responses: {
+          "204": { description: "Deleted" },
+          "400": {
+            description: "VALIDATION_ERROR",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "401": {
+            description: "UNAUTHENTICATED or TOKEN_EXPIRED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "403": {
+            description: "FORBIDDEN",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "404": {
+            description: "PLAYLIST_NOT_FOUND",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+        },
+      },
+    },
+    "/api/v1/playlists/{playlistId}/invitations": {
+      get: {
+        summary: "Who is invited (owner only), newest invitation first",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "playlistId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "limit",
+            in: "query",
+            schema: { type: "integer", minimum: 1, maximum: 100, default: 20 },
+          },
+          {
+            name: "cursor",
+            in: "query",
+            schema: { type: "string" },
+            description: "nextCursor of the previous page.",
+          },
+        ],
+        responses: {
+          "200": {
+            description: "A page",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["items", "nextCursor"],
+                  properties: {
+                    items: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/Invitation" },
+                    },
+                    nextCursor: { type: "string", nullable: true },
+                  },
+                },
+              },
+            },
+          },
+          "400": {
+            description: "VALIDATION_ERROR",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "401": {
+            description: "UNAUTHENTICATED or TOKEN_EXPIRED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "403": {
+            description: "FORBIDDEN",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "404": {
+            description: "PLAYLIST_NOT_FOUND",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+        },
+      },
+      post: {
+        summary: "Invite a user (owner only); takes effect immediately",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "playlistId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["userId"],
+                additionalProperties: false,
+                properties: { userId: { type: "string", format: "uuid" } },
+              },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Invited",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/Invitation" } },
+            },
+          },
+          "400": {
+            description: "VALIDATION_ERROR (also: inviting the owner)",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "401": {
+            description: "UNAUTHENTICATED or TOKEN_EXPIRED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "403": {
+            description: "FORBIDDEN",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "404": {
+            description: "PLAYLIST_NOT_FOUND, or NOT_FOUND for an unknown user",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "409": {
+            description: "ALREADY_INVITED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+        },
+      },
+    },
+    "/api/v1/playlists/{playlistId}/invitations/{userId}": {
+      delete: {
+        summary: "Remove an invitation (owner only); idempotent",
+        description: "204 also when that user was not invited. Takes effect immediately.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "playlistId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "userId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        responses: {
+          "204": { description: "Not invited any more" },
+          "400": {
+            description: "VALIDATION_ERROR",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "401": {
+            description: "UNAUTHENTICATED or TOKEN_EXPIRED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "403": {
+            description: "FORBIDDEN",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "404": {
+            description: "PLAYLIST_NOT_FOUND",
             content: {
               "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
             },

@@ -69,6 +69,8 @@ describe.skipIf(!databaseUrl)("withTransaction against a real deadlock", () => {
 
     expect(results).toEqual(["one", "two"]);
     expect(attempts.one + attempts.two).toBe(3); // exactly one of them ran twice
-    expect((await deadlockCount()) - before).toBe(1); // and Postgres really did detect a deadlock
+    // Postgres really did detect a deadlock. (At least one: the counter is global, and another test
+    // file running at the same moment may have caused one of its own.)
+    expect((await deadlockCount()) - before).toBeGreaterThanOrEqual(1);
   });
 });

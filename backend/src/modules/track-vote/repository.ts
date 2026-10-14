@@ -1,7 +1,7 @@
 import type pg from "pg";
 import { eventLicenseFromColumns } from "../access/repository.js";
 import type { AccessLicense } from "../access/rules.js";
-import type { ListCursor } from "./cursor.js";
+import type { ListCursor } from "../../list-cursor.js";
 import type { AccessResource, AccessSubject } from "../access/rules.js";
 
 // All SQL for events lives here. Functions take `db` so the caller decides

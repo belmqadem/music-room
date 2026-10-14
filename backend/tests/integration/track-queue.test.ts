@@ -1110,6 +1110,7 @@ describe.skipIf(!databaseUrl)("event queue: suggest, vote, withdraw", () => {
         await owner.query("COMMIT");
         return await pending;
       } finally {
+        await owner.query("ROLLBACK").catch(() => undefined); // never hand a connection back inside an open transaction
         owner.release();
       }
     }
@@ -1165,6 +1166,7 @@ describe.skipIf(!databaseUrl)("event queue: suggest, vote, withdraw", () => {
 
         expect(response.status).toBe(404);
       } finally {
+        await holder.query("ROLLBACK").catch(() => undefined); // never hand a connection back inside an open transaction
         holder.release();
       }
     });
@@ -1193,6 +1195,7 @@ describe.skipIf(!databaseUrl)("event queue: suggest, vote, withdraw", () => {
         await answered;
         return outcome;
       } finally {
+        await holder.query("ROLLBACK").catch(() => undefined); // never hand a connection back inside an open transaction
         holder.release();
       }
     }
@@ -1275,6 +1278,7 @@ describe.skipIf(!databaseUrl)("event queue: suggest, vote, withdraw", () => {
           ).rows[0].vote_count,
         ).toBe(2);
       } finally {
+        await holder.query("ROLLBACK").catch(() => undefined); // never hand a connection back inside an open transaction
         holder.release();
       }
     });
