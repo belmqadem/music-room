@@ -198,6 +198,34 @@ export const openApiDocument = {
           },
         },
       },
+      PlaylistSnapshot: {
+        type: "object",
+        required: ["playlistId", "version", "tracks"],
+        properties: {
+          playlistId: { type: "string", format: "uuid" },
+          version: {
+            type: "integer",
+            description: "Ignore a snapshot whose version is not higher than yours.",
+          },
+          tracks: {
+            type: "array",
+            items: {
+              type: "object",
+              required: ["id", "track", "addedBy", "addedAt"],
+              properties: {
+                id: {
+                  type: "string",
+                  format: "uuid",
+                  description: "The entry, not the song: the same song can appear twice.",
+                },
+                track: { $ref: "#/components/schemas/Track" },
+                addedBy: { type: "string", format: "uuid" },
+                addedAt: { type: "string", format: "date-time" },
+              },
+            },
+          },
+        },
+      },
       User: {
         type: "object",
         required: ["id", "displayName", "email", "linkedProviders", "createdAt"],
@@ -1923,6 +1951,274 @@ export const openApiDocument = {
           },
           "403": {
             description: "FORBIDDEN",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "404": {
+            description: "PLAYLIST_NOT_FOUND",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+        },
+      },
+    },
+    "/api/v1/playlists/{playlistId}/tracks": {
+      get: {
+        summary: "The tracks in order, with the playlist's version",
+        description:
+          "Anyone who can see the playlist may read it. Positions are never exposed: the list is the order. Ignore any snapshot whose version is not higher than the one you hold.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "playlistId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "The ordered tracks",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/PlaylistSnapshot" },
+              },
+            },
+          },
+          "400": {
+            description: "VALIDATION_ERROR",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "401": {
+            description: "UNAUTHENTICATED or TOKEN_EXPIRED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "404": {
+            description: "PLAYLIST_NOT_FOUND",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+        },
+      },
+      post: {
+        summary: "Add a track (at the end, or after an anchor)",
+        description:
+          "Send only the catalog id; title, artist and cover come from the catalog. Needs the edit license, and a refused request never reaches the catalog. At most 500 tracks. Rate limited.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "playlistId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                additionalProperties: false,
+                required: ["providerTrackId"],
+                properties: {
+                  providerTrackId: { type: "string", example: "3135556" },
+                  afterEntryId: {
+                    type: "string",
+                    format: "uuid",
+                    description: "Omit to append.",
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "The new ordered tracks",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/PlaylistSnapshot" },
+              },
+            },
+          },
+          "400": {
+            description: "VALIDATION_ERROR",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "401": {
+            description: "UNAUTHENTICATED or TOKEN_EXPIRED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "403": {
+            description: "NOT_INVITED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "404": {
+            description: "PLAYLIST_NOT_FOUND or TRACK_NOT_FOUND",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "409": {
+            description: "ANCHOR_NOT_FOUND (refresh and retry) or PLAYLIST_FULL",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "429": {
+            description: "RATE_LIMITED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "502": {
+            description: "PROVIDER_UNAVAILABLE",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+        },
+      },
+    },
+    "/api/v1/playlists/{playlistId}/tracks/{entryId}/move": {
+      post: {
+        summary: "Move an entry after another entry (or to the start)",
+        description:
+          "Expressed by intent, never by position. Moving an entry after itself, or to the place it already has, changes nothing: 200, same version.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "playlistId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "entryId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                additionalProperties: false,
+                required: ["afterEntryId"],
+                properties: {
+                  afterEntryId: {
+                    type: "string",
+                    format: "uuid",
+                    nullable: true,
+                    description: "null moves it to the start.",
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "The new ordered tracks",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/PlaylistSnapshot" },
+              },
+            },
+          },
+          "400": {
+            description: "VALIDATION_ERROR",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "401": {
+            description: "UNAUTHENTICATED or TOKEN_EXPIRED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "403": {
+            description: "NOT_INVITED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "404": {
+            description: "PLAYLIST_NOT_FOUND or TRACK_NOT_FOUND (no such entry here)",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "409": {
+            description: "ANCHOR_NOT_FOUND",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+        },
+      },
+    },
+    "/api/v1/playlists/{playlistId}/tracks/{entryId}": {
+      delete: {
+        summary: "Remove an entry (idempotent)",
+        description:
+          "An entry that is already gone is not an error: 200, nothing changes, same version.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "playlistId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "entryId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "The new ordered tracks",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/PlaylistSnapshot" },
+              },
+            },
+          },
+          "400": {
+            description: "VALIDATION_ERROR",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "401": {
+            description: "UNAUTHENTICATED or TOKEN_EXPIRED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "403": {
+            description: "NOT_INVITED",
             content: {
               "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
             },
