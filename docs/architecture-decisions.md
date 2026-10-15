@@ -323,6 +323,31 @@ Each decision must be defensible in detail at the defense. Copy the template for
 - Alternatives: following (above); two directed rows (simultaneous opposite requests then need extra logic to avoid a duplicate friendship).
 - Consequences: `areFriends(a, b)` is the single question the profile code asks before showing friends-only data, and only `accepted` counts. No blocking and no real-time notification yet (the app polls the request list); both can be added without changing this table's meaning. Deleting a user deletes their friendships (`ON DELETE CASCADE`).
 
+### ADR-024: Profiles: fixed blocks, the server decides who sees each
+
+- Status: accepted
+- Date: 2026-10-15
+- Deciders: belmqadem
+- Context: the subject requires a profile with public information, friends-only information, private information and music preferences, with visibility enforced by the backend.
+- Options considered:
+  - **Fixed blocks, fixed audience** (chosen): each block has one audience decided by the server.
+  - **Per-field visibility chosen by the user** (each field public / friends / private): more flexible, but every field then needs a stored setting, and every read has to check it. More rules to get wrong and defend.
+  - Where the check lives: in each endpoint, or in one function used by all.
+- Decision:
+  - Four blocks: `publicInfo {bio}` (any signed-in user), `friendsInfo {fullName, city}` and `musicPreferences {genres}` (accepted friends and the owner), `privateInfo {phone, birthDate}` (the owner only). Music preferences default to empty, so they reveal nothing until the owner fills them in.
+  - **One function decides**: `shapeProfile(record, relation)` in `modules/profiles/visibility.ts`, with `relation` = self / friend / stranger. `GET /users/me/profile` and `GET /users/{id}/profile` both go through it. The relation is computed with `areFriends` (ADR-023); a pending request is not friendship.
+  - A block the caller may not see is **omitted**, not returned empty or null, so its absence says nothing about whether it was filled in.
+  - Editing has no user id in the path (`PATCH /users/me/profile`) and the body is `strict`, so there is no way to name another user's profile. An unknown field (for example `userId`) is a `400`.
+  - PATCH is one `INSERT ... ON CONFLICT (user_id) DO UPDATE` that sets only the columns that were sent: the row is created on first use, two simultaneous PATCHes cannot collide on the insert, and neither overwrites fields it did not send.
+  - Authentication is required on all three endpoints. An unknown user id is `404 USER_NOT_FOUND`; a user who never edited has an empty profile.
+  - Validation: bio at most 280, fullName and city at most 80, phone 3 to 30 characters of digits and separators, birthDate a real `YYYY-MM-DD` between 1900 and today, at most 10 genres of at most 30 characters (trimmed, lowercased, deduplicated). Limits are also database CHECK constraints.
+- Alternatives: per-field visibility (above).
+- Consequences:
+  - Any signed-in user can read any user's public block and display name (by id); ids are only obtained from search, invitations and friend lists, and search is rate limited.
+  - The display name is already visible in `UserSummary`, so it is returned in every view.
+  - The user cannot choose to make the "friends" block public or hide the bio. If the team wants that later, it is a new column per block and a change in `shapeProfile`.
+  - Phone and birth date are personal data: they are stored in clear text (the owner needs to read them back), never logged, and never returned to anyone else.
+
 ## Still to decide (record each as an ADR)
 
 TODO:

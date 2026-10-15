@@ -185,6 +185,35 @@ says who asked first.
 - Sending requests is rate limited (**Proposed**): 30 per hour per IP, so nobody can be flooded with them.
 - Not included yet: blocking, and real-time notification of a new request (the app polls the list).
 
+## Profiles (Decided: ADR-024)
+
+A profile has four **blocks**. The server decides who sees each one; the user does not choose.
+
+| Block              | Fields                                     | Seen by                        |
+| ------------------ | ------------------------------------------ | ------------------------------ |
+| `publicInfo`       | `bio` (≤ 280)                              | any signed-in user             |
+| `friendsInfo`      | `fullName` (≤ 80), `city` (≤ 80)           | accepted friends and the owner |
+| `musicPreferences` | `genres` (≤ 10 tags, each ≤ 30 characters) | accepted friends and the owner |
+| `privateInfo`      | `phone` (≤ 30), `birthDate` (`YYYY-MM-DD`) | the owner only                 |
+
+`Profile` is `{ userId, displayName, publicInfo, friendsInfo?, musicPreferences?, privateInfo? }`. **A block the caller
+may not see is omitted**, not empty or null. A pending friend request is not friendship. Fields the owner never
+filled in are `null` (`genres`: `[]`).
+
+| Method | Path                      | Auth   | Purpose                                          | Success             | Errors                    |
+| ------ | ------------------------- | ------ | ------------------------------------------------ | ------------------- | ------------------------- |
+| GET    | `/users/me/profile`       | bearer | Your own profile, all four blocks                | 200 `Profile`       |                           |
+| PATCH  | `/users/me/profile`       | bearer | Change your own profile (`UpdateProfileRequest`) | 200 `Profile` (all) | 400 `VALIDATION_ERROR`    |
+| GET    | `/users/{userId}/profile` | bearer | Someone's profile, only the blocks you may see   | 200 `Profile`       | 400, 404 `USER_NOT_FOUND` |
+
+- **PATCH** takes any of the four blocks, each with any of its fields. A field that is absent is left as it is; `null`
+  clears it; `genres`, when sent, **replaces** the whole list. An empty body changes nothing. Unknown fields are
+  `400`, so a body cannot name another user.
+- Text is trimmed; a blank value becomes `null`. Genres are trimmed, lowercased and deduplicated (order kept).
+  `birthDate` must be a real date between 1900-01-01 and today. `phone` is digits with `+ ( ) . -` and spaces.
+- Responses are `Cache-Control: no-store`: what a profile shows depends on who asks.
+- Your own id in `/users/{userId}/profile` gives the same answer as `/users/me/profile`.
+
 ## Access rules (Decided: ADR-005)
 
 Both resources, **Event** (Track Vote) and **Playlist** (Playlist Editor), follow the same rules.
@@ -432,3 +461,4 @@ ANCHOR_NOT_FOUND`. Moving an entry after itself, or to the place it already has,
 | 2026-10-13 | Real-time: `subscribe`/`unsubscribe` acknowledgements, `event:queue` is one shared `QueueSnapshot` without `votedByMe` (**contract change**, ADR-019), new `event:access-lost`; types `QueueEntry`, `QueueSnapshot`, `SubscribeRequest`, `SubscribeAck`, `UnsubscribeAck`, `AccessLost` | belmqadem | pending     |
 | 2026-10-14 | Playlist Editor: error code `PLAYLIST_FULL` (409, limit 500 entries), rules for no-op moves and removals, `subscribe` and `access-lost` now cover playlists, `playlist:updated` described; types `SubscribeAck` (snapshot union) and `AccessLost.resource` extended                     | belmqadem | pending     |
 | 2026-10-15 | Friends: `POST/GET /friends/requests`, `.../accept`, `DELETE /friends/requests/{id}`, `GET /friends`, `DELETE /friends/{userId}`; type `Friendship`; new error codes `USER_NOT_FOUND`, `FRIENDSHIP_NOT_FOUND`, `FRIEND_REQUEST_EXISTS`, `ALREADY_FRIENDS`; additive                     | belmqadem | pending     |
+| 2026-10-15 | Profiles: `GET/PATCH /users/me/profile`, `GET /users/{userId}/profile`; types `Profile`, `PublicInfo`, `FriendsInfo`, `PrivateInfo`, `MusicPreferences`, `UpdateProfileRequest`; no new error codes; additive                                                                           | belmqadem | pending     |
