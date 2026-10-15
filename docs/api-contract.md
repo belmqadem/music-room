@@ -110,6 +110,10 @@ PROVIDER_UNAVAILABLE`; the app may retry later. Both are logged without the cred
 - A user always keeps at least one login method; unlinking the last one is `409 LAST_LOGIN_METHOD`.
 - `INVALID_CREDENTIALS` is identical for an unknown email and a wrong password. Passwords: 8 to 72 bytes (longer
   is rejected, not truncated), bcrypt cost 12 (ADR-006). The password is never returned or logged.
+- Password policy (register only): besides the length, a new password MUST contain a lowercase letter, an uppercase
+  letter, a digit and a symbol (anything that is not a letter, digit or whitespace). A weak password gets `400
+VALIDATION_ERROR` with one `details` entry per broken rule (`path: "password"`, a fixed English `message`, never the
+  password). Login does not apply the policy, so accounts created before it still work.
 - Login and register are rate limited (**Proposed**): 10 attempts per 15 minutes (login) and 10 per hour (register) per IP; refresh allows 100 per 15 minutes.
 - **Refresh rotation (strict, ADR-010):** every refresh consumes the presented token and returns a new one in the same session. Presenting a token that was already used revokes the whole session, so the user must log in again. Consequence for the app: **never send the same refresh token twice**; do not retry a refresh request after a network timeout. Reconnect and log in if it fails. All refresh failures return the same `401 INVALID_REFRESH_TOKEN`.
 - **Logout** always answers `204` (also for unknown tokens, or a token of another user, which is not revoked). It does not cancel the current access token, which stays valid until it expires (at most 15 minutes).

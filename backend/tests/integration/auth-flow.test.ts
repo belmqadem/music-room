@@ -7,6 +7,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../../src/app.js";
 import { createPostgresPool } from "../../src/db/postgres.js";
 import { signAccessToken } from "../../src/modules/auth/access-token.js";
+import { hashPassword } from "../../src/modules/auth/password.js";
 
 // End-to-end tests of register / login / GET /users/me against a real, migrated
 // Postgres (set TEST_DATABASE_URL; see `make test-integration`). Without it the
@@ -15,7 +16,7 @@ import { signAccessToken } from "../../src/modules/auth/access-token.js";
 const databaseUrl = process.env.TEST_DATABASE_URL;
 const SECRET = "s".repeat(32);
 const EMAIL_DOMAIN = "@auth-flow.invalid";
-const PASSWORD = "correct horse battery";
+const PASSWORD = "Correct-Horse-Battery-9";
 
 describe.skipIf(!databaseUrl)("auth flow (register, login, me)", () => {
   let pool: pg.Pool;
@@ -125,7 +126,7 @@ describe.skipIf(!databaseUrl)("auth flow (register, login, me)", () => {
 
       const response = await register({
         email: email("BOB"),
-        password: "another password",
+        password: "Another-Pass-7",
         displayName: "Impostor",
       });
 
@@ -170,6 +171,10 @@ describe.skipIf(!databaseUrl)("auth flow (register, login, me)", () => {
     it.each([
       ["no body fields", {}],
       ["an invalid email", { email: "nope", password: PASSWORD, displayName: "X" }],
+      [
+        "a password with no symbol",
+        { email: email("a"), password: "NoSymbol123", displayName: "X" },
+      ],
       ["a short password", { email: email("a"), password: "short12", displayName: "X" }],
       [
         "a 73 byte password",
@@ -203,6 +208,33 @@ describe.skipIf(!databaseUrl)("auth flow (register, login, me)", () => {
       });
 
       expect(JSON.stringify(response.body)).not.toContain("short12");
+    });
+
+    it("lists every strength rule a weak password breaks", async () => {
+      const response = await register({
+        email: email("weak"),
+        password: "aaaaaaaa",
+        displayName: "Weak",
+      });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error.details).toEqual([
+        { path: "password", message: "Password must contain an uppercase letter." },
+        { path: "password", message: "Password must contain a digit." },
+        { path: "password", message: "Password must contain a symbol." },
+      ]);
+    });
+
+    it("still lets an account created before the policy log in with its weak password", async () => {
+      const weakHash = await hashPassword("correct horse", 4);
+      await pool.query(
+        "INSERT INTO users (email, password_hash, display_name) VALUES ($1, $2, 'Old')",
+        [email("old"), weakHash],
+      );
+
+      const response = await login({ email: email("old"), password: "correct horse" });
+
+      expect(response.status).toBe(200);
     });
 
     it("answers 400 for a body that is not JSON", async () => {
@@ -280,7 +312,7 @@ describe.skipIf(!databaseUrl)("auth flow (register, login, me)", () => {
     });
 
     it("does not accept a password that matches only in its first 72 bytes", async () => {
-      const long = "a".repeat(72);
+      const long = `Aa1!${"a".repeat(68)}`; // exactly 72 bytes, meets every strength rule
       await register({ email: email("long"), password: long, displayName: "Long" });
 
       const response = await login({ email: email("long"), password: `${long}EXTRA` });
