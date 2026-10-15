@@ -5,6 +5,8 @@ import pino from "pino";
 import request from "supertest";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../../src/app.js";
+import { createMemoryMailer } from "../helpers/memory-mailer.js";
+import { signUpVerified } from "../helpers/sign-up.js";
 import { createPostgresPool } from "../../src/db/postgres.js";
 
 // Refresh-token rotation, reuse detection and logout against a real, migrated
@@ -29,6 +31,7 @@ interface Session {
 describe.skipIf(!databaseUrl)("refresh and logout", () => {
   let pool: pg.Pool;
   let app: Express;
+  const mailer = createMemoryMailer();
   let logLines: string[];
 
   beforeAll(() => {
@@ -57,9 +60,11 @@ describe.skipIf(!databaseUrl)("refresh and logout", () => {
       jwtSecret: SECRET,
       logger: pino({ level: "warn" }, sink),
       passwordCost: 4,
+      mailer,
       loginLimit: { windowMs: 60_000, limit: 10_000 },
       registerLimit: { windowMs: 60_000, limit: 10_000 },
       refreshLimit: { windowMs: 60_000, limit: 10_000 },
+      emailCodeLimit: { windowMs: 60_000, limit: 10_000 },
       ...overrides,
     });
   }
@@ -76,7 +81,7 @@ describe.skipIf(!databaseUrl)("refresh and logout", () => {
       .send({ refreshToken });
 
   async function registerUser(name = "bob"): Promise<Session> {
-    const response = await post("/auth/register", {
+    const response = await signUpVerified(app, mailer, {
       email: email(name),
       password: PASSWORD,
       displayName: name,

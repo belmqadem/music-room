@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { loginSchema, registerSchema } from "../../src/modules/auth/schema.js";
+import {
+  emailOnlySchema,
+  loginSchema,
+  registerSchema,
+  resetPasswordSchema,
+  verifyEmailSchema,
+} from "../../src/modules/auth/schema.js";
 
 const validRegistration = {
   email: "bob@example.com",
@@ -131,5 +137,56 @@ describe("loginSchema", () => {
     ["a huge password", { email: "bob@example.com", password: "a".repeat(1025) }],
   ])("rejects %s", (_label, body) => {
     expect(loginSchema.safeParse(body).success).toBe(false);
+  });
+});
+
+describe("email-code schemas", () => {
+  const goodReset = {
+    email: "Bob@Example.com ",
+    code: "012345",
+    newPassword: "Correct-Horse-9",
+  };
+
+  it("verifyEmailSchema normalises the email and keeps leading zeros in the code", () => {
+    expect(
+      verifyEmailSchema.parse({ email: " Bob@Example.COM", code: "012345" }),
+    ).toEqual({
+      email: "bob@example.com",
+      code: "012345",
+    });
+  });
+
+  it.each(["12345", "1234567", "12345a", "", " 12345", "١٢٣٤٥٦"])(
+    "verifyEmailSchema rejects the code %j",
+    (code) => {
+      expect(
+        verifyEmailSchema.safeParse({ email: "bob@example.com", code }).success,
+      ).toBe(false);
+    },
+  );
+
+  it("emailOnlySchema accepts only an email", () => {
+    expect(emailOnlySchema.parse({ email: "Bob@Example.com" })).toEqual({
+      email: "bob@example.com",
+    });
+    expect(emailOnlySchema.safeParse({ email: "nope" }).success).toBe(false);
+    expect(emailOnlySchema.safeParse({ email: "bob@example.com", x: 1 }).success).toBe(
+      false,
+    );
+  });
+
+  it("resetPasswordSchema applies the same password policy as register", () => {
+    expect(resetPasswordSchema.safeParse(goodReset).success).toBe(true);
+    for (const newPassword of [
+      "Sh0rt!",
+      "nouppercase1!",
+      "NOLOWERCASE1!",
+      "NoDigit!!x",
+      "NoSymbol123x",
+    ]) {
+      expect(resetPasswordSchema.safeParse({ ...goodReset, newPassword }).success).toBe(
+        false,
+      );
+    }
   });
 });

@@ -17,7 +17,30 @@ export interface RefreshRequest {
   refreshToken: string;
 }
 
-/** Returned by register, login, refresh and OAuth. */
+/** Returned by register: no session yet, the email must be verified first. */
+export interface RegisterResult {
+  email: string;
+}
+
+/** Body of POST /auth/verify-email: the 6-digit code that was emailed. */
+export interface VerifyEmailRequest {
+  email: string;
+  code: string;
+}
+
+/** Body of POST /auth/resend-verification and POST /auth/forgot-password. */
+export interface EmailRequest {
+  email: string;
+}
+
+/** Body of POST /auth/reset-password. */
+export interface ResetPasswordRequest {
+  email: string;
+  code: string;
+  newPassword: string;
+}
+
+/** Returned by login, refresh and OAuth. */
 export interface AuthSession {
   accessToken: string; // short-lived JWT, sent as `Authorization: Bearer`
   refreshToken: string; // opaque, rotated on every use

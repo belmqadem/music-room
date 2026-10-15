@@ -28,6 +28,7 @@ import { createPlaylistService } from "./modules/playlist-editor/service.js";
 import { createEventService } from "./modules/track-vote/service.js";
 import { createEventRoutes } from "./modules/track-vote/routes.js";
 import { createAuthRoutes } from "./modules/auth/routes.js";
+import type { Mailer } from "./modules/auth/mailer.js";
 import { createAuthService } from "./modules/auth/service.js";
 
 export interface AppDependencies {
@@ -42,11 +43,14 @@ export interface AppDependencies {
   allowedOrigins?: string[];
   /** Google/Facebook checkers. Omitted (tests): both providers answer 502 PROVIDER_UNAVAILABLE. */
   providerVerifiers?: ProviderVerifiers;
+  /** Sends the verification and reset codes. Omitted (tests): emails are dropped. */
+  mailer?: Mailer;
   /** Tests only: cheaper bcrypt and custom rate limits. */
   passwordCost?: number;
   loginLimit?: RateLimitSettings;
   registerLimit?: RateLimitSettings;
   refreshLimit?: RateLimitSettings;
+  emailCodeLimit?: RateLimitSettings;
   userSearchLimit?: RateLimitSettings;
   catalogSearchLimit?: RateLimitSettings;
   suggestLimit?: RateLimitSettings;
@@ -105,6 +109,7 @@ export function createApp(deps: AppDependencies): Express {
       google: unconfiguredVerifier,
       facebook: unconfiguredVerifier,
     },
+    mailer: deps.mailer ?? { send: () => Promise.resolve() },
     ...(deps.passwordCost !== undefined && { passwordCost: deps.passwordCost }),
   });
   app.use(
@@ -116,6 +121,7 @@ export function createApp(deps: AppDependencies): Express {
       ...(deps.loginLimit && { loginLimit: deps.loginLimit }),
       ...(deps.registerLimit && { registerLimit: deps.registerLimit }),
       ...(deps.refreshLimit && { refreshLimit: deps.refreshLimit }),
+      ...(deps.emailCodeLimit && { emailCodeLimit: deps.emailCodeLimit }),
     }),
   );
 

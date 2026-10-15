@@ -7,19 +7,21 @@ import { isPasswordAcceptable, passwordStrengthViolations } from "./password.js"
 // Emails are trimmed and lowercased so "Bob@x.com" and "bob@x.com " are one account.
 const email = z.string().trim().toLowerCase().max(254).pipe(z.email());
 
+// Length first; the strength rules only run on a well-sized password, and each
+// broken rule is reported so the client can show all of them at once.
+export const newPassword = z
+  .string()
+  .refine(isPasswordAcceptable, "Password must be 8 to 72 bytes long.")
+  .check((ctx) => {
+    if (!isPasswordAcceptable(ctx.value)) return;
+    for (const message of passwordStrengthViolations(ctx.value)) {
+      ctx.issues.push({ code: "custom", message, input: ctx.value });
+    }
+  });
+
 export const registerSchema = z.strictObject({
   email,
-  // Length first; the strength rules only run on a well-sized password, and each
-  // broken rule is reported so the client can show all of them at once.
-  password: z
-    .string()
-    .refine(isPasswordAcceptable, "Password must be 8 to 72 bytes long.")
-    .check((ctx) => {
-      if (!isPasswordAcceptable(ctx.value)) return;
-      for (const message of passwordStrengthViolations(ctx.value)) {
-        ctx.issues.push({ code: "custom", message, input: ctx.value });
-      }
-    }),
+  password: newPassword,
   displayName: z.string().trim().min(1).max(50),
 });
 export type RegisterInput = z.infer<typeof registerSchema>;
@@ -47,3 +49,21 @@ export const oauthBodySchema = z.strictObject({
   credential: z.string().min(1).max(4096),
 });
 export type OAuthBody = z.infer<typeof oauthBodySchema>;
+
+// Codes are 6 digits. Other shapes are rejected here so nothing odd reaches the hash.
+const emailCode = z.string().regex(/^\d{6}$/, "The code is 6 digits.");
+
+// Bodies of the email-code endpoints (ADR-022). Resend and forgot take only an email.
+export const verifyEmailSchema = z.strictObject({ email, code: emailCode });
+export type VerifyEmailInput = z.infer<typeof verifyEmailSchema>;
+
+export const emailOnlySchema = z.strictObject({ email });
+export type EmailOnlyInput = z.infer<typeof emailOnlySchema>;
+
+// The new password follows the same policy as register.
+export const resetPasswordSchema = z.strictObject({
+  email,
+  code: emailCode,
+  newPassword,
+});
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;

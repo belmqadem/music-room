@@ -33,6 +33,17 @@ services:
       timeout: 3s
       retries: 10
 
+  # A fake mail server for local development, ONLY when asked: `docker compose --profile mail up -d mailpit`.
+  # Set MAIL_TRANSPORT=smtp and SMTP_URL=smtp://localhost:1025 in .env, then read the codes at
+  # http://localhost:8025. Nothing is ever delivered to a real address.
+  mailpit:
+    profiles: ["mail"]
+    image: axllent/mailpit:v1.21
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"
+
   # The backend itself, ONLY for load tests: `make loadtest-up`. It runs with fixed, stated
   # resources so that "this server spec carries N users" is a measurement and not a guess.
   # Change them with BACKEND_CPUS / BACKEND_MEMORY (see .env.example).

@@ -175,4 +175,49 @@ describe("loadConfig", () => {
       );
     });
   });
+
+  describe("email settings", () => {
+    it("defaults to the console mailer", () => {
+      const config = loadConfig(validEnv);
+
+      expect(config.MAIL_TRANSPORT).toBe("console");
+      expect(config.SMTP_URL).toBeUndefined();
+    });
+
+    it("needs SMTP_URL when the transport is smtp", () => {
+      expect(() => loadConfig({ ...validEnv, MAIL_TRANSPORT: "smtp" })).toThrowError(
+        /SMTP_URL/,
+      );
+      expect(() =>
+        loadConfig({ ...validEnv, MAIL_TRANSPORT: "smtp", SMTP_URL: "  " }),
+      ).toThrowError(/SMTP_URL/);
+      expect(
+        loadConfig({
+          ...validEnv,
+          MAIL_TRANSPORT: "smtp",
+          SMTP_URL: "smtp://localhost:1025",
+        }).SMTP_URL,
+      ).toBe("smtp://localhost:1025");
+    });
+
+    it("refuses the console mailer in production, because it prints the codes", () => {
+      expect(() => loadConfig({ ...validEnv, NODE_ENV: "production" })).toThrowError(
+        /MAIL_TRANSPORT=console/,
+      );
+      expect(
+        loadConfig({
+          ...validEnv,
+          NODE_ENV: "production",
+          MAIL_TRANSPORT: "smtp",
+          SMTP_URL: "smtps://u:p@mail.example.com:465",
+        }).MAIL_TRANSPORT,
+      ).toBe("smtp");
+    });
+
+    it("rejects an unknown transport", () => {
+      expect(() =>
+        loadConfig({ ...validEnv, MAIL_TRANSPORT: "carrier-pigeon" }),
+      ).toThrowError(/MAIL_TRANSPORT/);
+    });
+  });
 });

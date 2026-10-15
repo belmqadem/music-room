@@ -1,11 +1,14 @@
 import type { Request, Response } from "express";
 import { HttpError } from "../../http-error.js";
 import {
+  emailOnlySchema,
   loginSchema,
   oauthBodySchema,
   oauthProviderSchema,
   refreshTokenBodySchema,
   registerSchema,
+  resetPasswordSchema,
+  verifyEmailSchema,
 } from "./schema.js";
 import type { AuthService } from "./service.js";
 
@@ -25,8 +28,30 @@ export function createAuthController(service: AuthService) {
 
   return {
     async register(req: Request, res: Response): Promise<void> {
-      const session = await service.register(registerSchema.parse(req.body));
-      noStore(res).status(201).json(session);
+      const result = await service.register(registerSchema.parse(req.body));
+      noStore(res).status(201).json(result);
+    },
+
+    // The four email-code endpoints answer 204 and carry no data: success is "it worked", and
+    // resend/forgot answer the same whether or not the account exists.
+    async verifyEmail(req: Request, res: Response): Promise<void> {
+      await service.verifyEmail(verifyEmailSchema.parse(req.body));
+      res.status(204).end();
+    },
+
+    async resendVerification(req: Request, res: Response): Promise<void> {
+      await service.resendVerification(emailOnlySchema.parse(req.body));
+      res.status(204).end();
+    },
+
+    async forgotPassword(req: Request, res: Response): Promise<void> {
+      await service.forgotPassword(emailOnlySchema.parse(req.body));
+      res.status(204).end();
+    },
+
+    async resetPassword(req: Request, res: Response): Promise<void> {
+      await service.resetPassword(resetPasswordSchema.parse(req.body));
+      res.status(204).end();
     },
 
     async login(req: Request, res: Response): Promise<void> {
