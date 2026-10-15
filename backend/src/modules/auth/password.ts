@@ -14,6 +14,24 @@ export function isPasswordAcceptable(plain: string): boolean {
   return bytes >= PASSWORD_MIN_BYTES && bytes <= PASSWORD_MAX_BYTES;
 }
 
+// Strength rules applied when a password is CHOSEN (register). Login and hash
+// verification only use isPasswordAcceptable, so an account can never be locked
+// out by a rule that was added after it was created.
+const STRENGTH_RULES: ReadonlyArray<{ pattern: RegExp; message: string }> = [
+  { pattern: /\p{Ll}/u, message: "Password must contain a lowercase letter." },
+  { pattern: /\p{Lu}/u, message: "Password must contain an uppercase letter." },
+  { pattern: /\p{Nd}/u, message: "Password must contain a digit." },
+  // A symbol is anything that is not a letter, a digit or whitespace.
+  { pattern: /[^\p{L}\p{N}\s]/u, message: "Password must contain a symbol." },
+];
+
+/** Messages for every strength rule the password breaks (empty = strong enough). Length is checked separately. */
+export function passwordStrengthViolations(plain: string): string[] {
+  return STRENGTH_RULES.filter((rule) => !rule.pattern.test(plain)).map(
+    (rule) => rule.message,
+  );
+}
+
 /** @throws Error if the password breaks the length rule (callers should validate first). */
 export async function hashPassword(
   plain: string,

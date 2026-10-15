@@ -270,7 +270,11 @@ export const openApiDocument = {
                 additionalProperties: false,
                 properties: {
                   email: { type: "string", format: "email" },
-                  password: { type: "string", description: "8 to 72 bytes (UTF-8)" },
+                  password: {
+                    type: "string",
+                    description:
+                      "8 to 72 bytes (UTF-8), with a lowercase letter, an uppercase letter, a digit and a symbol",
+                  },
                   displayName: { type: "string", minLength: 1, maxLength: 50 },
                 },
               },

@@ -18,7 +18,7 @@ import { createPostgresPool } from "../../src/db/postgres.js";
 const databaseUrl = process.env.TEST_DATABASE_URL;
 const SECRET = "s".repeat(32);
 const EMAIL_DOMAIN = "@refresh-flow.invalid";
-const PASSWORD = "correct horse battery";
+const PASSWORD = "Correct-Horse-Battery-9";
 
 interface Session {
   accessToken: string;

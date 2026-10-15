@@ -26,7 +26,7 @@ const databaseUrl = process.env.TEST_DATABASE_URL;
 const SECRET = "s".repeat(32);
 const EMAIL_DOMAIN = "@oauth-flow.invalid";
 const ID_PREFIX = "oauth-flow-";
-const PASSWORD = "correct horse battery";
+const PASSWORD = "Correct-Horse-Battery-9";
 
 /** credential -> what the provider would confirm. "bad" is rejected, "down" is unreachable. */
 function fakeProvider(known: Record<string, ProviderIdentity>): ProviderVerifier {

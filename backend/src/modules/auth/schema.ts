@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isPasswordAcceptable } from "./password.js";
+import { isPasswordAcceptable, passwordStrengthViolations } from "./password.js";
 
 // Request body validation for the auth endpoints (docs/api-contract.md).
 // z.strictObject rejects unknown fields instead of ignoring them.
@@ -9,9 +9,17 @@ const email = z.string().trim().toLowerCase().max(254).pipe(z.email());
 
 export const registerSchema = z.strictObject({
   email,
+  // Length first; the strength rules only run on a well-sized password, and each
+  // broken rule is reported so the client can show all of them at once.
   password: z
     .string()
-    .refine(isPasswordAcceptable, "Password must be 8 to 72 bytes long."),
+    .refine(isPasswordAcceptable, "Password must be 8 to 72 bytes long.")
+    .check((ctx) => {
+      if (!isPasswordAcceptable(ctx.value)) return;
+      for (const message of passwordStrengthViolations(ctx.value)) {
+        ctx.issues.push({ code: "custom", message, input: ctx.value });
+      }
+    }),
   displayName: z.string().trim().min(1).max(50),
 });
 export type RegisterInput = z.infer<typeof registerSchema>;
