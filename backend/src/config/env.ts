@@ -73,6 +73,13 @@ const envSchema = z
     TRUST_PROXY: z.coerce.number().int().min(0).max(10).default(0),
     // Where track metadata comes from. "fake" is for load tests only and is refused in production.
     CATALOG_PROVIDER: z.enum(["deezer", "fake"]).default("deezer"),
+    // Outgoing email (ADR-022). "console" prints messages in the log (development only; it would
+    // leak the codes), "smtp" really sends them to SMTP_URL.
+    MAIL_TRANSPORT: z.enum(["console", "smtp"]).default("console"),
+    // e.g. smtp://localhost:1025 (Mailpit) or smtps://user:password@smtp.example.com:465. Holds a
+    // password in production: .env only, never the repo.
+    SMTP_URL: blankToUndefined,
+    MAIL_FROM: z.string().min(1).default("Music Room <no-reply@musicroom.local>"),
     FACEBOOK_APP_ID: blankToUndefined,
     // Server-side only: never sent to the app, never committed.
     FACEBOOK_APP_SECRET: blankToUndefined,
@@ -85,6 +92,15 @@ const envSchema = z
       path: ["FACEBOOK_APP_SECRET"],
     },
   )
+  .refine((env) => env.MAIL_TRANSPORT !== "smtp" || env.SMTP_URL !== undefined, {
+    message: "MAIL_TRANSPORT=smtp needs SMTP_URL",
+    path: ["SMTP_URL"],
+  })
+  .refine((env) => !(env.MAIL_TRANSPORT === "console" && env.NODE_ENV === "production"), {
+    message:
+      "MAIL_TRANSPORT=console prints the codes in the log and is refused when NODE_ENV=production",
+    path: ["MAIL_TRANSPORT"],
+  })
   .refine((env) => !(env.CATALOG_PROVIDER === "fake" && env.NODE_ENV === "production"), {
     message:
       "CATALOG_PROVIDER=fake is for load tests and is refused when NODE_ENV=production",

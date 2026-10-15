@@ -9,6 +9,8 @@ export interface User {
   displayName: string;
   /** Null for social-only accounts whose provider gave no email (Facebook may not). */
   email: string | null;
+  /** True once the address was proven (a code from the email, or a provider that vouches for it). */
+  emailVerified: boolean;
   /** Social accounts linked to this user. */
   linkedProviders: OAuthProvider[];
   createdAt: string; // ISO 8601 UTC

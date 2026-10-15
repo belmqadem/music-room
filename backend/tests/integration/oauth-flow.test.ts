@@ -5,6 +5,8 @@ import pino from "pino";
 import request from "supertest";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../../src/app.js";
+import { createMemoryMailer } from "../helpers/memory-mailer.js";
+import { signUpVerified } from "../helpers/sign-up.js";
 import { createPostgresPool } from "../../src/db/postgres.js";
 import {
   ProviderCredentialError,
@@ -63,6 +65,7 @@ interface Session {
     id: string;
     email: string | null;
     displayName: string;
+    emailVerified: boolean;
     linkedProviders: string[];
   };
 }
@@ -70,6 +73,7 @@ interface Session {
 describe.skipIf(!databaseUrl)("social login, link and unlink", () => {
   let pool: pg.Pool;
   let app: Express;
+  const mailer = createMemoryMailer();
   let logLines: string[];
 
   // Credentials the fake providers know about.
@@ -108,9 +112,11 @@ describe.skipIf(!databaseUrl)("social login, link and unlink", () => {
       jwtSecret: SECRET,
       logger: pino({ level: "info" }, sink),
       passwordCost: 4,
+      mailer,
       loginLimit: { windowMs: 60_000, limit: 10_000 },
       registerLimit: { windowMs: 60_000, limit: 10_000 },
       refreshLimit: { windowMs: 60_000, limit: 10_000 },
+      emailCodeLimit: { windowMs: 60_000, limit: 10_000 },
       providerVerifiers: {
         google: fakeProvider(googleAccounts),
         facebook: fakeProvider(facebookAccounts),
@@ -151,10 +157,11 @@ describe.skipIf(!databaseUrl)("social login, link and unlink", () => {
     return response.body as Session;
   }
   async function registerWithPassword(name: string): Promise<Session> {
-    const response = await request(app)
-      .post("/api/v1/auth/register")
-      .send({ email: `${name}${EMAIL_DOMAIN}`, password: PASSWORD, displayName: name });
-    expect(response.status).toBe(201);
+    const response = await signUpVerified(app, mailer, {
+      email: `${name}${EMAIL_DOMAIN}`,
+      password: PASSWORD,
+      displayName: name,
+    });
     return response.body as Session;
   }
   const countUsers = async () =>
@@ -234,6 +241,63 @@ describe.skipIf(!databaseUrl)("social login, link and unlink", () => {
         [`${ID_PREFIX}%`],
       );
       expect(identities.rowCount).toBe(0);
+    });
+
+    it("reports a provider-verified email as verified, and an account without email as not", async () => {
+      const withEmail = await loginWithGoogle("verified");
+      const withoutEmail = await oauthLogin("facebook", {
+        credential: facebookCredential("noemail"),
+      });
+
+      expect(withEmail.user.emailVerified).toBe(true);
+      expect(withoutEmail.body.user.emailVerified).toBe(false);
+    });
+
+    it("removes an UNVERIFIED password account that holds the provider-verified email, so the real owner is not locked out", async () => {
+      const squatter = await request(app)
+        .post("/api/v1/auth/register")
+        .send({
+          email: `owner${EMAIL_DOMAIN}`,
+          password: PASSWORD,
+          displayName: "Squatter",
+        });
+      expect(squatter.status).toBe(201);
+
+      const response = await oauthLogin("google", {
+        credential: googleCredential("other", { verifiedEmail: `owner${EMAIL_DOMAIN}` }),
+      });
+
+      expect(response.status).toBe(200);
+      expect(response.body.user.emailVerified).toBe(true);
+      expect(response.body.user.linkedProviders).toEqual(["google"]);
+      const rows = await pool.query("SELECT password_hash FROM users WHERE email = $1", [
+        `owner${EMAIL_DOMAIN}`,
+      ]);
+      expect(rows.rows).toEqual([{ password_hash: null }]); // only the social account is left
+      const squatterLogin = await request(app)
+        .post("/api/v1/auth/login")
+        .send({ email: `owner${EMAIL_DOMAIN}`, password: PASSWORD });
+      expect(squatterLogin.status).toBe(401);
+    });
+
+    it("leaves an unverified account alone when the provider does not vouch for the email", async () => {
+      await request(app)
+        .post("/api/v1/auth/register")
+        .send({
+          email: `owner${EMAIL_DOMAIN}`,
+          password: PASSWORD,
+          displayName: "Pending",
+        });
+
+      const response = await oauthLogin("google", {
+        credential: googleCredential("other", { verifiedEmail: null }),
+      });
+
+      expect(response.status).toBe(200);
+      const pending = await pool.query("SELECT 1 FROM users WHERE email = $1", [
+        `owner${EMAIL_DOMAIN}`,
+      ]);
+      expect(pending.rowCount).toBe(1);
     });
 
     it("matches the email case-insensitively", async () => {

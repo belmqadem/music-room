@@ -228,11 +228,19 @@ export const openApiDocument = {
       },
       User: {
         type: "object",
-        required: ["id", "displayName", "email", "linkedProviders", "createdAt"],
+        required: [
+          "id",
+          "displayName",
+          "email",
+          "emailVerified",
+          "linkedProviders",
+          "createdAt",
+        ],
         properties: {
           id: { type: "string", format: "uuid" },
           displayName: { type: "string" },
           email: { type: "string", nullable: true },
+          emailVerified: { type: "boolean" },
           linkedProviders: {
             type: "array",
             items: { type: "string", enum: ["google", "facebook"] },
@@ -283,10 +291,15 @@ export const openApiDocument = {
         },
         responses: {
           "201": {
-            description: "Account created",
+            description:
+              "Account created but not usable yet: a 6-digit code was emailed. Confirm it with POST /auth/verify-email, then log in.",
             content: {
               "application/json": {
-                schema: { $ref: "#/components/schemas/AuthSession" },
+                schema: {
+                  type: "object",
+                  required: ["email"],
+                  properties: { email: { type: "string", format: "email" } },
+                },
               },
             },
           },
@@ -298,6 +311,172 @@ export const openApiDocument = {
           },
           "409": {
             description: "EMAIL_TAKEN",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "429": {
+            description: "RATE_LIMITED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+        },
+      },
+    },
+    "/api/v1/auth/verify-email": {
+      post: {
+        summary: "Confirm the email with the emailed code",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["email", "code"],
+                additionalProperties: false,
+                properties: {
+                  email: { type: "string", format: "email" },
+                  code: {
+                    type: "string",
+                    pattern: "^\\d{6}$",
+                    description: "The 6 digits from the email",
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "204": { description: "Email confirmed; the user can now log in" },
+          "400": {
+            description:
+              "VALIDATION_ERROR, or INVALID_CODE (wrong, expired, used up or unknown address: always the same answer)",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "429": {
+            description: "RATE_LIMITED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+        },
+      },
+    },
+    "/api/v1/auth/resend-verification": {
+      post: {
+        summary: "Send a new confirmation code",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["email"],
+                additionalProperties: false,
+                properties: {
+                  email: { type: "string", format: "email" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "204": {
+            description:
+              "Always the same answer: a code is sent only if an unconfirmed password account exists for this email, at most one per minute",
+          },
+          "400": {
+            description: "VALIDATION_ERROR",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "429": {
+            description: "RATE_LIMITED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+        },
+      },
+    },
+    "/api/v1/auth/forgot-password": {
+      post: {
+        summary: "Send a password reset code",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["email"],
+                additionalProperties: false,
+                properties: {
+                  email: { type: "string", format: "email" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "204": {
+            description:
+              "Always the same answer: a code is sent only if a password account exists for this email, at most one per minute",
+          },
+          "400": {
+            description: "VALIDATION_ERROR",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "429": {
+            description: "RATE_LIMITED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+        },
+      },
+    },
+    "/api/v1/auth/reset-password": {
+      post: {
+        summary: "Set a new password with the emailed code",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["email", "code", "newPassword"],
+                additionalProperties: false,
+                properties: {
+                  email: { type: "string", format: "email" },
+                  code: {
+                    type: "string",
+                    pattern: "^\\d{6}$",
+                    description: "The 6 digits from the email",
+                  },
+                  newPassword: {
+                    type: "string",
+                    description:
+                      "Same policy as register: 8 to 72 bytes with a lowercase letter, an uppercase letter, a digit and a symbol",
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "204": {
+            description:
+              "Password changed, email confirmed, and every session of the user ended",
+          },
+          "400": {
+            description:
+              "VALIDATION_ERROR, or INVALID_CODE (wrong, expired, used up or unknown address: always the same answer)",
             content: {
               "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
             },
@@ -338,6 +517,13 @@ export const openApiDocument = {
           },
           "400": {
             description: "VALIDATION_ERROR",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "403": {
+            description:
+              "EMAIL_NOT_VERIFIED: the password is right but the email was never confirmed",
             content: {
               "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
             },

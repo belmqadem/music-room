@@ -28,6 +28,7 @@ const userRow = {
   password_hash: null,
   display_name: "Ada",
   created_at: new Date("2026-10-12T20:00:00Z"),
+  email_verified_at: new Date("2026-10-12T20:00:00Z"),
 };
 
 /** A pool whose transactions answer from a script. `identityLookups` are consumed in order. */
@@ -63,6 +64,7 @@ const serviceOver = (pool: pg.Pool) =>
     jwtSecret: "s".repeat(32),
     logger: pino({ level: "silent" }),
     verifiers,
+    mailer: { send: () => Promise.resolve() },
     passwordCost: 4,
   });
 

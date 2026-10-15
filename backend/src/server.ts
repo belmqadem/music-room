@@ -6,6 +6,7 @@ import { assertPostgresReachable, createPostgresPool } from "./db/postgres.js";
 import { createRedisClient } from "./db/redis.js";
 import { createDeezerCatalog } from "./modules/track-vote/deezer-catalog.js";
 import { createFakeCatalog } from "./modules/track-vote/fake-catalog.js";
+import { createConsoleMailer, createSmtpMailer } from "./modules/auth/mailer.js";
 import { createProviderVerifiers } from "./modules/auth/providers.js";
 import { createRealtime } from "./sockets/index.js";
 
@@ -35,6 +36,10 @@ async function main(): Promise<void> {
     jwtSecret: config.JWT_ACCESS_SECRET,
     allowedOrigins: config.ALLOWED_ORIGINS,
     providerVerifiers: createProviderVerifiers(config, logger),
+    mailer:
+      config.MAIL_TRANSPORT === "smtp"
+        ? createSmtpMailer({ url: config.SMTP_URL!, from: config.MAIL_FROM })
+        : createConsoleMailer(logger),
     catalog:
       config.CATALOG_PROVIDER === "fake" ? createFakeCatalog() : createDeezerCatalog(),
     trustProxy: config.TRUST_PROXY,

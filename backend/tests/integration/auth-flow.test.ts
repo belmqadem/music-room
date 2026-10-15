@@ -8,6 +8,8 @@ import { createApp } from "../../src/app.js";
 import { createPostgresPool } from "../../src/db/postgres.js";
 import { signAccessToken } from "../../src/modules/auth/access-token.js";
 import { hashPassword } from "../../src/modules/auth/password.js";
+import { createMemoryMailer } from "../helpers/memory-mailer.js";
+import { signUpVerified } from "../helpers/sign-up.js";
 
 // End-to-end tests of register / login / GET /users/me against a real, migrated
 // Postgres (set TEST_DATABASE_URL; see `make test-integration`). Without it the
@@ -21,6 +23,7 @@ const PASSWORD = "Correct-Horse-Battery-9";
 describe.skipIf(!databaseUrl)("auth flow (register, login, me)", () => {
   let pool: pg.Pool;
   let app: Express;
+  const mailer = createMemoryMailer();
 
   beforeAll(() => {
     pool = createPostgresPool(databaseUrl!);
@@ -41,8 +44,10 @@ describe.skipIf(!databaseUrl)("auth flow (register, login, me)", () => {
       jwtSecret: SECRET,
       logger: pino({ level: "silent" }),
       passwordCost: 4,
+      mailer,
       loginLimit: { windowMs: 60_000, limit: 10_000 },
       registerLimit: { windowMs: 60_000, limit: 10_000 },
+      emailCodeLimit: { windowMs: 60_000, limit: 10_000 },
       ...overrides,
     });
   }
@@ -53,24 +58,30 @@ describe.skipIf(!databaseUrl)("auth flow (register, login, me)", () => {
   const login = (body: object) => request(app).post("/api/v1/auth/login").send(body);
   const registerBob = () =>
     register({ email: email("bob"), password: PASSWORD, displayName: "Bob" });
+  // Register + confirm the email + log in: the session of a user who is ready to use the app.
+  const signUpBob = () =>
+    signUpVerified(app, mailer, {
+      email: email("bob"),
+      password: PASSWORD,
+      displayName: "Bob",
+    });
 
   describe("POST /auth/register", () => {
-    it("creates the account and returns a session (201)", async () => {
+    it("creates an unverified account, emails a code and returns no session (201)", async () => {
       const response = await registerBob();
 
       expect(response.status).toBe(201);
       expect(response.headers["cache-control"]).toBe("no-store");
-      expect(response.body).toMatchObject({
-        expiresIn: 900,
-        user: {
-          email: email("bob"),
-          displayName: "Bob",
-          linkedProviders: [],
-        },
-      });
-      expect(response.body.user.id).toMatch(/^[0-9a-f-]{36}$/);
-      expect(response.body.accessToken.split(".")).toHaveLength(3);
-      expect(response.body.refreshToken).toMatch(/^[A-Za-z0-9_-]{43}$/);
+      expect(response.body).toEqual({ email: email("bob") });
+      expect(mailer.sent.at(-1)?.to).toBe(email("bob"));
+      expect(mailer.lastCodeFor(email("bob"))).toMatch(/^\d{6}$/);
+      const { rows } = await pool.query(
+        `SELECT email_verified_at,
+                (SELECT count(*)::int FROM refresh_tokens t WHERE t.user_id = u.id) AS tokens
+         FROM users u WHERE email = $1`,
+        [email("bob")],
+      );
+      expect(rows[0]).toEqual({ email_verified_at: null, tokens: 0 });
     });
 
     it("never returns the password or its hash", async () => {
@@ -94,7 +105,7 @@ describe.skipIf(!databaseUrl)("auth flow (register, login, me)", () => {
     });
 
     it("stores only the SHA-256 hash of the refresh token, with a 7 day expiry", async () => {
-      const response = await registerBob();
+      const response = await signUpBob();
 
       const { rows } = await pool.query(
         "SELECT token_hash, expires_at FROM refresh_tokens WHERE user_id = $1",
@@ -118,7 +129,7 @@ describe.skipIf(!databaseUrl)("auth flow (register, login, me)", () => {
       });
 
       expect(response.status).toBe(201);
-      expect(response.body.user.email).toBe(`mixed${EMAIL_DOMAIN}`);
+      expect(response.body.email).toBe(`mixed${EMAIL_DOMAIN}`);
     });
 
     it("answers 409 EMAIL_TAKEN for the same email, whatever its letter case", async () => {
@@ -165,7 +176,7 @@ describe.skipIf(!databaseUrl)("auth flow (register, login, me)", () => {
                   WHERE u.email = $1) AS tokens`,
         [email("bob")],
       );
-      expect(rows[0]).toEqual({ users: 1, tokens: 1 });
+      expect(rows[0]).toEqual({ users: 1, tokens: 0 });
     });
 
     it.each([
@@ -228,7 +239,7 @@ describe.skipIf(!databaseUrl)("auth flow (register, login, me)", () => {
     it("still lets an account created before the policy log in with its weak password", async () => {
       const weakHash = await hashPassword("correct horse", 4);
       await pool.query(
-        "INSERT INTO users (email, password_hash, display_name) VALUES ($1, $2, 'Old')",
+        "INSERT INTO users (email, password_hash, display_name, email_verified_at) VALUES ($1, $2, 'Old', now())",
         [email("old"), weakHash],
       );
 
@@ -250,7 +261,7 @@ describe.skipIf(!databaseUrl)("auth flow (register, login, me)", () => {
 
   describe("POST /auth/login", () => {
     it("returns a session for the right credentials (200)", async () => {
-      await registerBob();
+      await signUpBob();
 
       const response = await login({ email: email("bob"), password: PASSWORD });
 
@@ -261,7 +272,7 @@ describe.skipIf(!databaseUrl)("auth flow (register, login, me)", () => {
     });
 
     it("accepts the email in any letter case", async () => {
-      await registerBob();
+      await signUpBob();
 
       const response = await login({
         email: email("BoB").toUpperCase(),
@@ -272,7 +283,7 @@ describe.skipIf(!databaseUrl)("auth flow (register, login, me)", () => {
     });
 
     it("starts a new session (new token family) on every login", async () => {
-      const registration = await registerBob();
+      const registration = await signUpBob();
       await login({ email: email("bob"), password: PASSWORD });
 
       const { rows } = await pool.query(
@@ -283,7 +294,7 @@ describe.skipIf(!databaseUrl)("auth flow (register, login, me)", () => {
     });
 
     it("gives the identical answer for a wrong password and an unknown email", async () => {
-      await registerBob();
+      await signUpBob();
 
       const wrongPassword = await login({
         email: email("bob"),
@@ -313,7 +324,11 @@ describe.skipIf(!databaseUrl)("auth flow (register, login, me)", () => {
 
     it("does not accept a password that matches only in its first 72 bytes", async () => {
       const long = `Aa1!${"a".repeat(68)}`; // exactly 72 bytes, meets every strength rule
-      await register({ email: email("long"), password: long, displayName: "Long" });
+      await signUpVerified(app, mailer, {
+        email: email("long"),
+        password: long,
+        displayName: "Long",
+      });
 
       const response = await login({ email: email("long"), password: `${long}EXTRA` });
 
@@ -329,7 +344,7 @@ describe.skipIf(!databaseUrl)("auth flow (register, login, me)", () => {
     });
 
     it("reports linked social accounts in the user", async () => {
-      const registration = await registerBob();
+      const registration = await signUpBob();
       // A value of its own: other test files run in parallel and also use a Google account id,
       // and this row is COMMITTED, so a shared literal would make their inserts collide.
       await pool.query(
@@ -348,7 +363,7 @@ describe.skipIf(!databaseUrl)("auth flow (register, login, me)", () => {
 
   describe("GET /users/me", () => {
     it("returns the signed-in user for a valid access token", async () => {
-      const registration = await registerBob();
+      const registration = await signUpBob();
 
       const response = await request(app)
         .get("/api/v1/users/me")
@@ -376,7 +391,7 @@ describe.skipIf(!databaseUrl)("auth flow (register, login, me)", () => {
     });
 
     it("answers 401 TOKEN_EXPIRED for an expired token", async () => {
-      const registration = await registerBob();
+      const registration = await signUpBob();
       const old = await signAccessToken(
         registration.body.user.id,
         SECRET,
@@ -392,7 +407,7 @@ describe.skipIf(!databaseUrl)("auth flow (register, login, me)", () => {
     });
 
     it("answers 401 for a valid token whose user was deleted", async () => {
-      const registration = await registerBob();
+      const registration = await signUpBob();
       await pool.query("DELETE FROM users WHERE id = $1", [registration.body.user.id]);
 
       const response = await request(app)
@@ -405,7 +420,7 @@ describe.skipIf(!databaseUrl)("auth flow (register, login, me)", () => {
 
   describe("rate limiting (in-memory store)", () => {
     it("blocks login attempts past the limit with 429 RATE_LIMITED and Retry-After", async () => {
-      await registerBob();
+      await signUpBob();
       const limited = buildApp({ loginLimit: { windowMs: 60_000, limit: 3 } });
       const attempt = () =>
         request(limited)
@@ -424,7 +439,7 @@ describe.skipIf(!databaseUrl)("auth flow (register, login, me)", () => {
     });
 
     it("also blocks the CORRECT password once the limit is reached", async () => {
-      await registerBob();
+      await signUpBob();
       const limited = buildApp({ loginLimit: { windowMs: 60_000, limit: 2 } });
       const send = (password: string) =>
         request(limited)
@@ -454,7 +469,9 @@ describe.skipIf(!databaseUrl)("auth flow (register, login, me)", () => {
         .send({ email: email("one"), password: PASSWORD });
 
       expect(secondRegister.status).toBe(429);
-      expect(loginStillWorks.status).toBe(200);
+      // Not 429: the login limit is its own. The account is unverified, so it is refused for that.
+      expect(loginStillWorks.status).toBe(403);
+      expect(loginStillWorks.body.error.code).toBe("EMAIL_NOT_VERIFIED");
     });
   });
 });

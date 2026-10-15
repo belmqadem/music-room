@@ -19,6 +19,13 @@ export const DEFAULT_REGISTER_LIMIT: RateLimitSettings = {
   windowMs: 60 * 60 * 1000,
   limit: 10,
 };
+// The four email-code endpoints (verify, resend, forgot, reset) share one counter per IP. The
+// real protection against guessing is the per-code limit of 5 tries (ADR-022); this only keeps
+// one address from flooding the mail server or hammering many accounts.
+export const DEFAULT_EMAIL_CODE_LIMIT: RateLimitSettings = {
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+};
 // Refresh tokens are 256-bit random values, so guessing is hopeless; this only
 // stops hammering. Generous because many users can share one IP (mobile networks).
 export const DEFAULT_REFRESH_LIMIT: RateLimitSettings = {

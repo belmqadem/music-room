@@ -1,10 +1,25 @@
 import { randomUUID } from "node:crypto";
-import type { AuthSession, OAuthProvider, User } from "@music-room/shared";
+import type {
+  AuthSession,
+  OAuthProvider,
+  RegisterResult,
+  User,
+} from "@music-room/shared";
 import type pg from "pg";
 import type { Logger } from "pino";
 import { withTransaction } from "../../db/postgres.js";
 import { HttpError } from "../../http-error.js";
 import { ACCESS_TOKEN_TTL_SECONDS, signAccessToken } from "./access-token.js";
+import {
+  EMAIL_CODE_MAX_ATTEMPTS,
+  EMAIL_CODE_RESEND_COOLDOWN_MS,
+  EMAIL_CODE_TTL_MS,
+  emailCodeHashesMatch,
+  generateEmailCode,
+  hashEmailCode,
+  type EmailCodePurpose,
+} from "./email-code.js";
+import type { Mailer } from "./mailer.js";
 import {
   ProviderCredentialError,
   ProviderUnavailableError,
@@ -19,7 +34,9 @@ import {
 } from "./refresh-token.js";
 import {
   consumeRefreshToken,
+  deleteEmailCode,
   deleteOAuthIdentity,
+  deleteUnverifiedUserByEmail,
   findLinkedProviders,
   findRefreshToken,
   findUserByEmail,
@@ -32,12 +49,25 @@ import {
   isForeignKeyViolation,
   isUniqueViolation,
   lockUser,
+  markEmailVerified,
+  revokeAllRefreshTokens,
   revokeFamily,
   revokeFamilyOfUsersToken,
+  takeEmailCodeAttempt,
+  updatePasswordHash,
+  upsertEmailCode,
   violatedConstraint,
   type UserRecord,
 } from "./repository.js";
-import type { LoginInput, OAuthBody, RefreshTokenBody, RegisterInput } from "./schema.js";
+import type {
+  EmailOnlyInput,
+  LoginInput,
+  OAuthBody,
+  RefreshTokenBody,
+  RegisterInput,
+  ResetPasswordInput,
+  VerifyEmailInput,
+} from "./schema.js";
 
 export interface AuthServiceDependencies {
   pool: pg.Pool;
@@ -45,12 +75,18 @@ export interface AuthServiceDependencies {
   logger: Logger;
   /** One verifier per social provider (ADR-011). */
   verifiers: ProviderVerifiers;
+  /** Sends the verification and reset codes (ADR-022). */
+  mailer: Mailer;
   /** bcrypt cost; only tests lower it (for speed). Defaults to 12. */
   passwordCost?: number;
 }
 
 export interface AuthService {
-  register(input: RegisterInput): Promise<AuthSession>;
+  register(input: RegisterInput): Promise<RegisterResult>;
+  verifyEmail(input: VerifyEmailInput): Promise<void>;
+  resendVerification(input: EmailOnlyInput): Promise<void>;
+  forgotPassword(input: EmailOnlyInput): Promise<void>;
+  resetPassword(input: ResetPasswordInput): Promise<void>;
   login(input: LoginInput): Promise<AuthSession>;
   refresh(input: RefreshTokenBody): Promise<AuthSession>;
   logout(userId: string, input: RefreshTokenBody): Promise<void>;
@@ -81,16 +117,96 @@ type Queryable = Pick<pg.Pool, "query">;
 
 /** Business rules for accounts and sessions. No HTTP and no SQL in here. */
 export function createAuthService(deps: AuthServiceDependencies): AuthService {
-  const { pool, jwtSecret, logger, verifiers, passwordCost } = deps;
+  const { pool, jwtSecret, logger, verifiers, mailer, passwordCost } = deps;
 
   function toApiUser(user: UserRecord, linkedProviders: string[]): User {
     return {
       id: user.id,
       displayName: user.displayName,
       email: user.email,
+      emailVerified: user.emailVerifiedAt !== null,
       linkedProviders: linkedProviders as OAuthProvider[],
       createdAt: user.createdAt.toISOString(),
     };
+  }
+
+  const CODE_MESSAGES: Record<EmailCodePurpose, { subject: string; intro: string }> = {
+    verify_email: {
+      subject: "Confirm your Music Room email",
+      intro: "Your Music Room confirmation code is:",
+    },
+    reset_password: {
+      subject: "Reset your Music Room password",
+      intro: "Your Music Room password reset code is:",
+    },
+  };
+
+  // Creates a code, stores its keyed hash and emails it. A second code inside the cooldown is
+  // silently skipped (the caller's answer must not reveal it). The email is sent WITHOUT
+  // waiting for the mail server, so the response time says nothing about the account, and a
+  // slow or failing mail server cannot fail or delay the request; failures are only logged.
+  async function issueCode(
+    user: { id: string; email: string },
+    purpose: EmailCodePurpose,
+  ): Promise<void> {
+    const code = generateEmailCode();
+    const stored = await upsertEmailCode(pool, {
+      userId: user.id,
+      purpose,
+      codeHash: hashEmailCode(code, purpose, user.id, jwtSecret),
+      expiresAt: new Date(Date.now() + EMAIL_CODE_TTL_MS),
+      cooldownMs: EMAIL_CODE_RESEND_COOLDOWN_MS,
+    });
+    if (!stored) return;
+    const { subject, intro } = CODE_MESSAGES[purpose];
+    const minutes = EMAIL_CODE_TTL_MS / 60_000;
+    mailer
+      .send({
+        to: user.email,
+        subject,
+        text: `${intro}\n\n${code}\n\nIt works once and expires in ${minutes} minutes. If you did not ask for it, ignore this email.`,
+      })
+      .catch((error: unknown) => {
+        // Never log the message: it holds the code.
+        logger.error(
+          { userId: user.id, purpose, reason: (error as Error).message },
+          "could not send email code",
+        );
+      });
+  }
+
+  // Checks a code and, if it is right, runs `apply` in the SAME transaction, so the code is
+  // spent only if its effect happened. Every failure (unknown email, no code, expired, too many
+  // tries, wrong code) returns false and is reported the same way. The try is counted and
+  // committed even when the code is wrong: the failed outcome is returned, not thrown, because
+  // an error thrown inside the transaction would roll the count back.
+  async function redeemCode(
+    email: string,
+    purpose: EmailCodePurpose,
+    code: string,
+    apply: (client: pg.PoolClient, user: UserRecord) => Promise<void>,
+  ): Promise<void> {
+    const user = await findUserByEmail(pool, email);
+    const accepted =
+      user !== null &&
+      (await withTransaction(pool, async (client) => {
+        const expected = await takeEmailCodeAttempt(
+          client,
+          user.id,
+          purpose,
+          EMAIL_CODE_MAX_ATTEMPTS,
+        );
+        if (expected === null) return false;
+        const actual = hashEmailCode(code, purpose, user.id, jwtSecret);
+        if (!emailCodeHashesMatch(expected, actual)) return false;
+        // False when a simultaneous correct submission spent it first.
+        if (!(await deleteEmailCode(client, user.id, purpose, expected))) return false;
+        await apply(client, user);
+        return true;
+      }));
+    if (!accepted) {
+      throw new HttpError(400, "INVALID_CODE", "The code is invalid or has expired.");
+    }
   }
 
   // Starts a new login session: a new "family" of refresh tokens plus an access token.
@@ -166,30 +282,41 @@ export function createAuthService(deps: AuthServiceDependencies): AuthService {
       if (linked) return loginAs(linked);
 
       // NO automatic linking by email (ADR-007): the user must log in and link.
-      if (
-        identity.verifiedEmail &&
-        (await findUserByEmail(client, identity.verifiedEmail))
-      ) {
-        // But that email may belong to the account ANOTHER request has just created
-        // for this very provider account (two first logins at the same moment): it
-        // committed between our two lookups. Look again: if this provider account is
-        // linked now, this is a login, not a conflict. (Its user and its link are
-        // committed together, so if we can see one we can see the other.)
-        const justLinked = await findUserByIdentity(
-          client,
-          provider,
-          identity.providerUserId,
-        );
-        if (justLinked) return loginAs(justLinked);
-        throw new HttpError(
-          409,
-          "EMAIL_TAKEN",
-          "An account with this email already exists.",
-        );
+      if (identity.verifiedEmail) {
+        const sameEmail = await findUserByEmail(client, identity.verifiedEmail);
+        if (sameEmail && !sameEmail.emailVerifiedAt) {
+          // Someone registered this address with a password but never proved they own it,
+          // and the provider has just proved that THIS person does. That account could never
+          // log in, so it holds nothing: remove it instead of locking the real owner out
+          // (ADR-022). A verified account is never touched.
+          await deleteUnverifiedUserByEmail(client, identity.verifiedEmail);
+          logger.warn(
+            { provider, removedUserId: sameEmail.id },
+            "removed an unverified account that held a provider-verified email",
+          );
+        } else if (sameEmail) {
+          // But that email may belong to the account ANOTHER request has just created
+          // for this very provider account (two first logins at the same moment): it
+          // committed between our two lookups. Look again: if this provider account is
+          // linked now, this is a login, not a conflict. (Its user and its link are
+          // committed together, so if we can see one we can see the other.)
+          const justLinked = await findUserByIdentity(
+            client,
+            provider,
+            identity.providerUserId,
+          );
+          if (justLinked) return loginAs(justLinked);
+          throw new HttpError(
+            409,
+            "EMAIL_TAKEN",
+            "An account with this email already exists.",
+          );
+        }
       }
       const user = await insertSocialUser(client, {
         email: identity.verifiedEmail,
         displayName: displayNameFrom(identity.displayName),
+        emailVerified: identity.verifiedEmail !== null,
       });
       await insertOAuthIdentity(client, {
         userId: user.id,
@@ -214,14 +341,12 @@ export function createAuthService(deps: AuthServiceDependencies): AuthService {
       // Hash BEFORE opening the transaction: bcrypt takes ~250 ms and we do not
       // want to hold a database connection that long.
       const passwordHash = await hashPassword(input.password, passwordCost);
+      let user: UserRecord;
       try {
-        return await withTransaction(pool, async (client) => {
-          const user = await insertUser(client, {
-            email: input.email,
-            passwordHash,
-            displayName: input.displayName,
-          });
-          return startSession(client, user, []);
+        user = await insertUser(pool, {
+          email: input.email,
+          passwordHash,
+          displayName: input.displayName,
         });
       } catch (error) {
         // Relies on the database's unique index, not a "check then insert":
@@ -235,6 +360,50 @@ export function createAuthService(deps: AuthServiceDependencies): AuthService {
         }
         throw error;
       }
+      // No session yet: the address must be proven first (ADR-022).
+      await issueCode({ id: user.id, email: input.email }, "verify_email");
+      return { email: input.email };
+    },
+
+    async verifyEmail(input) {
+      await redeemCode(input.email, "verify_email", input.code, (client, user) =>
+        markEmailVerified(client, user.id),
+      );
+    },
+
+    // Answers the same whether or not the account exists, so it cannot be used to find out
+    // who is registered. Social-only accounts have no password to confirm, so nothing is sent.
+    async resendVerification(input) {
+      const user = await findUserByEmail(pool, input.email);
+      if (user?.email && user.passwordHash && !user.emailVerifiedAt) {
+        await issueCode({ id: user.id, email: user.email }, "verify_email");
+      }
+    },
+
+    // Same silence as above. An unverified account may reset too: the code proves the mailbox,
+    // which also lets the real owner take back an address someone else registered first.
+    async forgotPassword(input) {
+      const user = await findUserByEmail(pool, input.email);
+      if (user?.email && user.passwordHash) {
+        await issueCode({ id: user.id, email: user.email }, "reset_password");
+      }
+    },
+
+    async resetPassword(input) {
+      // Hash first, for the same reason as register.
+      const passwordHash = await hashPassword(input.newPassword, passwordCost);
+      await redeemCode(
+        input.email,
+        "reset_password",
+        input.code,
+        async (client, user) => {
+          await updatePasswordHash(client, user.id, passwordHash);
+          // The code came from the mailbox, so the address is proven now too.
+          await markEmailVerified(client, user.id);
+          // Whoever knew the old password (or stole a session) is logged out everywhere.
+          await revokeAllRefreshTokens(client, user.id);
+        },
+      );
     },
 
     async login(input) {
@@ -251,6 +420,14 @@ export function createAuthService(deps: AuthServiceDependencies): AuthService {
           401,
           "INVALID_CREDENTIALS",
           "Email or password is incorrect.",
+        );
+      }
+      // Only AFTER the password matched, so this answer never reveals that an address is registered.
+      if (!user.emailVerifiedAt) {
+        throw new HttpError(
+          403,
+          "EMAIL_NOT_VERIFIED",
+          "Confirm your email with the code we sent before logging in.",
         );
       }
       return startSession(pool, user, await findLinkedProviders(pool, user.id));

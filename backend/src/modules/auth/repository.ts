@@ -10,6 +10,8 @@ export interface UserRecord {
   passwordHash: string | null;
   displayName: string;
   createdAt: Date;
+  /** When the email address was proven to belong to the user; null = never. */
+  emailVerifiedAt: Date | null;
 }
 
 interface UserRow {
@@ -18,9 +20,11 @@ interface UserRow {
   password_hash: string | null;
   display_name: string;
   created_at: Date;
+  email_verified_at: Date | null;
 }
 
-const USER_COLUMNS = "id, email, password_hash, display_name, created_at";
+const USER_COLUMNS =
+  "id, email, password_hash, display_name, created_at, email_verified_at";
 
 function toUserRecord(row: UserRow): UserRecord {
   return {
@@ -29,6 +33,7 @@ function toUserRecord(row: UserRow): UserRecord {
     passwordHash: row.password_hash,
     displayName: row.display_name,
     createdAt: row.created_at,
+    emailVerifiedAt: row.email_verified_at,
   };
 }
 
@@ -93,7 +98,7 @@ export async function findUserByIdentity(
   providerUserId: string,
 ): Promise<UserRecord | null> {
   const { rows } = await db.query<UserRow>(
-    `SELECT u.id, u.email, u.password_hash, u.display_name, u.created_at
+    `SELECT u.id, u.email, u.password_hash, u.display_name, u.created_at, u.email_verified_at
      FROM oauth_identities i JOIN users u ON u.id = i.user_id
      WHERE i.provider = $1 AND i.provider_user_id = $2`,
     [provider, providerUserId],
@@ -114,14 +119,19 @@ export async function lockUser(db: Queryable, id: string): Promise<UserRecord | 
   return rows[0] ? toUserRecord(rows[0]) : null;
 }
 
-/** A social-only account: no password. @throws unique violation if the email is taken. */
+/**
+ * A social-only account: no password. `emailVerified` is true only when the provider vouched
+ * for the email. @throws unique violation if the email is taken.
+ */
 export async function insertSocialUser(
   db: Queryable,
-  user: { email: string | null; displayName: string },
+  user: { email: string | null; displayName: string; emailVerified: boolean },
 ): Promise<UserRecord> {
   const { rows } = await db.query<UserRow>(
-    `INSERT INTO users (email, display_name) VALUES ($1, $2) RETURNING ${USER_COLUMNS}`,
-    [user.email, user.displayName],
+    `INSERT INTO users (email, display_name, email_verified_at)
+     VALUES ($1, $2, CASE WHEN $3 THEN now() END)
+     RETURNING ${USER_COLUMNS}`,
+    [user.email, user.displayName, user.emailVerified],
   );
   return toUserRecord(rows[0]!);
 }
@@ -248,4 +258,111 @@ export async function revokeFamilyOfUsersToken(
      )`,
     [tokenHash, userId],
   );
+}
+
+/**
+ * Removes the account holding `email` ONLY if its email was never verified, and returns whether
+ * one was removed. Used when a provider proves it owns that address: an unverified account
+ * could never log in, so it cannot own anything, and it must not keep the real owner out.
+ */
+export async function deleteUnverifiedUserByEmail(
+  db: Queryable,
+  email: string,
+): Promise<boolean> {
+  const result = await db.query(
+    "DELETE FROM users WHERE lower(email) = lower($1) AND email_verified_at IS NULL",
+    [email],
+  );
+  return result.rowCount === 1;
+}
+
+/** Sets the verification time once; a second call keeps the first date. */
+export async function markEmailVerified(db: Queryable, userId: string): Promise<void> {
+  await db.query(
+    "UPDATE users SET email_verified_at = COALESCE(email_verified_at, now()) WHERE id = $1",
+    [userId],
+  );
+}
+
+export async function updatePasswordHash(
+  db: Queryable,
+  userId: string,
+  passwordHash: string,
+): Promise<void> {
+  await db.query("UPDATE users SET password_hash = $2 WHERE id = $1", [
+    userId,
+    passwordHash,
+  ]);
+}
+
+/** Ends every login session of a user (all families). Used after a password reset. */
+export async function revokeAllRefreshTokens(
+  db: Queryable,
+  userId: string,
+): Promise<void> {
+  await db.query(
+    "UPDATE refresh_tokens SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL",
+    [userId],
+  );
+}
+
+/**
+ * Stores a new code for (user, purpose), replacing any earlier one, unless the earlier one was
+ * issued less than `cooldownMs` ago. Returns false when the cooldown refused it. ONE statement,
+ * so two simultaneous requests cannot both issue a code.
+ */
+export async function upsertEmailCode(
+  db: Queryable,
+  code: {
+    userId: string;
+    purpose: string;
+    codeHash: string;
+    expiresAt: Date;
+    cooldownMs: number;
+  },
+): Promise<boolean> {
+  const result = await db.query(
+    `INSERT INTO email_codes (user_id, purpose, code_hash, expires_at)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (user_id, purpose) DO UPDATE
+       SET code_hash = EXCLUDED.code_hash, expires_at = EXCLUDED.expires_at,
+           attempts = 0, created_at = now()
+       WHERE email_codes.created_at <= now() - ($5 * interval '1 millisecond')`,
+    [code.userId, code.purpose, code.codeHash, code.expiresAt, code.cooldownMs],
+  );
+  return result.rowCount === 1;
+}
+
+/**
+ * Counts one try against the pending code and returns its hash, or null when there is no code,
+ * it expired, or its tries are used up. The count is raised BEFORE the comparison and by the
+ * same statement that reads the hash, so concurrent guesses cannot exceed the limit.
+ */
+export async function takeEmailCodeAttempt(
+  db: Queryable,
+  userId: string,
+  purpose: string,
+  maxAttempts: number,
+): Promise<string | null> {
+  const { rows } = await db.query<{ code_hash: string }>(
+    `UPDATE email_codes SET attempts = attempts + 1
+     WHERE user_id = $1 AND purpose = $2 AND expires_at > now() AND attempts < $3
+     RETURNING code_hash`,
+    [userId, purpose, maxAttempts],
+  );
+  return rows[0]?.code_hash ?? null;
+}
+
+/** Spends a code. Returns false if it was already spent (two correct submissions at once). */
+export async function deleteEmailCode(
+  db: Queryable,
+  userId: string,
+  purpose: string,
+  codeHash: string,
+): Promise<boolean> {
+  const result = await db.query(
+    "DELETE FROM email_codes WHERE user_id = $1 AND purpose = $2 AND code_hash = $3",
+    [userId, purpose, codeHash],
+  );
+  return result.rowCount === 1;
 }

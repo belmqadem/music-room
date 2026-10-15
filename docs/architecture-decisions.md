@@ -281,6 +281,29 @@ Each decision must be defensible in detail at the defense. Copy the template for
   - Users and tokens are created directly in the database and signed with the secret, so the test does not spend its time hashing passwords; password hashing is a deliberate cost (ADR-006) measured separately.
 - Consequences: the load generator runs on the laptop next to the container, so very high numbers measure the laptop as much as the server (the harness reports its own CPU, and the results say so). `TRUST_PROXY` must be the REAL number of proxies: a client can write anything in `X-Forwarded-For`, and a value that is too high lets it pick its own address and dodge the limits (tests pin this down). Docker's own VM (2 CPUs, 3.8 GB here) caps what can be measured; the results state the VM size.
 
+### ADR-022: Email verification and password reset: 6-digit codes, login blocked until verified
+
+- Status: accepted
+- Date: 2026-10-15
+- Deciders: belmqadem
+- Context: the subject requires email validation for password accounts and a forgot-password flow. Until now anyone could register any address (and, with Google's verified email, lock the real owner out through `EMAIL_TAKEN`), and a forgotten password was a dead end.
+- Options considered:
+  - Proof by a **link** with a long random token (256 bits, safest against guessing) or by a **6-digit code** typed in the app. A link needs a deep link or a hosted page, and neither exists yet in Expo.
+  - Unverified accounts **cannot log in**, or can log in with limits. Limits mean a permission rule per action to define, test and defend, and the squatter still holds the address meanwhile.
+  - Mail: an interface with a console implementation (development) and an SMTP one (nodemailer), or SMTP only.
+- Decision:
+  - **Codes**: 6 digits from `crypto.randomInt`, valid 10 minutes, **5 tries** per code (counted by the same SQL statement that reads the hash, so simultaneous guesses cannot exceed it), single use (`DELETE` decides the winner when two correct submissions race). One pending code per user and purpose (`PRIMARY KEY (user_id, purpose)`); a new one replaces the old and is refused inside one minute. 6 digits has only a million values, so the code is stored as an **HMAC-SHA256** keyed with the server secret over `purpose:userId:code` (a plain hash could be reversed in a second from a leaked database; the purpose and user make a code useless elsewhere). The key is `JWT_ACCESS_SECRET`: rotating it only voids pending codes, which live 10 minutes anyway.
+  - **Verification**: register returns `201 { email }` and **no session**; login answers `403 EMAIL_NOT_VERIFIED` only after the password matched (no enumeration). Existing accounts are marked verified by the migration. Social accounts with a provider-verified email are verified on creation.
+  - **Reset**: `forgot-password` answers `204` for any address; `reset-password` checks the register password policy before the code is spent, then changes the hash, marks the email verified and **revokes every refresh token** of the user in one transaction.
+  - **Squatting**: when a provider proves an address that an unverified password account holds, that account is deleted (it could never log in, so it owns nothing) and the social account is created. A verified account is never touched (ADR-007 stays: no automatic linking).
+  - **Mail**: `Mailer` interface; `console` for development (refused when `NODE_ENV=production`, it prints the codes), `smtp` through nodemailer (`SMTP_URL`, `MAIL_FROM`), Mailpit in docker-compose under the `mail` profile to read the mails locally. The mail is sent **without waiting** for the server: a slow or failing SMTP cannot fail the request or reveal whether an account exists; a failure is logged (never the message) and the user can ask again.
+- Alternatives: links (stronger tokens, more mobile and infra work); allow limited login (more rules); a transactional-mail API such as Resend or SendGrid (one HTTPS call, no SMTP, but a vendor account and key).
+- Consequences:
+  - A 6-digit code is guessable in principle: an attacker can ask for a new code every minute and try 5, about 7,200 tries a day against a million values (roughly 0.7% a day for one targeted account), bounded by the per-IP limit. Mitigations if it matters: a per-account daily cap on codes, or switching to the link option.
+  - The register response changed (no session) and `User` gained `emailVerified`: a contract change the mobile app must follow.
+  - Response time of `forgot-password` differs slightly between a known and an unknown address (one database write); the mail itself is not waited for.
+  - `nodemailer` is a new dependency; SMTP credentials live only in `.env`.
+
 ## Still to decide (record each as an ADR)
 
 TODO:

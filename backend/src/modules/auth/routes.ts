@@ -4,6 +4,7 @@ import type { Redis } from "ioredis";
 import { createAuthenticate } from "../../middleware/authenticate.js";
 import {
   createRateLimiter,
+  DEFAULT_EMAIL_CODE_LIMIT,
   DEFAULT_LOGIN_LIMIT,
   DEFAULT_REFRESH_LIMIT,
   DEFAULT_REGISTER_LIMIT,
@@ -19,9 +20,10 @@ export interface AuthRoutesOptions {
   loginLimit?: RateLimitSettings;
   registerLimit?: RateLimitSettings;
   refreshLimit?: RateLimitSettings;
+  emailCodeLimit?: RateLimitSettings;
 }
 
-/** Mounted at /api/v1: /auth/{register,login,refresh,logout,oauth/:provider}, /users/me and /users/me/providers/:provider. */
+/** Mounted at /api/v1: /auth/{register,verify-email,resend-verification,forgot-password,reset-password,login,refresh,logout,oauth/:provider}, /users/me and /users/me/providers/:provider. */
 export function createAuthRoutes(options: AuthRoutesOptions): ExpressRouter {
   const controller = createAuthController(options.service);
   const authenticate = createAuthenticate(options.jwtSecret);
@@ -42,8 +44,23 @@ export function createAuthRoutes(options: AuthRoutesOptions): ExpressRouter {
     options.redis,
   );
 
+  // One counter for the four email-code routes: they are all "prove you own this address".
+  const emailCodeLimiter = createRateLimiter(
+    "email-code",
+    options.emailCodeLimit ?? DEFAULT_EMAIL_CODE_LIMIT,
+    options.redis,
+  );
+
   const router = Router();
   router.post("/auth/register", registerLimiter, controller.register);
+  router.post("/auth/verify-email", emailCodeLimiter, controller.verifyEmail);
+  router.post(
+    "/auth/resend-verification",
+    emailCodeLimiter,
+    controller.resendVerification,
+  );
+  router.post("/auth/forgot-password", emailCodeLimiter, controller.forgotPassword);
+  router.post("/auth/reset-password", emailCodeLimiter, controller.resetPassword);
   router.post("/auth/login", loginLimiter, controller.login);
   // Public on purpose: the access token has usually expired when the app refreshes.
   router.post("/auth/refresh", refreshLimiter, controller.refresh);

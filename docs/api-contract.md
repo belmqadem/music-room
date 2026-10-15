@@ -32,9 +32,9 @@ Every non-2xx response has this body (type `ApiError`):
 
 | HTTP | Meaning                                                      | Codes                                                                                                                                                                               |
 | ---- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 400  | Malformed or invalid request                                 | `VALIDATION_ERROR`, `LOCATION_REQUIRED`                                                                                                                                             |
+| 400  | Malformed or invalid request                                 | `VALIDATION_ERROR`, `INVALID_CODE`, `LOCATION_REQUIRED`                                                                                                                             |
 | 401  | Not authenticated                                            | `UNAUTHENTICATED`, `TOKEN_EXPIRED`, `INVALID_CREDENTIALS`, `INVALID_REFRESH_TOKEN`, `INVALID_PROVIDER_CREDENTIAL`                                                                   |
-| 403  | You can see it, but may not do this                          | `FORBIDDEN`, `NOT_INVITED`, `OUTSIDE_VOTING_AREA`, `OUTSIDE_VOTING_TIME`                                                                                                            |
+| 403  | You can see it, but may not do this                          | `EMAIL_NOT_VERIFIED`, `FORBIDDEN`, `NOT_INVITED`, `OUTSIDE_VOTING_AREA`, `OUTSIDE_VOTING_TIME`                                                                                      |
 | 404  | Does not exist **or you may not know it exists**             | `EVENT_NOT_FOUND`, `PLAYLIST_NOT_FOUND`, `TRACK_NOT_FOUND`, `NOT_FOUND` (unknown route)                                                                                             |
 | 409  | Conflicts with current state                                 | `EMAIL_TAKEN`, `PROVIDER_ACCOUNT_LINKED`, `LAST_LOGIN_METHOD`, `ALREADY_INVITED`, `TRACK_ALREADY_QUEUED`, `TRACK_NOT_VOTABLE`, `QUEUE_CHANGED`, `ANCHOR_NOT_FOUND`, `PLAYLIST_FULL` |
 | 429  | Rate limited                                                 | `RATE_LIMITED`                                                                                                                                                                      |
@@ -70,20 +70,24 @@ rejects the request; values are stripped of unsafe characters and capped at 64 c
   keystore). On web there is no secure storage, so it goes in browser storage and is sent in the request body, exactly
   like on mobile (ADR-012); see "Web client" below.
 
-`AuthSession` (returned by register, login, refresh, OAuth login): `{ accessToken, refreshToken, expiresIn, user }`;
+`AuthSession` (returned by login, refresh, OAuth login): `{ accessToken, refreshToken, expiresIn, user }`;
 `expiresIn` is seconds until the access token expires.
 
-| Method | Path                             | Auth   | Purpose                                                               | Success                   | Errors                                       |
-| ------ | -------------------------------- | ------ | --------------------------------------------------------------------- | ------------------------- | -------------------------------------------- |
-| POST   | `/auth/register`                 | public | Create an account with email + password                               | 201 `AuthSession`         | 400, 409 `EMAIL_TAKEN`                       |
-| POST   | `/auth/login`                    | public | Email + password login                                                | 200 `AuthSession`         | 400, 401 `INVALID_CREDENTIALS`, 429          |
-| POST   | `/auth/oauth/{provider}`         | public | Sign up or log in with Google or Facebook                             | 200 `AuthSession`         | 400, 401, 409 `EMAIL_TAKEN`, 429, 502        |
-| POST   | `/auth/refresh`                  | public | Exchange a refresh token for a new session (body: `{ refreshToken }`) | 200 `AuthSession`         | 401 `INVALID_REFRESH_TOKEN`                  |
-| POST   | `/auth/logout`                   | bearer | Revoke the session of `{ refreshToken }` (always 204)                 | 204                       | 401                                          |
-| GET    | `/users/me`                      | bearer | The signed-in user, incl. linked providers                            | 200 `User`                | 401                                          |
-| GET    | `/users`                         | bearer | Search users by display name prefix (`?query=`, see Finding users)    | 200 page of `UserSummary` | 400, 401, 429                                |
-| POST   | `/users/me/providers/{provider}` | bearer | Link a Google/Facebook account to this account                        | 200 `User`                | 400, 401, 409 `PROVIDER_ACCOUNT_LINKED`, 502 |
-| DELETE | `/users/me/providers/{provider}` | bearer | Unlink a provider                                                     | 200 `User`                | 404, 409 `LAST_LOGIN_METHOD`                 |
+| Method | Path                             | Auth   | Purpose                                                               | Success                   | Errors                                                        |
+| ------ | -------------------------------- | ------ | --------------------------------------------------------------------- | ------------------------- | ------------------------------------------------------------- |
+| POST   | `/auth/register`                 | public | Create an account with email + password; emails a 6-digit code        | 201 `{ email }`           | 400, 409 `EMAIL_TAKEN`                                        |
+| POST   | `/auth/verify-email`             | public | Confirm the email with `{ email, code }`                              | 204                       | 400 `INVALID_CODE`, 429                                       |
+| POST   | `/auth/resend-verification`      | public | Send a new code (`{ email }`); same answer for any address            | 204                       | 400, 429                                                      |
+| POST   | `/auth/forgot-password`          | public | Email a reset code (`{ email }`); same answer for any address         | 204                       | 400, 429                                                      |
+| POST   | `/auth/reset-password`           | public | Set a new password with `{ email, code, newPassword }`                | 204                       | 400 `INVALID_CODE`, 429                                       |
+| POST   | `/auth/login`                    | public | Email + password login                                                | 200 `AuthSession`         | 400, 401 `INVALID_CREDENTIALS`, 403 `EMAIL_NOT_VERIFIED`, 429 |
+| POST   | `/auth/oauth/{provider}`         | public | Sign up or log in with Google or Facebook                             | 200 `AuthSession`         | 400, 401, 409 `EMAIL_TAKEN`, 429, 502                         |
+| POST   | `/auth/refresh`                  | public | Exchange a refresh token for a new session (body: `{ refreshToken }`) | 200 `AuthSession`         | 401 `INVALID_REFRESH_TOKEN`                                   |
+| POST   | `/auth/logout`                   | bearer | Revoke the session of `{ refreshToken }` (always 204)                 | 204                       | 401                                                           |
+| GET    | `/users/me`                      | bearer | The signed-in user, incl. linked providers                            | 200 `User`                | 401                                                           |
+| GET    | `/users`                         | bearer | Search users by display name prefix (`?query=`, see Finding users)    | 200 page of `UserSummary` | 400, 401, 429                                                 |
+| POST   | `/users/me/providers/{provider}` | bearer | Link a Google/Facebook account to this account                        | 200 `User`                | 400, 401, 409 `PROVIDER_ACCOUNT_LINKED`, 502                  |
+| DELETE | `/users/me/providers/{provider}` | bearer | Unlink a provider                                                     | 200 `User`                | 404, 409 `LAST_LOGIN_METHOD`                                  |
 
 - `{provider}` is `google` or `facebook`. The OAuth body is `{ "credential": string }`: Google ID token or Facebook
   access token, obtained by the app from the provider. **The backend verifies it with the provider**; it never trusts
@@ -114,6 +118,26 @@ PROVIDER_UNAVAILABLE`; the app may retry later. Both are logged without the cred
   letter, a digit and a symbol (anything that is not a letter, digit or whitespace). A weak password gets `400
 VALIDATION_ERROR` with one `details` entry per broken rule (`path: "password"`, a fixed English `message`, never the
   password). Login does not apply the policy, so accounts created before it still work.
+- **Email verification and password reset (ADR-022).** Register creates the account and emails a 6-digit code but
+  returns **no session**: `201 { email }`. The app shows a code screen, calls `POST /auth/verify-email`, then logs in
+  with the password it still holds. `User.emailVerified` tells whether the address is confirmed.
+  - **Login before confirming:** `403 EMAIL_NOT_VERIFIED`, but only when the password is right; a wrong password or an
+    unknown address is the same `401 INVALID_CREDENTIALS` as before, so this reveals nothing. The app answers it with
+    the code screen and `POST /auth/resend-verification`.
+  - **The code** is one use, expires after 10 minutes, and dies after **5 tries** (right or wrong). Asking for a new code
+    replaces the old one, at most one per minute per purpose. Every failure (wrong, expired, used up, unknown address)
+    is the same `400 INVALID_CODE`. A verification code does not work as a reset code, or the other way round.
+  - **`resend-verification` and `forgot-password`** always answer `204`, whether or not the account exists, so they
+    cannot be used to find out who is registered. A code is only sent for a password account (a social-only account has
+    nothing to confirm or reset).
+  - **`reset-password`**: the new password follows the register policy (`400 VALIDATION_ERROR` first, and the code is
+    **not** spent by a weak password). On success the password changes, the email counts as confirmed (the code came from
+    the mailbox, which also lets the real owner take back an address someone else registered first), and **every session
+    of that user ends** (all refresh tokens revoked; access tokens expire within 15 minutes).
+  - **Social accounts** whose provider vouches for the email (Google) are confirmed at once. If an **unconfirmed**
+    password account holds that email when the owner signs in with Google, that account (it could never log in) is deleted
+    and the Google account is created: a stranger cannot lock the real owner out by registering their address.
+  - The four code endpoints share one rate limit (**Proposed**): 20 per 15 minutes per IP.
 - Login and register are rate limited (**Proposed**): 10 attempts per 15 minutes (login) and 10 per hour (register) per IP; refresh allows 100 per 15 minutes.
 - **Refresh rotation (strict, ADR-010):** every refresh consumes the presented token and returns a new one in the same session. Presenting a token that was already used revokes the whole session, so the user must log in again. Consequence for the app: **never send the same refresh token twice**; do not retry a refresh request after a network timeout. Reconnect and log in if it fails. All refresh failures return the same `401 INVALID_REFRESH_TOKEN`.
 - **Logout** always answers `204` (also for unknown tokens, or a token of another user, which is not revoked). It does not cancel the current access token, which stays valid until it expires (at most 15 minutes).
