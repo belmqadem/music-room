@@ -29,6 +29,8 @@ import { createEventService } from "./modules/track-vote/service.js";
 import { createEventRoutes } from "./modules/track-vote/routes.js";
 import { createFriendRoutes } from "./modules/friends/routes.js";
 import { createFriendService } from "./modules/friends/service.js";
+import { createProfileRoutes } from "./modules/profiles/routes.js";
+import { createProfileService } from "./modules/profiles/service.js";
 import { createAuthRoutes } from "./modules/auth/routes.js";
 import type { Mailer } from "./modules/auth/mailer.js";
 import { createAuthService } from "./modules/auth/service.js";
@@ -155,6 +157,14 @@ export function createApp(deps: AppDependencies): Express {
       jwtSecret: deps.jwtSecret,
       ...(deps.redis && { redis: deps.redis }),
       ...(deps.userSearchLimit && { searchLimit: deps.userSearchLimit }),
+    }),
+  );
+
+  app.use(
+    "/api/v1",
+    createProfileRoutes({
+      service: createProfileService({ pool: deps.pool }),
+      jwtSecret: deps.jwtSecret,
     }),
   );
 

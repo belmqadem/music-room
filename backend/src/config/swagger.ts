@@ -226,6 +226,88 @@ export const openApiDocument = {
           },
         },
       },
+      Profile: {
+        type: "object",
+        required: ["userId", "displayName", "publicInfo"],
+        description:
+          "Only the blocks the caller may see are present: friendsInfo and musicPreferences for friends and the owner, privateInfo for the owner only.",
+        properties: {
+          userId: { type: "string", format: "uuid" },
+          displayName: { type: "string" },
+          publicInfo: {
+            type: "object",
+            required: ["bio"],
+            properties: { bio: { type: "string", nullable: true, maxLength: 280 } },
+          },
+          friendsInfo: {
+            type: "object",
+            required: ["fullName", "city"],
+            properties: {
+              fullName: { type: "string", nullable: true, maxLength: 80 },
+              city: { type: "string", nullable: true, maxLength: 80 },
+            },
+          },
+          musicPreferences: {
+            type: "object",
+            required: ["genres"],
+            properties: {
+              genres: {
+                type: "array",
+                maxItems: 10,
+                items: { type: "string", maxLength: 30 },
+              },
+            },
+          },
+          privateInfo: {
+            type: "object",
+            required: ["phone", "birthDate"],
+            properties: {
+              phone: { type: "string", nullable: true, maxLength: 30 },
+              birthDate: { type: "string", format: "date", nullable: true },
+            },
+          },
+        },
+      },
+      UpdateProfileRequest: {
+        type: "object",
+        additionalProperties: false,
+        description:
+          "Absent = unchanged, null = clear. genres replaces the whole list. Unknown fields are rejected.",
+        properties: {
+          publicInfo: {
+            type: "object",
+            additionalProperties: false,
+            properties: { bio: { type: "string", nullable: true, maxLength: 280 } },
+          },
+          friendsInfo: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              fullName: { type: "string", nullable: true, maxLength: 80 },
+              city: { type: "string", nullable: true, maxLength: 80 },
+            },
+          },
+          privateInfo: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              phone: { type: "string", nullable: true, maxLength: 30 },
+              birthDate: { type: "string", format: "date", nullable: true },
+            },
+          },
+          musicPreferences: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              genres: {
+                type: "array",
+                maxItems: 10,
+                items: { type: "string", maxLength: 30 },
+              },
+            },
+          },
+        },
+      },
       Friendship: {
         type: "object",
         required: ["id", "user", "status", "direction", "createdAt", "respondedAt"],
@@ -1268,6 +1350,102 @@ export const openApiDocument = {
           },
           "404": {
             description: "EVENT_NOT_FOUND",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+        },
+      },
+    },
+    "/api/v1/users/me/profile": {
+      get: {
+        summary: "Your own profile (all four blocks)",
+        security: [{ bearerAuth: [] }],
+        responses: {
+          "200": {
+            description: "The profile",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/Profile" } },
+            },
+          },
+          "401": {
+            description: "UNAUTHENTICATED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+        },
+      },
+      patch: {
+        summary: "Change your own profile",
+        description:
+          "Only the fields sent change; null clears one. There is no user id: this can only ever edit the caller's profile.",
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/UpdateProfileRequest" },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "The updated profile",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/Profile" } },
+            },
+          },
+          "400": {
+            description: "VALIDATION_ERROR",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "401": {
+            description: "UNAUTHENTICATED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+        },
+      },
+    },
+    "/api/v1/users/{userId}/profile": {
+      get: {
+        summary: "Someone's profile, only the blocks the caller may see",
+        description:
+          "Any signed-in user sees publicInfo; accepted friends also friendsInfo and musicPreferences; privateInfo only for the owner. Hidden blocks are omitted.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "userId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "The profile as the caller may see it",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/Profile" } },
+            },
+          },
+          "400": {
+            description: "VALIDATION_ERROR (not a UUID)",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "401": {
+            description: "UNAUTHENTICATED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "404": {
+            description: "USER_NOT_FOUND",
             content: {
               "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
             },
