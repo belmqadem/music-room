@@ -19,6 +19,13 @@ export const DEFAULT_REGISTER_LIMIT: RateLimitSettings = {
   windowMs: 60 * 60 * 1000,
   limit: 10,
 };
+// Sending a friend request. Each one notifies someone else, so a script could harass people with
+// them; a person adding friends sends a handful an hour.
+export const DEFAULT_FRIEND_REQUEST_LIMIT: RateLimitSettings = {
+  windowMs: 60 * 60 * 1000,
+  limit: 30,
+};
+
 // The four email-code endpoints (verify, resend, forgot, reset) share one counter per IP. The
 // real protection against guessing is the per-code limit of 5 tries (ADR-022); this only keeps
 // one address from flooding the mail server or hammering many accounts.

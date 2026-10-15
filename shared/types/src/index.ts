@@ -13,6 +13,7 @@ export type {
 } from "./auth";
 export type { ApiError, ApiErrorCode } from "./api-error";
 export type { Page } from "./pagination";
+export type { Friendship, FriendRequestBody } from "./friend";
 export type { Visibility } from "./visibility";
 export type {
   LocationTimeRule,

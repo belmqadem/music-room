@@ -30,16 +30,16 @@ Every non-2xx response has this body (type `ApiError`):
 - `details` is optional extra data (e.g. failed fields, or the existing track on `TRACK_ALREADY_QUEUED`).
 - Messages never include internals (stack traces, SQL, whether an email exists).
 
-| HTTP | Meaning                                                      | Codes                                                                                                                                                                               |
-| ---- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 400  | Malformed or invalid request                                 | `VALIDATION_ERROR`, `INVALID_CODE`, `LOCATION_REQUIRED`                                                                                                                             |
-| 401  | Not authenticated                                            | `UNAUTHENTICATED`, `TOKEN_EXPIRED`, `INVALID_CREDENTIALS`, `INVALID_REFRESH_TOKEN`, `INVALID_PROVIDER_CREDENTIAL`                                                                   |
-| 403  | You can see it, but may not do this                          | `EMAIL_NOT_VERIFIED`, `FORBIDDEN`, `NOT_INVITED`, `OUTSIDE_VOTING_AREA`, `OUTSIDE_VOTING_TIME`                                                                                      |
-| 404  | Does not exist **or you may not know it exists**             | `EVENT_NOT_FOUND`, `PLAYLIST_NOT_FOUND`, `TRACK_NOT_FOUND`, `NOT_FOUND` (unknown route)                                                                                             |
-| 409  | Conflicts with current state                                 | `EMAIL_TAKEN`, `PROVIDER_ACCOUNT_LINKED`, `LAST_LOGIN_METHOD`, `ALREADY_INVITED`, `TRACK_ALREADY_QUEUED`, `TRACK_NOT_VOTABLE`, `QUEUE_CHANGED`, `ANCHOR_NOT_FOUND`, `PLAYLIST_FULL` |
-| 429  | Rate limited                                                 | `RATE_LIMITED`                                                                                                                                                                      |
-| 502  | The social provider or music catalog could not be reached    | `PROVIDER_UNAVAILABLE`                                                                                                                                                              |
-| 500  | Unexpected server error (details are logged, never returned) | `INTERNAL_ERROR`                                                                                                                                                                    |
+| HTTP | Meaning                                                      | Codes                                                                                                                                                                                                                           |
+| ---- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 400  | Malformed or invalid request                                 | `VALIDATION_ERROR`, `INVALID_CODE`, `LOCATION_REQUIRED`                                                                                                                                                                         |
+| 401  | Not authenticated                                            | `UNAUTHENTICATED`, `TOKEN_EXPIRED`, `INVALID_CREDENTIALS`, `INVALID_REFRESH_TOKEN`, `INVALID_PROVIDER_CREDENTIAL`                                                                                                               |
+| 403  | You can see it, but may not do this                          | `EMAIL_NOT_VERIFIED`, `FORBIDDEN`, `NOT_INVITED`, `OUTSIDE_VOTING_AREA`, `OUTSIDE_VOTING_TIME`                                                                                                                                  |
+| 404  | Does not exist **or you may not know it exists**             | `USER_NOT_FOUND`, `FRIENDSHIP_NOT_FOUND`, `EVENT_NOT_FOUND`, `PLAYLIST_NOT_FOUND`, `TRACK_NOT_FOUND`, `NOT_FOUND` (unknown route)                                                                                               |
+| 409  | Conflicts with current state                                 | `EMAIL_TAKEN`, `FRIEND_REQUEST_EXISTS`, `ALREADY_FRIENDS`, `PROVIDER_ACCOUNT_LINKED`, `LAST_LOGIN_METHOD`, `ALREADY_INVITED`, `TRACK_ALREADY_QUEUED`, `TRACK_NOT_VOTABLE`, `QUEUE_CHANGED`, `ANCHOR_NOT_FOUND`, `PLAYLIST_FULL` |
+| 429  | Rate limited                                                 | `RATE_LIMITED`                                                                                                                                                                                                                  |
+| 502  | The social provider or music catalog could not be reached    | `PROVIDER_UNAVAILABLE`                                                                                                                                                                                                          |
+| 500  | Unexpected server error (details are logged, never returned) | `INTERNAL_ERROR`                                                                                                                                                                                                                |
 
 ### Required client headers
 
@@ -153,6 +153,37 @@ To invite someone, the app needs their id. `GET /users?query=ada` (bearer) retur
 - Display names are not unique: show the results so the user can tell them apart, and invite by `id`.
 - Rate limited (`429 RATE_LIMITED`; **Proposed**: 30 searches per minute per IP), so the user directory cannot be walked quickly.
 - An invitation's `user` is also a `UserSummary`: the owner never sees an invitee's email.
+
+## Friends (Decided: ADR-023)
+
+A friendship is **mutual**: one person asks, the other accepts. It is the basis of "friends-only" information in
+profiles. `Friendship` is `{ id, user: UserSummary, status: "pending" | "accepted", direction: "incoming" | "outgoing",
+createdAt, respondedAt }`, always seen from the caller's side: `user` is the OTHER person (never an email), `direction`
+says who asked first.
+
+| Method | Path                                   | Auth   | Purpose                                                     | Success                     | Errors                                                                          |
+| ------ | -------------------------------------- | ------ | ----------------------------------------------------------- | --------------------------- | ------------------------------------------------------------------------------- |
+| POST   | `/friends/requests`                    | bearer | Ask someone (`{ userId }`)                                  | 201 `Friendship` (or 200)   | 400, 404 `USER_NOT_FOUND`, 409 `FRIEND_REQUEST_EXISTS` / `ALREADY_FRIENDS`, 429 |
+| GET    | `/friends/requests?direction=`         | bearer | Pending requests, `incoming` or `outgoing` (required)       | 200 page of `Friendship`    | 400                                                                             |
+| POST   | `/friends/requests/{requestId}/accept` | bearer | Accept a request you received                               | 200 `Friendship` (accepted) | 403 `FORBIDDEN`, 404 `FRIENDSHIP_NOT_FOUND`, 409 `ALREADY_FRIENDS`              |
+| DELETE | `/friends/requests/{requestId}`        | bearer | Decline (addressee) or cancel (requester) a pending request | 204                         | 404 `FRIENDSHIP_NOT_FOUND`                                                      |
+| GET    | `/friends`                             | bearer | Your friends, most recently accepted first                  | 200 page of `Friendship`    | 400                                                                             |
+| DELETE | `/friends/{userId}`                    | bearer | Unfriend (either side)                                      | 204                         | 404 `FRIENDSHIP_NOT_FOUND`                                                      |
+
+- **One row per pair.** A request exists in one direction at a time. If A asks B while B's request to A is still
+  pending, nothing new is created: the existing request is accepted and the answer is `200` (not `201`) with
+  `status: "accepted"`. Its `direction` stays that of the original request, so for A it reads `incoming`.
+- **Only the addressee can accept.** The person who asked gets `403 FORBIDDEN`. Anyone who is not part of the request
+  gets `404 FRIENDSHIP_NOT_FOUND`, the same answer as for an id that does not exist.
+- **Decline, cancel and unfriend** delete the row, so the same two people can ask again later. `DELETE
+/friends/requests/{id}` only touches a pending request; an accepted friendship is only removed by `DELETE
+/friends/{userId}`, and a pending request is not removed by it.
+- A request to yourself is `400 VALIDATION_ERROR`. Asking someone you already ask is `409 FRIEND_REQUEST_EXISTS`,
+  someone who is already your friend `409 ALREADY_FRIENDS` (from either side).
+- Lists are paginated like every list (`limit` default 20). Requests are ordered by when they were sent, friends by when
+  they were accepted, newest first.
+- Sending requests is rate limited (**Proposed**): 30 per hour per IP, so nobody can be flooded with them.
+- Not included yet: blocking, and real-time notification of a new request (the app polls the list).
 
 ## Access rules (Decided: ADR-005)
 
@@ -400,3 +431,4 @@ ANCHOR_NOT_FOUND`. Moving an entry after itself, or to the place it already has,
 | 2026-10-13 | Advance: nothing playing and nothing queued is a `200` no-op; wording only, no type or endpoint shape changes                                                                                                                                                                           | belmqadem | pending     |
 | 2026-10-13 | Real-time: `subscribe`/`unsubscribe` acknowledgements, `event:queue` is one shared `QueueSnapshot` without `votedByMe` (**contract change**, ADR-019), new `event:access-lost`; types `QueueEntry`, `QueueSnapshot`, `SubscribeRequest`, `SubscribeAck`, `UnsubscribeAck`, `AccessLost` | belmqadem | pending     |
 | 2026-10-14 | Playlist Editor: error code `PLAYLIST_FULL` (409, limit 500 entries), rules for no-op moves and removals, `subscribe` and `access-lost` now cover playlists, `playlist:updated` described; types `SubscribeAck` (snapshot union) and `AccessLost.resource` extended                     | belmqadem | pending     |
+| 2026-10-15 | Friends: `POST/GET /friends/requests`, `.../accept`, `DELETE /friends/requests/{id}`, `GET /friends`, `DELETE /friends/{userId}`; type `Friendship`; new error codes `USER_NOT_FOUND`, `FRIENDSHIP_NOT_FOUND`, `FRIEND_REQUEST_EXISTS`, `ALREADY_FRIENDS`; additive                     | belmqadem | pending     |
