@@ -226,6 +226,23 @@ export const openApiDocument = {
           },
         },
       },
+      Friendship: {
+        type: "object",
+        required: ["id", "user", "status", "direction", "createdAt", "respondedAt"],
+        properties: {
+          id: { type: "string", format: "uuid" },
+          user: { $ref: "#/components/schemas/UserSummary" },
+          status: { type: "string", enum: ["pending", "accepted"] },
+          direction: {
+            type: "string",
+            enum: ["incoming", "outgoing"],
+            description:
+              "outgoing = the caller asked first; incoming = the other person did",
+          },
+          createdAt: { type: "string", format: "date-time" },
+          respondedAt: { type: "string", format: "date-time", nullable: true },
+        },
+      },
       User: {
         type: "object",
         required: [
@@ -1251,6 +1268,243 @@ export const openApiDocument = {
           },
           "404": {
             description: "EVENT_NOT_FOUND",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+        },
+      },
+    },
+    "/api/v1/friends/requests": {
+      post: {
+        summary: "Send a friend request",
+        description:
+          "If the other person already asked you, the request is completed instead and the answer is 200 with status accepted. Rate limited.",
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["userId"],
+                additionalProperties: false,
+                properties: { userId: { type: "string", format: "uuid" } },
+              },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Request sent (pending)",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/Friendship" } },
+            },
+          },
+          "200": {
+            description: "The other person had already asked: now friends (accepted)",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/Friendship" } },
+            },
+          },
+          "400": {
+            description: "VALIDATION_ERROR (including a request to yourself)",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "404": {
+            description: "USER_NOT_FOUND",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "409": {
+            description: "FRIEND_REQUEST_EXISTS or ALREADY_FRIENDS",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "429": {
+            description: "RATE_LIMITED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+        },
+      },
+      get: {
+        summary: "Pending friend requests of the caller, in one direction",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "direction",
+            in: "query",
+            required: true,
+            schema: { type: "string", enum: ["incoming", "outgoing"] },
+          },
+          {
+            name: "limit",
+            in: "query",
+            schema: { type: "integer", minimum: 1, maximum: 100, default: 20 },
+          },
+          {
+            name: "cursor",
+            in: "query",
+            schema: { type: "string" },
+            description: "nextCursor of the previous page.",
+          },
+        ],
+        responses: {
+          "200": {
+            description: "A page, newest first",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["items", "nextCursor"],
+                  properties: {
+                    items: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/Friendship" },
+                    },
+                    nextCursor: { type: "string", nullable: true },
+                  },
+                },
+              },
+            },
+          },
+          "400": {
+            description: "VALIDATION_ERROR",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+        },
+      },
+    },
+    "/api/v1/friends/requests/{requestId}/accept": {
+      post: {
+        summary: "Accept a friend request",
+        description: "Only the person who RECEIVED the request can accept it.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "requestId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Now friends",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/Friendship" } },
+            },
+          },
+          "403": {
+            description: "FORBIDDEN: you sent this request",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "404": {
+            description: "FRIENDSHIP_NOT_FOUND (unknown, or not yours)",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "409": {
+            description: "ALREADY_FRIENDS",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+        },
+      },
+    },
+    "/api/v1/friends/requests/{requestId}": {
+      delete: {
+        summary: "Decline (addressee) or cancel (requester) a pending request",
+        description:
+          "Never removes an accepted friendship: use DELETE /friends/{userId} for that.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "requestId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        responses: {
+          "204": { description: "Removed" },
+          "404": {
+            description: "FRIENDSHIP_NOT_FOUND (unknown, not pending, or not yours)",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+        },
+      },
+    },
+    "/api/v1/friends": {
+      get: {
+        summary: "The caller's friends, most recently accepted first",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "limit",
+            in: "query",
+            schema: { type: "integer", minimum: 1, maximum: 100, default: 20 },
+          },
+          {
+            name: "cursor",
+            in: "query",
+            schema: { type: "string" },
+            description: "nextCursor of the previous page.",
+          },
+        ],
+        responses: {
+          "200": {
+            description: "A page",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["items", "nextCursor"],
+                  properties: {
+                    items: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/Friendship" },
+                    },
+                    nextCursor: { type: "string", nullable: true },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/v1/friends/{userId}": {
+      delete: {
+        summary: "Unfriend",
+        description: "Either side can do it. Does not remove a pending request.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "userId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        responses: {
+          "204": { description: "No longer friends" },
+          "404": {
+            description: "FRIENDSHIP_NOT_FOUND (you are not friends with that user)",
             content: {
               "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
             },

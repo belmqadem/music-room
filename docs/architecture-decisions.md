@@ -304,6 +304,25 @@ Each decision must be defensible in detail at the defense. Copy the template for
   - Response time of `forgot-password` differs slightly between a known and an unknown address (one database write); the mail itself is not waited for.
   - `nodemailer` is a new dependency; SMTP credentials live only in `.env`.
 
+### ADR-023: Friends: mutual request and accept, one row per pair
+
+- Status: accepted
+- Date: 2026-10-15
+- Deciders: belmqadem
+- Context: the subject requires profile information that only friends can see. That needs a notion of friendship before the profile can be built.
+- Options considered:
+  - **Mutual**: one person asks, the other accepts. "Friends-only" means both agreed.
+  - **One-way follow**: no acceptance. Simpler tables, but "friends-only" would mean "anyone who follows me", which anyone can grant themselves, so it would protect nothing.
+  - Storage: one row per pair with a status, or two directed rows (A->B, B->A).
+- Decision:
+  - Mutual, in one table `friendships(requester_id, addressee_id, status pending|accepted, created_at, responded_at)` with **one row per unordered pair**, enforced by a unique index on `(LEAST(a, b), GREATEST(a, b))`. A->B and B->A can therefore never both exist, even when sent at the same moment; the database enforces it, not a check before the insert.
+  - Declining, cancelling and unfriending **delete** the row (no `declined` state), so the pair can ask again and a rejected person cannot be told apart from "never asked".
+  - A->B while B->A is pending **completes that request** (both want it): `200` with `accepted`, not a second row and not an error.
+  - Sending locks the pair (`FOR UPDATE`) and decides inside one transaction. If two requests insert at the same moment, the loser hits the unique index and decides again with the winner's row in view (a new transaction, because a failed insert aborts the old one). Accepting is one `UPDATE ... WHERE id AND addressee_id AND status = 'pending'`, so of several simultaneous accepts exactly one matches.
+  - Authorization is part of the SQL: accept only matches the addressee; decline/cancel only matches a pending request the caller is in; unfriend only matches an accepted friendship between the caller and the named user. The requester trying to accept gets `403`; anyone not in the request gets the same `404` as for an unknown id.
+- Alternatives: following (above); two directed rows (simultaneous opposite requests then need extra logic to avoid a duplicate friendship).
+- Consequences: `areFriends(a, b)` is the single question the profile code asks before showing friends-only data, and only `accepted` counts. No blocking and no real-time notification yet (the app polls the request list); both can be added without changing this table's meaning. Deleting a user deletes their friendships (`ON DELETE CASCADE`).
+
 ## Still to decide (record each as an ADR)
 
 TODO:
