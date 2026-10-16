@@ -121,8 +121,9 @@ describe.skipIf(!databaseUrl)("profiles", () => {
           friendsInfo: { fullName: "Ana Smith", city: "Lyon" },
           musicPreferences: { genres: ["rock", "jazz"] },
         });
-        expect(JSON.stringify(res.body)).not.toContain("33 6 11");
-        expect(JSON.stringify(res.body)).not.toContain("1990");
+        // The full values, not fragments: a random user id in the same JSON can contain "1990".
+        expect(JSON.stringify(res.body)).not.toContain("+33 6 11 22 33 44");
+        expect(JSON.stringify(res.body)).not.toContain("1990-05-17");
       }
     });
 
@@ -137,7 +138,13 @@ describe.skipIf(!databaseUrl)("profiles", () => {
         publicInfo: { bio: "I like bass" },
       });
       const text = JSON.stringify(res.body);
-      for (const hidden of ["Ana Smith", "Lyon", "33 6 11", "1990", "rock", "jazz"]) {
+      for (const hidden of [
+        "Ana Smith",
+        "Lyon",
+        "+33 6 11 22 33 44",
+        "1990-05-17",
+        "genres",
+      ]) {
         expect(text).not.toContain(hidden);
       }
     });
