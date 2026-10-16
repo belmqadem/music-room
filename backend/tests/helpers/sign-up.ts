@@ -13,14 +13,14 @@ export async function signUpVerified(
   account: { email: string; password: string; displayName: string },
 ) {
   const registered = await request(app).post("/api/v1/auth/register").send(account);
-  expect(registered.status).toBe(201);
+  expect(registered.status, JSON.stringify(registered.body)).toBe(201);
   const verified = await request(app)
     .post("/api/v1/auth/verify-email")
     .send({ email: account.email, code: mailer.lastCodeFor(account.email) });
-  expect(verified.status).toBe(204);
+  expect(verified.status, JSON.stringify(verified.body)).toBe(204);
   const session = await request(app)
     .post("/api/v1/auth/login")
     .send({ email: account.email, password: account.password });
-  expect(session.status).toBe(200);
+  expect(session.status, JSON.stringify(session.body)).toBe(200);
   return session;
 }
