@@ -1,0 +1,60 @@
+# Mobile handoff: what the app must do
+
+For the mobile developer. The full rules are in `docs/api-contract.md` (section names are given below); this page says
+what the **app** has to do and what changed since the early drafts. The backend is the source of truth: the app only
+displays and sends.
+
+## 1. Screens and the endpoints behind them
+
+Events (Track Vote) and playlists (Playlist Editor) are **separate resources with separate ids** (ADR-026). There is no
+"session" id. The routes are `event/[id]` and `playlist/[id]`.
+
+| Screen                | What it shows / does                                                | Endpoints                                                                                                                   |
+| --------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| welcome, sign-in      | Log in, social login                                                | `POST /auth/login`, `POST /auth/oauth/{provider}`                                                                           |
+| sign-up, verify-email | Register, then enter the emailed code                               | `POST /auth/register`, `/auth/verify-email`, `/auth/resend-verification`                                                    |
+| forgot-password       | Ask for a code, set a new password                                  | `POST /auth/forgot-password`, `/auth/reset-password`                                                                        |
+| home                  | Public events and playlists, and the ones you own or are invited to | `GET /events`, `GET /playlists` (paginated)                                                                                 |
+| create                | Create an event or a playlist, with visibility and permission mode  | `POST /events`, `POST /playlists`                                                                                           |
+| event/[id]            | Track Vote: the live queue, suggest, vote, withdraw, owner advances | `GET /events/{id}`, `/tracks`, `POST .../tracks`, `PUT/DELETE .../vote`, `POST .../queue/advance`, `/tracks/search`, socket |
+| playlist/[id]         | Playlist Editor: live list, add, move, remove                       | `GET /playlists/{id}`, `/tracks`, `POST .../tracks`, `.../move`, `DELETE .../tracks/{entryId}`, socket                      |
+| invitations (owner)   | Invite or remove people on a private or restricted event/playlist   | `GET/POST /events/{id}/invitations`, `DELETE .../{userId}`, same for playlists, `GET /users?query=`                         |
+| profile               | Own profile; another user's profile                                 | `GET/PATCH /users/me/profile`, `GET /users/{id}/profile`                                                                    |
+| friends               | Friends, requests (poll the list), unfriend                         | `/friends`, `/friends/requests`, `.../accept`, `DELETE /friends/{userId}`                                                   |
+| settings              | Backend URL, linked accounts, log out                               | `GET /users/me`, `POST/DELETE /users/me/providers/{provider}`, `POST /auth/logout`                                          |
+
+## 2. What changed since the early drafts (read these first)
+
+| Change                                                                                                                                                             | What the app must do                                                                                             |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| `POST /auth/register` answers `201 { email }` with **no session** (ADR-022)                                                                                        | Go to verify-email with that address. Log in only after the code is confirmed.                                   |
+| `POST /auth/login` can answer `403 EMAIL_NOT_VERIFIED`                                                                                                             | Send the user to verify-email (offer "resend").                                                                  |
+| New passwords need 8 to 72 bytes with a lowercase, uppercase, digit and symbol (ADR-006)                                                                           | Check it in the form for fast feedback; the server decides (`400 VALIDATION_ERROR`). Login accepts any password. |
+| Linking or unlinking Google/Facebook needs `reauth` (ADR-025): the password, or a fresh credential from an already linked provider. Failure is `403 REAUTH_FAILED` | Ask for the password (or rerun the provider sign-in) first. Do **not** treat this 403 as an expired session.     |
+| `event:queue` is one snapshot for everybody, **without `votedByMe`** (ADR-019)                                                                                     | Keep your own `votedByMe` per track from REST answers and the subscribe acknowledgement, and merge it in.        |
+| `Invitation.user` is a `UserSummary` (`{ id, displayName }`), never an email                                                                                       | Show the display name; invite by `id`.                                                                           |
+| A profile hides blocks you may not see (they are **missing**, not empty)                                                                                           | Render only the blocks present. `privateInfo` only exists on your own profile.                                   |
+| A track in a queue/playlist is a **copy** of the catalog data                                                                                                      | Never render titles, artists or cover URLs as HTML.                                                              |
+
+## 3. Rules the client must follow
+
+- **Headers**: every request and the socket handshake carry `X-Platform`, `X-Device` and `X-App-Version`. REST already does
+  (`src/api/client-headers.ts`); the socket must pass the same headers as `extraHeaders`.
+- **Tokens**: access token 15 minutes, sent as `Authorization: Bearer`, kept in memory only; the refresh token (7 days) goes in secure storage. On `401 TOKEN_EXPIRED` refresh once with
+  `POST /auth/refresh` and retry. Refresh tokens **rotate**: store the new one every time, and never refresh from two
+  places at once (reuse revokes the session). `401 INVALID_REFRESH_TOKEN` means log in again.
+- **Errors** are `{ error: { code, message, details? } }`; switch on `code`, show your own text. `429 RATE_LIMITED`: wait and retry.
+- **Pagination**: lists return `{ items, nextCursor }`; pass `nextCursor` back as `?cursor=`, never build one.
+- **Sockets** (`/live`): connect with `auth: { token }`, then `subscribe` `{ resource: "event" | "playlist", id }`. Apply a
+  snapshot only if its `version` is higher than yours. After a reconnect, subscribe again. On `event:access-lost` leave the
+  screen. Reconnect with a fresh token when you refresh.
+- **Location**: for an event with a `location_time` license, send `location` (`latitude`, `longitude`, `accuracyMeters`) with suggest
+  and vote. The server decides; "I am inside" is never trusted.
+- **Friend requests** have no push: poll `GET /friends/requests?direction=incoming` when the friends screen opens.
+- **Nothing authoritative lives on the device**: what you may do comes from the server's answers (`myPermissions` is a hint
+  only; the server checks every call).
+
+## 4. Where to look in the contract
+
+Authentication (register, verify, reset, login, OAuth, link), Friends, Profiles, Access rules, Events, Music catalog, Queue
+states, Playlists, Playlist rules, Real-time events. The changelog at the end lists every change with the date.

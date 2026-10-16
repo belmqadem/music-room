@@ -372,6 +372,19 @@ Each decision must be defensible in detail at the defense. Copy the template for
   - Residual risk: the limit is per IP, so an attacker with a stolen token and many addresses can guess a password through these endpoints during the token's 15 minutes. The password policy (ADR-006) and the token lifetime bound this; a per-account limit would close it and is an open item.
   - A social-only account whose only linked provider is temporarily unreachable cannot link or unlink until it is back (`502`).
 
+### ADR-026: Events and playlists stay separate resources in the app
+
+- Status: accepted
+- Date: 2026-10-16
+- Deciders: belmqadem, with kaoutharrr to confirm in the contract review
+- Context: the first mobile skeleton used routes such as `session/[id]/track-vote` and `session/[id]/playlist-editor`, which assume that one "session" id reaches both services. The backend has two resources, `/events` (Track Vote) and `/playlists` (Playlist Editor), each with its own id, visibility and permission mode.
+- Options considered:
+  - **Separate** (chosen): the app has event screens and playlist screens; a user creates one or the other.
+  - A **session that holds one event and one playlist**: a new backend resource or link table, a contract change, and the question of which visibility and permission rules apply to the pair.
+  - "Session" as a label only, mapped to an event or a playlist inside the app: hides the real model and is hard to explain.
+- Decision: no session id. The mobile routes are `event/[id]` (Track Vote) and `playlist/[id]` (Playlist Editor). The subject describes two services with their own visibility and permission modes, and the backend already models exactly that.
+- Consequences: no backend or contract change. The skeleton's `session/[id]` screens are renamed or merged (the event screen is the track-vote screen, the playlist screen is the editor). The home screen lists both kinds. If a combined session is wanted later it is an additive resource that points at an event and a playlist.
+
 ## Still to decide (record each as an ADR)
 
 TODO:
