@@ -9,6 +9,9 @@ export type {
   LoginRequest,
   RefreshRequest,
   OAuthCredentialRequest,
+  Reauth,
+  LinkProviderRequest,
+  UnlinkProviderRequest,
   AuthSession,
 } from "./auth";
 export type { ApiError, ApiErrorCode } from "./api-error";

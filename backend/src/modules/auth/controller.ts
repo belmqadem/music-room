@@ -3,11 +3,13 @@ import { HttpError } from "../../http-error.js";
 import {
   emailOnlySchema,
   loginSchema,
+  linkProviderSchema,
   oauthBodySchema,
   oauthProviderSchema,
   refreshTokenBodySchema,
   registerSchema,
   resetPasswordSchema,
+  unlinkProviderSchema,
   verifyEmailSchema,
 } from "./schema.js";
 import type { AuthService } from "./service.js";
@@ -93,7 +95,7 @@ export function createAuthController(service: AuthService) {
       const user = await service.linkProvider(
         userId,
         provider,
-        oauthBodySchema.parse(req.body),
+        linkProviderSchema.parse(req.body),
       );
       res.status(200).json(user);
     },
@@ -101,7 +103,8 @@ export function createAuthController(service: AuthService) {
     async unlinkProvider(req: Request, res: Response): Promise<void> {
       const userId = requireUserId(req);
       const provider = oauthProviderSchema.parse(req.params["provider"]);
-      res.status(200).json(await service.unlinkProvider(userId, provider));
+      const { reauth } = unlinkProviderSchema.parse(req.body);
+      res.status(200).json(await service.unlinkProvider(userId, provider, reauth));
     },
   };
 }

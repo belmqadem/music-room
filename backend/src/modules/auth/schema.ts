@@ -50,6 +50,30 @@ export const oauthBodySchema = z.strictObject({
 });
 export type OAuthBody = z.infer<typeof oauthBodySchema>;
 
+// Proof of ownership for linking and unlinking (ADR-025): a login method the account already has.
+// Passwords are not trimmed or policy-checked here, exactly like login: only the stored hash decides.
+const reauthSchema = z.discriminatedUnion("method", [
+  z.strictObject({
+    method: z.literal("password"),
+    password: z.string().min(1).max(1024),
+  }),
+  z.strictObject({
+    method: z.literal("provider"),
+    provider: oauthProviderSchema,
+    credential: z.string().min(1).max(4096),
+  }),
+]);
+export type ReauthInput = z.infer<typeof reauthSchema>;
+
+export const linkProviderSchema = z.strictObject({
+  credential: z.string().min(1).max(4096),
+  reauth: reauthSchema,
+});
+export type LinkProviderInput = z.infer<typeof linkProviderSchema>;
+
+export const unlinkProviderSchema = z.strictObject({ reauth: reauthSchema });
+export type UnlinkProviderInput = z.infer<typeof unlinkProviderSchema>;
+
 // Codes are 6 digits. Other shapes are rejected here so nothing odd reaches the hash.
 const emailCode = z.string().regex(/^\d{6}$/, "The code is 6 digits.");
 

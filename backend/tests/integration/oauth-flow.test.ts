@@ -139,15 +139,40 @@ describe.skipIf(!databaseUrl)("social login, link and unlink", () => {
 
   const oauthLogin = (provider: string, body: object, target: Express = app) =>
     request(target).post(`/api/v1/auth/oauth/${provider}`).send(body);
-  const link = (accessToken: string, provider: string, body: object) =>
-    request(app)
+  // Linking and unlinking need proof of ownership (ADR-025). The default proof is the password the
+  // test accounts registered with; `null` sends none.
+  const withPassword = { method: "password", password: PASSWORD };
+  const viaGoogle = (id: string) => ({
+    method: "provider",
+    provider: "google",
+    credential: googleCredential(id),
+  });
+  const viaFacebook = (id: string) => ({
+    method: "provider",
+    provider: "facebook",
+    credential: facebookCredential(id),
+  });
+  const link = (
+    accessToken: string,
+    provider: string,
+    body: object,
+    reauth: object | null = withPassword,
+    target: Express = app,
+  ) =>
+    request(target)
       .post(`/api/v1/users/me/providers/${provider}`)
       .set("Authorization", `Bearer ${accessToken}`)
-      .send(body);
-  const unlink = (accessToken: string, provider: string) =>
-    request(app)
+      .send(reauth === null ? body : { ...body, reauth });
+  const unlink = (
+    accessToken: string,
+    provider: string,
+    reauth: object | null = withPassword,
+    target: Express = app,
+  ) =>
+    request(target)
       .delete(`/api/v1/users/me/providers/${provider}`)
-      .set("Authorization", `Bearer ${accessToken}`);
+      .set("Authorization", `Bearer ${accessToken}`)
+      .send(reauth === null ? {} : { reauth });
   const me = (accessToken: string) =>
     request(app).get("/api/v1/users/me").set("Authorization", `Bearer ${accessToken}`);
 
@@ -626,7 +651,7 @@ describe.skipIf(!databaseUrl)("social login, link and unlink", () => {
     it("refuses to remove the only login method of a social-only account", async () => {
       const session = await loginWithGoogle("solo");
 
-      const response = await unlink(session.accessToken, "google");
+      const response = await unlink(session.accessToken, "google", viaGoogle("solo"));
 
       expect(response.status).toBe(409);
       expect(response.body.error.code).toBe("LAST_LOGIN_METHOD");
@@ -635,12 +660,15 @@ describe.skipIf(!databaseUrl)("social login, link and unlink", () => {
 
     it("lets a social-only account drop one of two providers, then refuses the last", async () => {
       const session = await loginWithGoogle("duo");
-      await link(session.accessToken, "facebook", {
-        credential: facebookCredential("duo-f"),
-      });
+      await link(
+        session.accessToken,
+        "facebook",
+        { credential: facebookCredential("duo-f") },
+        viaGoogle("duo"),
+      );
 
-      const first = await unlink(session.accessToken, "google");
-      const last = await unlink(session.accessToken, "facebook");
+      const first = await unlink(session.accessToken, "google", viaGoogle("duo"));
+      const last = await unlink(session.accessToken, "facebook", viaFacebook("duo-f"));
 
       expect(first.status).toBe(200);
       expect(first.body.linkedProviders).toEqual(["facebook"]);
@@ -649,13 +677,16 @@ describe.skipIf(!databaseUrl)("social login, link and unlink", () => {
 
     it("never ends with zero login methods when both unlinks arrive together", async () => {
       const session = await loginWithGoogle("race");
-      await link(session.accessToken, "facebook", {
-        credential: facebookCredential("race-f"),
-      });
+      await link(
+        session.accessToken,
+        "facebook",
+        { credential: facebookCredential("race-f") },
+        viaGoogle("race"),
+      );
 
       const [dropGoogle, dropFacebook] = await Promise.all([
-        unlink(session.accessToken, "google"),
-        unlink(session.accessToken, "facebook"),
+        unlink(session.accessToken, "google", viaGoogle("race")),
+        unlink(session.accessToken, "facebook", viaFacebook("race-f")),
       ]);
 
       expect([dropGoogle.status, dropFacebook.status].sort()).toEqual([200, 409]);
@@ -686,6 +717,257 @@ describe.skipIf(!databaseUrl)("social login, link and unlink", () => {
       });
 
       expect(response.status).toBe(200);
+    });
+  });
+  describe("proof of ownership for link and unlink (ADR-025)", () => {
+    const providersOf = async (userId: string) =>
+      (
+        await pool.query(
+          "SELECT provider FROM oauth_identities WHERE user_id = $1 ORDER BY provider",
+          [userId],
+        )
+      ).rows.map((row) => row.provider);
+
+    it("refuses to link without any proof, and links nothing", async () => {
+      const victim = await registerWithPassword("noproof");
+
+      const response = await link(
+        victim.accessToken,
+        "google",
+        { credential: googleCredential("noproof-attacker") },
+        null,
+      );
+
+      expect(response.status).toBe(400);
+      expect(response.body.error.code).toBe("VALIDATION_ERROR");
+      expect(await providersOf(victim.user.id)).toEqual([]);
+    });
+
+    it("a stolen access token cannot link the thief's social account, and the thief cannot then log in as the victim", async () => {
+      const victim = await registerWithPassword("victim");
+      const thiefCredential = googleCredential("thief-google");
+
+      const guesses = [
+        { method: "password", password: "not-the-password" },
+        { method: "provider", provider: "google", credential: thiefCredential },
+        { method: "provider", provider: "facebook", credential: "bad" },
+      ];
+      for (const guess of guesses) {
+        const response = await link(
+          victim.accessToken,
+          "google",
+          { credential: thiefCredential },
+          guess,
+        );
+        expect(response.status, JSON.stringify(guess)).toBe(403);
+        expect(response.body.error.code).toBe("REAUTH_FAILED");
+      }
+
+      expect(await providersOf(victim.user.id)).toEqual([]);
+      const thiefLogin = await oauthLogin("google", { credential: thiefCredential });
+      expect(thiefLogin.body.user.id).not.toBe(victim.user.id);
+    });
+
+    it("refuses a wrong password, and a password proof from an account that has none", async () => {
+      const passwordAccount = await registerWithPassword("wrongpw");
+      const socialOnly = await loginWithGoogle("nopw");
+
+      const wrong = await link(
+        passwordAccount.accessToken,
+        "google",
+        { credential: googleCredential("wrongpw-g") },
+        { method: "password", password: PASSWORD + "x" },
+      );
+      const noPassword = await link(
+        socialOnly.accessToken,
+        "facebook",
+        { credential: facebookCredential("nopw-f") },
+        withPassword,
+      );
+
+      expect(wrong.body.error.code).toBe("REAUTH_FAILED");
+      expect(noPassword.status).toBe(403);
+      expect(noPassword.body.error.code).toBe("REAUTH_FAILED");
+      expect(await providersOf(socialOnly.user.id)).toEqual(["google"]);
+    });
+
+    it("lets a social-only account link another provider by proving itself with the one it has", async () => {
+      const session = await loginWithGoogle("prover");
+
+      const response = await link(
+        session.accessToken,
+        "facebook",
+        { credential: facebookCredential("prover-f") },
+        viaGoogle("prover"),
+      );
+
+      expect(response.status).toBe(200);
+      expect(response.body.linkedProviders).toEqual(["facebook", "google"]);
+    });
+
+    it("refuses a provider proof that is valid but belongs to someone else or to no linked account", async () => {
+      const mine = await loginWithGoogle("mine");
+      await loginWithGoogle("theirs");
+
+      const someoneElses = await link(
+        mine.accessToken,
+        "facebook",
+        { credential: facebookCredential("mine-f") },
+        viaGoogle("theirs"),
+      );
+      const unlinked = await link(
+        mine.accessToken,
+        "facebook",
+        { credential: facebookCredential("mine-f") },
+        viaGoogle("never-registered"),
+      );
+
+      expect(someoneElses.body.error.code).toBe("REAUTH_FAILED");
+      expect(unlinked.body.error.code).toBe("REAUTH_FAILED");
+      expect(await providersOf(mine.user.id)).toEqual(["google"]);
+    });
+
+    it("answers a failed provider proof with 403, never 401, so the app does not start a token refresh", async () => {
+      const session = await registerWithPassword("not401");
+
+      const bad = await link(
+        session.accessToken,
+        "google",
+        { credential: googleCredential("not401-g") },
+        { method: "provider", provider: "google", credential: "bad" },
+      );
+
+      expect(bad.status).toBe(403);
+      expect(bad.body.error.code).toBe("REAUTH_FAILED");
+    });
+
+    it("passes a provider outage during the proof through as 502", async () => {
+      const session = await loginWithGoogle("outage");
+
+      const response = await link(
+        session.accessToken,
+        "facebook",
+        { credential: facebookCredential("outage-f") },
+        { method: "provider", provider: "google", credential: "down" },
+      );
+
+      expect(response.status).toBe(502);
+    });
+
+    it("rejects malformed proofs", async () => {
+      const session = await registerWithPassword("malformed");
+      const credential = googleCredential("malformed-g");
+      const bodies = [
+        { method: "password" },
+        { method: "password", password: "" },
+        { method: "password", password: PASSWORD, extra: true },
+        { method: "provider", provider: "twitter", credential: "x" },
+        { method: "provider", provider: "google" },
+        { method: "email", code: "123456" },
+        {},
+        "password",
+      ];
+      for (const reauth of bodies) {
+        const response = await link(
+          session.accessToken,
+          "google",
+          { credential },
+          reauth as object,
+        );
+        expect(response.status, JSON.stringify(reauth)).toBe(400);
+      }
+    });
+
+    it("unlinking also needs proof: a wrong or missing one removes nothing", async () => {
+      const session = await registerWithPassword("unlinkproof");
+      await link(session.accessToken, "google", {
+        credential: googleCredential("unlinkproof-g"),
+      });
+
+      const wrong = await unlink(session.accessToken, "google", {
+        method: "password",
+        password: "nope",
+      });
+      const missing = await unlink(session.accessToken, "google", null);
+      const noBody = await request(app)
+        .delete("/api/v1/users/me/providers/google")
+        .set("Authorization", `Bearer ${session.accessToken}`);
+
+      expect(wrong.status).toBe(403);
+      expect(wrong.body.error.code).toBe("REAUTH_FAILED");
+      expect(missing.status).toBe(400);
+      expect(noBody.status).toBe(400);
+      expect(await providersOf(session.user.id)).toEqual(["google"]);
+    });
+
+    it("unlinking works with a provider proof, including the provider being removed", async () => {
+      const session = await loginWithGoogle("selfproof");
+      await link(
+        session.accessToken,
+        "facebook",
+        { credential: facebookCredential("selfproof-f") },
+        viaGoogle("selfproof"),
+      );
+
+      const response = await unlink(
+        session.accessToken,
+        "google",
+        viaGoogle("selfproof"),
+      );
+
+      expect(response.status).toBe(200);
+      expect(response.body.linkedProviders).toEqual(["facebook"]);
+    });
+
+    it("checks the proof before reporting that a provider is not linked", async () => {
+      const session = await registerWithPassword("order");
+
+      const wrong = await unlink(session.accessToken, "facebook", {
+        method: "password",
+        password: "nope",
+      });
+
+      expect(wrong.status).toBe(403);
+    });
+
+    it("limits wrong proofs per address on both link and unlink, so neither is a way to guess a password", async () => {
+      const limited = buildApp({ loginLimit: { windowMs: 60_000, limit: 3 } });
+      const session = await registerWithPassword("guessing");
+      const wrong = { method: "password", password: "nope" };
+
+      const statuses = [
+        (await unlink(session.accessToken, "google", wrong, limited)).status,
+        (await link(session.accessToken, "google", { credential: "x" }, wrong, limited))
+          .status,
+        (await unlink(session.accessToken, "google", wrong, limited)).status,
+        (await unlink(session.accessToken, "google", wrong, limited)).status,
+        (await link(session.accessToken, "google", { credential: "x" }, wrong, limited))
+          .status,
+      ];
+
+      expect(statuses).toEqual([403, 403, 403, 429, 429]);
+    });
+
+    it("never writes the password or the provider credential to the logs", async () => {
+      const session = await registerWithPassword("logs");
+      const secretCredential = googleCredential("logs-secret-credential");
+      await link(
+        session.accessToken,
+        "google",
+        { credential: googleCredential("logs-g") },
+        { method: "password", password: "wrong-password-in-body" },
+      );
+      await link(
+        session.accessToken,
+        "facebook",
+        { credential: facebookCredential("logs-f") },
+        { method: "provider", provider: "google", credential: secretCredential },
+      );
+
+      const logs = logLines.join("");
+      expect(logs).toContain("re-authentication failed");
+      expect(logs).not.toContain("wrong-password-in-body");
+      expect(logs).not.toContain(secretCredential);
     });
   });
 });
