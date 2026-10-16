@@ -39,6 +39,7 @@ music-room/
 │                                #   (type-only; imported as `@music-room/shared`)
 └── docs/
     ├── api-contract.md          # A's contract, versioned as it evolves
+    ├── mobile-handoff.md        # what the app must do, per screen and rule (for the mobile developer)
     ├── security.md              # hazards + mitigations writeup
     ├── architecture-decisions.md # REST vs alt, JSON vs alt, stack justification
     ├── ramp-up-results.md
