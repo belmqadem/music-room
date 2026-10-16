@@ -308,6 +308,31 @@ export const openApiDocument = {
           },
         },
       },
+      Reauth: {
+        description:
+          "Proof that the caller owns the account, using a login method it ALREADY has (ADR-025): its password, or a fresh credential from a provider already linked to it.",
+        oneOf: [
+          {
+            type: "object",
+            required: ["method", "password"],
+            additionalProperties: false,
+            properties: {
+              method: { type: "string", enum: ["password"] },
+              password: { type: "string" },
+            },
+          },
+          {
+            type: "object",
+            required: ["method", "provider", "credential"],
+            additionalProperties: false,
+            properties: {
+              method: { type: "string", enum: ["provider"] },
+              provider: { type: "string", enum: ["google", "facebook"] },
+              credential: { type: "string" },
+            },
+          },
+        ],
+      },
       Friendship: {
         type: "object",
         required: ["id", "user", "status", "direction", "createdAt", "respondedAt"],
@@ -767,14 +792,15 @@ export const openApiDocument = {
             "application/json": {
               schema: {
                 type: "object",
-                required: ["credential"],
+                required: ["credential", "reauth"],
                 additionalProperties: false,
                 properties: {
                   credential: {
                     type: "string",
                     description:
-                      "Google ID token or Facebook access token obtained by the app.",
+                      "Google ID token or Facebook access token of the account to link.",
                   },
+                  reauth: { $ref: "#/components/schemas/Reauth" },
                 },
               },
             },
@@ -872,6 +898,12 @@ export const openApiDocument = {
               "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
             },
           },
+          "403": {
+            description: "REAUTH_FAILED: wrong or unrelated proof of ownership",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
           "409": {
             description: "PROVIDER_ACCOUNT_LINKED",
             content: {
@@ -895,8 +927,21 @@ export const openApiDocument = {
       delete: {
         summary: "Unlink a provider from the signed-in user",
         description:
-          "Refused with LAST_LOGIN_METHOD if it is the only way left to log in.",
+          "Needs proof of ownership in the JSON body (reauth). Refused with LAST_LOGIN_METHOD if it is the only way left to log in.",
         security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["reauth"],
+                additionalProperties: false,
+                properties: { reauth: { $ref: "#/components/schemas/Reauth" } },
+              },
+            },
+          },
+        },
         parameters: [
           {
             name: "provider",
@@ -920,6 +965,12 @@ export const openApiDocument = {
           },
           "401": {
             description: "UNAUTHENTICATED or TOKEN_EXPIRED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "403": {
+            description: "REAUTH_FAILED: wrong or unrelated proof of ownership",
             content: {
               "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
             },

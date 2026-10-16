@@ -61,8 +61,10 @@ import {
 } from "./repository.js";
 import type {
   EmailOnlyInput,
+  LinkProviderInput,
   LoginInput,
   OAuthBody,
+  ReauthInput,
   RefreshTokenBody,
   RegisterInput,
   ResetPasswordInput,
@@ -92,8 +94,16 @@ export interface AuthService {
   logout(userId: string, input: RefreshTokenBody): Promise<void>;
   getUser(userId: string): Promise<User>;
   oauthLogin(provider: OAuthProvider, input: OAuthBody): Promise<AuthSession>;
-  linkProvider(userId: string, provider: OAuthProvider, input: OAuthBody): Promise<User>;
-  unlinkProvider(userId: string, provider: OAuthProvider): Promise<User>;
+  linkProvider(
+    userId: string,
+    provider: OAuthProvider,
+    input: LinkProviderInput,
+  ): Promise<User>;
+  unlinkProvider(
+    userId: string,
+    provider: OAuthProvider,
+    reauth: ReauthInput,
+  ): Promise<User>;
 }
 
 // Constraint names from the oauth_identities / users migrations.
@@ -230,6 +240,54 @@ export function createAuthService(deps: AuthServiceDependencies): AuthService {
       expiresIn: ACCESS_TOKEN_TTL_SECONDS,
       user: toApiUser(user, linkedProviders),
     };
+  }
+
+  // SECURITY (ADR-025): linking or unlinking a login method changes who can get into the account
+  // for good, so a valid access token alone is not enough (it may be stolen and lives 15 minutes).
+  // The caller must also prove they own the account with a login method it ALREADY has: its
+  // password, or a fresh credential from a provider that is already linked to it.
+  async function proveOwnership(userId: string, reauth: ReauthInput): Promise<void> {
+    const refused = () =>
+      new HttpError(
+        403,
+        "REAUTH_FAILED",
+        "We could not confirm it is you. Check your password or sign in with a linked account again.",
+      );
+    if (reauth.method === "password") {
+      const user = await findUserById(pool, userId);
+      // A bcrypt comparison always runs, as in login: an account without a password takes as
+      // long as a wrong password.
+      const matches = await verifyPassword(reauth.password, user?.passwordHash ?? null);
+      // The token is valid but the user was deleted since: a session problem, not a wrong proof.
+      if (!user) throw new HttpError(401, "UNAUTHENTICATED", "Authentication required.");
+      if (!matches) {
+        logger.warn({ userId, method: "password" }, "re-authentication failed");
+        throw refused();
+      }
+      return;
+    }
+    let identity: ProviderIdentity;
+    try {
+      identity = await verifyWithProvider(reauth.provider, reauth.credential);
+    } catch (error) {
+      // A bad credential here is a failed proof (403), not a bad session (401): the app must
+      // not take it for an expired access token and start a refresh loop.
+      if (error instanceof HttpError && error.code === "INVALID_PROVIDER_CREDENTIAL") {
+        logger.warn({ userId, method: "provider" }, "re-authentication failed");
+        throw refused();
+      }
+      throw error;
+    }
+    // The credential must belong to a social account linked to THIS user, not just to someone.
+    const owner = await findUserByIdentity(
+      pool,
+      reauth.provider,
+      identity.providerUserId,
+    );
+    if (owner?.id !== userId) {
+      logger.warn({ userId, method: "provider" }, "re-authentication failed");
+      throw refused();
+    }
   }
 
   // Asks the provider who the credential belongs to. Done OUTSIDE any database
@@ -530,6 +588,7 @@ export function createAuthService(deps: AuthServiceDependencies): AuthService {
     },
 
     async linkProvider(userId, provider, input) {
+      await proveOwnership(userId, input.reauth);
       const identity = await verifyWithProvider(provider, input.credential);
       try {
         await insertOAuthIdentity(pool, {
@@ -559,7 +618,8 @@ export function createAuthService(deps: AuthServiceDependencies): AuthService {
       return getUserById(userId);
     },
 
-    async unlinkProvider(userId, provider) {
+    async unlinkProvider(userId, provider, reauth) {
+      await proveOwnership(userId, reauth);
       const user = await withTransaction(pool, async (client) => {
         // Lock first: two simultaneous unlinks queue here, so the second one
         // sees the first one's result and the last method cannot be removed.

@@ -74,6 +74,12 @@ export function createAuthRoutes(options: AuthRoutesOptions): ExpressRouter {
     loginLimiter,
     controller.linkProvider,
   );
-  router.delete("/users/me/providers/:provider", authenticate, controller.unlinkProvider);
+  // Unlinking also checks a password, so it shares the same limit (it must not be a way to guess one).
+  router.delete(
+    "/users/me/providers/:provider",
+    authenticate,
+    loginLimiter,
+    controller.unlinkProvider,
+  );
   return router;
 }

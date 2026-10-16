@@ -1,6 +1,6 @@
 // API contract: authentication. Owner: belmqadem (Core & Infra). Changes need review from BOTH developers.
 // See docs/api-contract.md ("Authentication") and ADR-003.
-import type { User } from "./user";
+import type { OAuthProvider, User } from "./user";
 
 export interface RegisterRequest {
   email: string;
@@ -55,4 +55,24 @@ export interface AuthSession {
  */
 export interface OAuthCredentialRequest {
   credential: string;
+}
+
+/**
+ * Proof that the person holding the access token is the account's owner, using a login method the
+ * account ALREADY has (ADR-025): its password, or a fresh credential from a provider already linked.
+ * Wrong or missing proof is `403 REAUTH_FAILED`.
+ */
+export type Reauth =
+  | { method: "password"; password: string }
+  | { method: "provider"; provider: OAuthProvider; credential: string };
+
+/** Body of POST /users/me/providers/{provider}: the NEW account to link, plus proof of ownership. */
+export interface LinkProviderRequest {
+  credential: string;
+  reauth: Reauth;
+}
+
+/** Body of DELETE /users/me/providers/{provider}. */
+export interface UnlinkProviderRequest {
+  reauth: Reauth;
 }

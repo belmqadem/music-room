@@ -348,6 +348,30 @@ Each decision must be defensible in detail at the defense. Copy the template for
   - The user cannot choose to make the "friends" block public or hide the bio. If the team wants that later, it is a new column per block and a change in `shapeProfile`.
   - Phone and birth date are personal data: they are stored in clear text (the owner needs to read them back), never logged, and never returned to anyone else.
 
+### ADR-025: Linking and unlinking a social login needs proof of ownership
+
+- Status: accepted
+- Date: 2026-10-16
+- Deciders: belmqadem
+- Context: `POST /users/me/providers/{provider}` needed only a valid access token and a credential for any Google or Facebook account. With a stolen access token (valid 15 minutes) an attacker could link their own Google account and then log in as the victim for good, after the token expired. Unlinking had the same weakness in the other direction (removing the owner's other ways in).
+- Options considered:
+  - **Prove it with a login method the account already has** (chosen).
+  - An emailed 6-digit code (ADR-022 machinery): works for both account types but not for accounts without an email, needs a new endpoint and a two-step flow in the app.
+  - Only notify the owner by email after a link: detects, does not prevent.
+  - Accept the risk (15-minute window).
+- Decision:
+  - Link and unlink carry `reauth`: either the account's **password**, or a **fresh credential from a provider already linked** to the account (checked against that account's own `oauth_identities`, not just "valid"). Either one is enough, so social-only accounts can do it too.
+  - Failure is `403 REAUTH_FAILED` (new code). A rejected provider credential used as proof is also 403, not 401: a 401 tells the app "your session expired" and could start a refresh loop. A deleted user is still 401.
+  - The proof is checked before anything else (before the new credential is sent to the provider, before the "last login method" check), so a failed proof tells the caller nothing about the account.
+  - Password check reuses `verifyPassword`: a bcrypt comparison always runs, so an account without a password takes as long as a wrong password.
+  - Both endpoints share the login rate limit (10 per 15 minutes per IP): they check a password, so they must not be a way to guess one.
+  - Unlink is a `DELETE` with a JSON body. Servers and `fetch` accept it; some proxies and HTTP clients drop bodies on `DELETE`. We accept this because the alternative (`POST .../unlink`) breaks the REST shape the contract already uses; if a real client strips the body, switch to the `POST` form.
+- Alternatives: the options above.
+- Consequences:
+  - Breaking change for the link and unlink calls (the mobile app does not call them yet). The app must ask for the password, or run the provider sign-in again, before linking.
+  - Residual risk: the limit is per IP, so an attacker with a stolen token and many addresses can guess a password through these endpoints during the token's 15 minutes. The password policy (ADR-006) and the token lifetime bound this; a per-account limit would close it and is an open item.
+  - A social-only account whose only linked provider is temporarily unreachable cannot link or unlink until it is back (`502`).
+
 ## Still to decide (record each as an ADR)
 
 TODO:
