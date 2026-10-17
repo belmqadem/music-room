@@ -199,8 +199,14 @@ describe.skipIf(!databaseUrl)("email verification and password reset", () => {
       await register();
       await forgot("bob");
       const resetCode = lastCode("bob");
-      // Remove the verification code so only the reset code exists for this user.
-      await pool.query("DELETE FROM email_codes WHERE purpose = 'verify_email'");
+      // Remove the verification code so only the reset code exists for this user. Scoped to this
+      // user: the test files share one database and run in parallel, and an unscoped delete here
+      // wiped the code of users signing up in other files (a flaky CI failure).
+      await pool.query(
+        `DELETE FROM email_codes WHERE purpose = 'verify_email'
+           AND user_id = (SELECT id FROM users WHERE email = $1)`,
+        [email("bob")],
+      );
 
       const response = await verify("bob", resetCode);
 
