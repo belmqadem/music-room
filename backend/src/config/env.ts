@@ -37,7 +37,13 @@ const envSchema = z
     // Signs access tokens (HS256). 32+ characters so it cannot be brute-forced; never commit a real one.
     JWT_ACCESS_SECRET: z
       .string()
-      .min(32, "JWT_ACCESS_SECRET must be at least 32 characters"),
+      .min(32, "JWT_ACCESS_SECRET must be at least 32 characters")
+      // .env.example ships a placeholder that is long enough to pass the check above. Anyone who
+      // copied the file and forgot to change it would run with a publicly known signing secret.
+      .refine((value) => !value.startsWith("replace-me"), {
+        message:
+          "JWT_ACCESS_SECRET is still the placeholder from .env.example; set a real one (openssl rand -hex 32)",
+      }),
     // Social sign-in (ADR-011). All optional: a provider without its settings is
     // simply disabled (its endpoint answers 502 PROVIDER_UNAVAILABLE).
     // Comma-separated OAuth client ids (iOS, Android, Web) accepted as the Google token audience.
