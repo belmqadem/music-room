@@ -4,7 +4,7 @@ import { Text, View } from "react-native";
 export default function PlaylistEditorScreen() {
   return (
     <View className="flex-1 items-center justify-center">
-      <Text>session/[id]/playlist-editor</Text>
+      <Text>playlist/[id]</Text>
     </View>
   );
 }
