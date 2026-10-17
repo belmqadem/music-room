@@ -30,6 +30,21 @@ describe("loadConfig", () => {
     );
   });
 
+  it("rejects the placeholder secret that .env.example ships with", () => {
+    const placeholder = "replace-me-with-at-least-32-random-characters";
+    expect(placeholder.length).toBeGreaterThanOrEqual(32); // long enough to pass the length rule
+    expect(() =>
+      loadConfig({ ...validEnv, JWT_ACCESS_SECRET: placeholder }),
+    ).toThrowError(/placeholder/);
+  });
+
+  it("accepts a real secret even if it contains the words of the placeholder later on", () => {
+    const secret = "a1b2c3d4e5f6a7b8-replace-me-9f8e7d6c5b4a3210";
+    expect(loadConfig({ ...validEnv, JWT_ACCESS_SECRET: secret }).JWT_ACCESS_SECRET).toBe(
+      secret,
+    );
+  });
+
   it("does not leak the secret value in the error message", () => {
     expect(() =>
       loadConfig({ ...validEnv, JWT_ACCESS_SECRET: "short-secret-value" }),
