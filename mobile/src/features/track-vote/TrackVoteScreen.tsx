@@ -4,7 +4,7 @@ import { Text, View } from "react-native";
 export default function TrackVoteScreen() {
   return (
     <View className="flex-1 items-center justify-center">
-      <Text>session/[id]/track-vote</Text>
+      <Text>event/[id]</Text>
     </View>
   );
 }
