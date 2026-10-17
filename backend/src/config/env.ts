@@ -86,6 +86,8 @@ const envSchema = z
     // password in production: .env only, never the repo.
     SMTP_URL: blankToUndefined,
     MAIL_FROM: z.string().min(1).default("Music Room <no-reply@musicroom.local>"),
+    // Serve the API documentation (Swagger UI) at /docs. Default: on, except in production.
+    DOCS_ENABLED: z.enum(["true", "false"]).optional(),
     FACEBOOK_APP_ID: blankToUndefined,
     // Server-side only: never sent to the app, never committed.
     FACEBOOK_APP_SECRET: blankToUndefined,
@@ -114,6 +116,13 @@ const envSchema = z
   });
 
 export type Config = z.infer<typeof envSchema>;
+
+/** The Swagger UI is on unless production, and DOCS_ENABLED can say otherwise either way. */
+export function docsEnabled(config: Pick<Config, "NODE_ENV" | "DOCS_ENABLED">): boolean {
+  return config.DOCS_ENABLED === undefined
+    ? config.NODE_ENV !== "production"
+    : config.DOCS_ENABLED === "true";
+}
 
 /**
  * Validates an environment object and returns typed config.

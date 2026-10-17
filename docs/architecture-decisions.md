@@ -369,7 +369,7 @@ Each decision must be defensible in detail at the defense. Copy the template for
 - Alternatives: the options above.
 - Consequences:
   - Breaking change for the link and unlink calls (the mobile app does not call them yet). The app must ask for the password, or run the provider sign-in again, before linking.
-  - Residual risk: the limit is per IP, so an attacker with a stolen token and many addresses can guess a password through these endpoints during the token's 15 minutes. The password policy (ADR-006) and the token lifetime bound this; a per-account limit would close it and is an open item.
+  - Residual risk: the limit is per IP, so an attacker with a stolen token and many addresses can guess a password through these endpoints during the token's 15 minutes. The password policy (ADR-006) and the token lifetime bound this; a per-account limit would close it; the team decided not to build one (2026-10-17) and accepts the risk.
   - A social-only account whose only linked provider is temporarily unreachable cannot link or unlink until it is back (`502`).
 
 ### ADR-026: Events and playlists stay separate resources in the app
@@ -384,6 +384,24 @@ Each decision must be defensible in detail at the defense. Copy the template for
   - "Session" as a label only, mapped to an event or a playlist inside the app: hides the real model and is hard to explain.
 - Decision: no session id. The mobile routes are `event/[id]` (Track Vote) and `playlist/[id]` (Playlist Editor). The subject describes two services with their own visibility and permission modes, and the backend already models exactly that.
 - Consequences: no backend or contract change. The skeleton's `session/[id]` screens are renamed or merged (the event screen is the track-vote screen, the playlist screen is the editor). The home screen lists both kinds. If a combined session is wanted later it is an additive resource that points at an event and a playlist.
+
+### ADR-027: Response security headers set by hand, and `/docs` off in production
+
+- Status: accepted
+- Date: 2026-10-17
+- Deciders: belmqadem
+- Context: `docs/security.md` listed two open risks: no security headers on responses, and the Swagger UI (`/docs`) served in every environment.
+- Options considered:
+  - **`helmet`** (the usual package): one line, many headers. A new dependency to review, and its default Content-Security-Policy breaks the Swagger UI, so it needs per-route configuration.
+  - **A small middleware written by hand** (chosen): four headers, about 15 lines, no dependency, each one explainable.
+  - Leave it: a JSON API gets little from browser headers, but a missing `nosniff` or CSP is the first thing a security review looks for.
+- Decision:
+  - `securityHeaders` is the first middleware, so errors, 404s and rate-limit answers carry the headers too: `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, and `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'` (an API answer must not load, run or be framed).
+  - `/docs` is exempt from the CSP only (exact path `/docs` or `/docs/...`, not `/docs-evil`), because the Swagger UI needs scripts; it still gets `nosniff`.
+  - `Strict-Transport-Security` is sent only when `req.secure` is true. That is the request's real protocol, taken from `X-Forwarded-Proto` only when `TRUST_PROXY` says a proxy is trusted, so a client cannot make us send it by writing the header, and plain-http development never sees it.
+  - `/docs` is mounted only when `DOCS_ENABLED` allows: default on in development and test, off when `NODE_ENV=production`, overridable either way. When off, `/docs` is the ordinary `404 NOT_FOUND`.
+- Alternatives: `helmet` (above); protecting `/docs` with a login instead of switching it off (more code and a credential to manage for a document that adds little over `docs/api-contract.md`).
+- Consequences: the production deployment must set `TRUST_PROXY` for HSTS to be sent. The header list is deliberately short; `Permissions-Policy` and cross-origin isolation headers are not set because they matter for pages, not for a JSON API. If the team prefers `helmet`, only `middleware/security-headers.ts` and its tests change.
 
 ## Still to decide (record each as an ADR)
 

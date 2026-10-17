@@ -204,14 +204,17 @@ accepts their own request; a friend reads the private profile block).
   is rate limited. Open item: a per-login nonce.
 - **The guess limits are per IP, not per account.** An attacker with many addresses can spread guesses of a password
   (through login or the link/unlink re-authentication) or of an emailed code (5 tries per code, 60 s between codes, about
-  0.7% a day for one targeted account, ADR-022). The password policy and the lifetime of codes and tokens bound it. Open
-  item: a per-account counter.
+  0.7% a day for one targeted account, ADR-022). The password policy and the lifetime of codes and tokens bound it. Decision (2026-10-17): accepted, no per-account counter is planned.
 - **Registering reveals whether an address is taken** (`409 EMAIL_TAKEN`), which allows checking if someone has an
   account. Accepted for a usable sign-up form; limited to 10 registrations per hour per IP. Login, forgot-password and
   resend do not reveal it.
-- **No security headers on responses.** The API serves JSON, so most browser protections (CSP, framing) do not apply to
-  it, but we do not set `X-Content-Type-Options`, HSTS or similar (no `helmet`). `/docs` (the Swagger UI) is served in
-  every environment and should be switched off or protected in a real deployment.
+- **Response headers and `/docs` (ADR-027).** Every response, including errors, 404s and rate-limit answers, carries
+  `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer` and a restrictive `Content-Security-Policy`
+  (`default-src 'none'; frame-ancestors 'none'`); `Strict-Transport-Security` is added only when the request really
+  arrived over https (behind a TLS proxy with `TRUST_PROXY` set). They are set by hand, without `helmet`. The Swagger UI
+  at `/docs` needs scripts, so it gets the first two headers only. `/docs` is served in development and test and
+  **switched off when `NODE_ENV=production`** (override with `DOCS_ENABLED=true|false`). Not done: `Permissions-Policy`
+  and cross-origin isolation headers, which matter for pages, not for a JSON API.
 - **Transport security is the deployment's job.** The server speaks plain HTTP; TLS must be terminated in front of it (and
   `TRUST_PROXY` set to the number of proxies). The mobile app accepts `http://` backend URLs because local development
   needs them (the default is `http://localhost:3000`); a release build should require https. Open item.
