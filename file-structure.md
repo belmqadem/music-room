@@ -32,7 +32,7 @@ music-room/
 │       ├── auth/                # screens/ (welcome, sign-in, ...), signed-in-flag.ts (placeholder), token storage later
 │       ├── sockets/             # stub
 │       ├── dev/                 # TEMP: jump list to every screen, remove before release
-│       └── features/            # sessions/, profile/, track-vote/, playlist-editor/ (screens are empty placeholders)
+│       └── features/            # sessions/ (create), profile/, track-vote/ (events), playlist-editor/ (playlists); empty placeholders
 │
 ├── shared/
 │   └── types/                   # TS types mirrored from the API contract
