@@ -4,6 +4,7 @@ import type { Redis } from "ioredis";
 import type pg from "pg";
 import type { Logger } from "pino";
 import swaggerUi from "swagger-ui-express";
+import { securityHeaders } from "./middleware/security-headers.js";
 import { openApiDocument } from "./config/swagger.js";
 import { createRequestLogger } from "./middleware/request-logger.js";
 import { createErrorHandler, notFoundHandler } from "./middleware/error-handler.js";
@@ -68,6 +69,8 @@ export interface AppDependencies {
    * past N proxies. See TRUST_PROXY in config/env.ts.
    */
   trustProxy?: number;
+  /** Serve the Swagger UI at /docs. Default true (tests); the server turns it off in production. */
+  docsEnabled?: boolean;
   /** Told about changes so live subscribers hear about them. Default: nobody is told. */
   realtime?: RealtimeEvents;
 }
@@ -78,6 +81,7 @@ export interface AppDependencies {
 export function createApp(deps: AppDependencies): Express {
   const app = express();
   app.disable("x-powered-by"); // do not advertise the framework
+  app.use(securityHeaders); // first, so errors, 404s and rate-limit answers carry them too
   if (deps.trustProxy) app.set("trust proxy", deps.trustProxy);
   app.use(createRequestLogger(deps.logger));
   app.use(
@@ -104,7 +108,9 @@ export function createApp(deps: AppDependencies): Express {
   app.get("/health", (_req, res) => {
     res.status(200).json({ status: "ok" });
   });
-  app.use("/docs", swaggerUi.serve, swaggerUi.setup(openApiDocument));
+  if (deps.docsEnabled ?? true) {
+    app.use("/docs", swaggerUi.serve, swaggerUi.setup(openApiDocument));
+  }
 
   const authService = createAuthService({
     pool: deps.pool,

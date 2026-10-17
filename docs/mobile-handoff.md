@@ -51,6 +51,8 @@ Events (Track Vote) and playlists (Playlist Editor) are **separate resources wit
 - **Location**: for an event with a `location_time` license, send `location` (`latitude`, `longitude`, `accuracyMeters`) with suggest
   and vote. The server decides; "I am inside" is never trusted.
 - **Friend requests** have no push: poll `GET /friends/requests?direction=incoming` when the friends screen opens.
+- **Backend URL**: development uses `http://`, but a release build should refuse any backend URL that is not `https://`
+  (`docs/security.md`, transport security).
 - **Nothing authoritative lives on the device**: what you may do comes from the server's answers (`myPermissions` is a hint
   only; the server checks every call).
 

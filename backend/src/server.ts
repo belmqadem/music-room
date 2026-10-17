@@ -1,6 +1,6 @@
 import { createServer } from "node:http";
 import { createApp } from "./app.js";
-import { loadConfig, loadEnvFileIfPresent } from "./config/env.js";
+import { docsEnabled, loadConfig, loadEnvFileIfPresent } from "./config/env.js";
 import { createLogger } from "./config/logger.js";
 import { assertPostgresReachable, createPostgresPool } from "./db/postgres.js";
 import { createRedisClient } from "./db/redis.js";
@@ -43,6 +43,7 @@ async function main(): Promise<void> {
     catalog:
       config.CATALOG_PROVIDER === "fake" ? createFakeCatalog() : createDeezerCatalog(),
     trustProxy: config.TRUST_PROXY,
+    docsEnabled: docsEnabled(config),
     realtime: realtime.events,
   });
   const httpServer = createServer(app);

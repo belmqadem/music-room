@@ -38,7 +38,7 @@ cp mobile/.env.example mobile/.env      # EXPO_PUBLIC_API_URL: where the app fin
 make install                            # dependencies from the lock files + commit-message hook
 make db-up                              # Postgres and Redis in Docker
 make migrate                            # create the database tables
-make dev                                # backend on http://localhost:3000 (API docs at /docs)
+make dev                                # backend on http://localhost:3000 (API docs at /docs, off in production)
 make dev-mobile                         # Expo dev server for the app
 ```
 
