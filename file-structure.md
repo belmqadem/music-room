@@ -33,6 +33,7 @@ music-room/
 │       ├── api/                 # http-client (headers, JSON, errors), api-error, `api` helper used by screens
 │       ├── settings/            # runtime-configurable backend URL, SettingsScreen
 │       ├── auth/                # auth-controller (session, refresh), token storage (secure store / web), useAuth, screens/
+│       ├── components/          # shared UI: Text, Button, Input, Card, Badge, Screen (+ their pure *-styles.ts rules)
 │       ├── theme/               # GENERATED from the tokens (make theme): colors, radius, typography, fonts, theme.generated.css
 │       ├── sockets/             # stub
 │       ├── dev/                 # TEMP: jump list to every screen + temp-flags.ts, remove before release
