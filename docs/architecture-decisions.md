@@ -424,6 +424,27 @@ Each decision must be defensible in detail at the defense. Copy the template for
 - Alternatives: the options above.
 - Consequences: two new dependencies, `expo-secure-store` (runtime) and `vitest` (tests, same as the backend). The retry is only safe for calls that can be repeated; voting (`PUT`) and reading are idempotent, adding a track is not, but a request that was refused as expired was never run by the server. A response lost after a successful refresh means the next refresh reuses a spent token and logs the user out (ADR-010, accepted). Web tabs without `navigator.locks` (old browsers) can still race.
 
+### ADR-029: The mobile theme is generated from the design tokens
+
+- Status: accepted
+- Date: 2026-10-18
+- Deciders: kaoutharrr, belmqadem to confirm in review
+- Context: the design comes from Stitch as `design-tokens.json` (colors, type scale, radii). The rule in `CLAUDE.md` is that screens never hardcode a color, font, size or radius. A rule nobody can check is a wish, and two hand-copied copies of the same values drift apart.
+- Options considered:
+  - **Generated** (chosen): a script turns the tokens into code, and a test fails when the committed output is stale.
+  - **Hand-written theme file**: simplest, no script, but it can silently drift from the export, and re-exporting from Stitch means re-copying by hand.
+  - **Read the JSON at runtime or in Metro**: always in sync, but the types are lost (a typo in a color name becomes a runtime bug) and the build gets a custom step.
+- Decision:
+  - `mobile/scripts/generate-theme.mjs` (no dependency) reads `design-tokens.json` and writes three committed files in `mobile/src/theme/`: `tokens.generated.ts` (typed `colors`, `radius`, `typography`, font names), `fonts.generated.ts` (the font files to load) and `theme.generated.css` (Tailwind / NativeWind theme variables, so `className="bg-ember"` works). `make theme` runs it.
+  - The export is never edited. Tokens we add live in `design-tokens.extensions.json` (today: `text.placeholder` = #757B8B, 4.55:1 on the input fill, where `text.tertiary` is 3.32:1); the generator merges them and refuses one that already exists in the export.
+  - Every color needs a name in the generator (`COLOR_NAMES`); a new token in a re-export stops the build until someone names it, instead of getting an accidental name. The generator also refuses an unreadable color, a size in the wrong unit, a text style whose font family has no such weight, and a light color mode.
+  - The CSS first resets Tailwind's default palette, radii, fonts and sizes (`--color-*: initial` and so on), so `bg-red-500` or `text-lg` simply do not exist: only tokens can be used. (Checked by compiling the real CSS with Tailwind.)
+  - React Native cannot synthesize weights from a custom font, so each (role, weight) is its own loaded font file: `font-sans-600`, `font-display-800`, and `typography.h3.fontFamily` is `PlusJakartaSans_600SemiBold`. Letter spacing is converted from em to pixels.
+  - Fonts come from Expo's `@expo-google-fonts/*` packages (Syne, Plus Jakarta Sans, JetBrains Mono), imported per weight so unused weights are not bundled, and loaded with `expo-font` while the splash screen stays up. If loading fails the system font is used and a warning is logged.
+  - `make test` includes tests that fail if the generated files differ from the generator's output, and a scan that fails on a `#hex`, `rgb()` or `hsl()` color anywhere in `mobile/src` outside the generated files.
+- Alternatives: the options above.
+- Consequences: three font packages, `@types/node` (dev, for the tests) and the generator to maintain. Spacing is not part of the Stitch tokens, so Tailwind's spacing scale still applies; a spacing token set is worth proposing before the layouts multiply. Tailwind's `transparent` and `current` keywords still work (they are not colors). If Stitch exports a new token category (shadows, say), the generator has to learn it.
+
 ## Still to decide (record each as an ADR)
 
 TODO:

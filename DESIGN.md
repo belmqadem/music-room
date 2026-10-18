@@ -34,4 +34,5 @@ sm 6 · md 8 · lg 12 · xl 16 · 2xl 20 · full 9999. Suggested defaults: input
 - Before starting a screen: read this file and `design-tokens.json`, then create/extend a single theme file (colors, typography, radius) generated from the tokens.
 - Build shared components first (Button, Input, Card, TrackRow, Badge, RoomCodeChip), then compose screens from them.
 - If a screen needs a value that isn't a token, say so and propose one instead of inventing a one-off.
+- The theme is generated: `make theme` reads `design-tokens.json` (the Stitch export, never edited) and `design-tokens.extensions.json` (tokens we add, such as `text.placeholder`) and writes `mobile/src/theme/*.generated.*`. Never edit those files; `make test` fails if they are out of date. In code use `@/theme` (`colors`, `radius`, `typography`); in `className` use `bg-ember`, `text-content-primary`, `border-line-subtle`, `rounded-lg`, `font-sans-600` and so on. Tailwind's default palette, radii, fonts and sizes are switched off, so only tokens exist.
 - Check contrast on dark surfaces for `text.tertiary`; use it only for placeholders and inactive elements.
