@@ -5,6 +5,7 @@ import { Text, View } from "react-native";
 // "demo" stands in for an event or playlist id.
 const SCREENS: [label: string, href: Href][] = [
   ["welcome", "/"],
+  ["component gallery", "/gallery"],
   ["sign-in", "/sign-in"],
   ["sign-up", "/sign-up"],
   ["verify-email", "/verify-email"],

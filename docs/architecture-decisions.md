@@ -445,6 +445,26 @@ Each decision must be defensible in detail at the defense. Copy the template for
 - Alternatives: the options above.
 - Consequences: three font packages, `@types/node` (dev, for the tests) and the generator to maintain. Spacing is not part of the Stitch tokens, so Tailwind's spacing scale still applies; a spacing token set is worth proposing before the layouts multiply. Tailwind's `transparent` and `current` keywords still work (they are not colors). If Stitch exports a new token category (shadows, say), the generator has to learn it.
 
+### ADR-030: Shared components: tokens only, variant rules in plain modules, tested in Node
+
+- Status: accepted
+- Date: 2026-10-18
+- Deciders: kaoutharrr, belmqadem to confirm in review
+- Context: `DESIGN.md` says to build shared components first and compose screens from them. The design rules are specific (one Ember button per screen, Chartreuse only for live things, inverse text on bright fills, depth from surface tiers and not shadows). In React Native a wrong class name draws nothing and raises no error, and nobody can see the app from the test run.
+- Options considered:
+  - **How to test components**: render them (`@testing-library/react-native` with `jest-expo`: heavy, a second test runner), or keep each component thin and test what it asks for.
+  - **How to style**: `StyleSheet` objects with the token values, or `className` with the token classes (NativeWind). The classes are readable, and the generated theme (ADR-029) already removes every non-token value.
+- Decision:
+  - Five components plus a layout wrapper in `mobile/src/components`: `Text`, `Button`, `Input`, `Card`, `Badge`, `Screen`. Screens import them from `@/components`.
+  - Styled with `className` using only token classes. Typography comes from the `typography` constants (React Native cannot synthesize weights, so each style names its font file).
+  - Each component's variant logic is in a plain module without React Native (`button-styles.ts`, `input-styles.ts`, ...), so vitest tests it in Node: Ember only on the primary button and its pressed state is ember-hover; the label on a bright fill is the inverse color; an input error wins over focus and the focus ring is Ember; cards separate levels with surface tiers and have no shadow; Chartreuse appears only in the live badge; every text/fill pair reads at least 4.5:1.
+  - A test compiles every class the app uses (written in a `className` or built by a style module) with the real stylesheet and fails on one that does not come out, so a typo or a use of Tailwind's removed default palette (`bg-red-500`) cannot slip through. Another scans for shadow and elevation styles.
+  - Navigation follows the design system too: a `ThemeProvider` with the token colors (canvas background, primary text, hairline borders), a styled tab bar, a light status bar. The navigation highlight is the primary text color, not Ember, because Ember is for the one main action of a screen. `app.json` is dark only and the splash screen uses the canvas color; a test keeps both in line with the tokens.
+  - `TrackRow` and `RoomCodeChip` (also named in `DESIGN.md`) are not built yet: they depend on the event and playlist data the screens will show.
+  - A temporary gallery (`/gallery`, `src/dev`) shows every component and state on a device.
+- Alternatives: the options above.
+- Consequences: what the tests cannot prove is how it looks and feels (spacing, press feedback, keyboard behaviour, the fonts rendering); that needs a device, and the gallery is for that. Spacing is not part of the design tokens, so the components use Tailwind's spacing scale (`p-4`, `px-5`, `gap-3`); a spacing token set should be proposed before many screens exist. A component that should accept a new look must get its rule in the style module and a test first.
+
 ## Still to decide (record each as an ADR)
 
 TODO:

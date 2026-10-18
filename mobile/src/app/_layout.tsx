@@ -1,10 +1,11 @@
 import "@/global.css";
-import { Stack } from "expo-router";
+import { Stack, ThemeProvider } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
 import { auth, useAuth } from "@/auth";
 import { TEMP_ALLOW_ALL_ROUTES } from "@/dev/temp-flags";
-import { useAppFonts } from "@/theme";
+import { navigationTheme, useAppFonts } from "@/theme";
 
 // Keep the splash screen up until the fonts are loaded and the stored session is checked.
 void SplashScreen.preventAutoHideAsync();
@@ -31,13 +32,17 @@ export default function RootLayout() {
   const showAuth = status !== "signedIn" || TEMP_ALLOW_ALL_ROUTES;
   const showApp = status === "signedIn" || TEMP_ALLOW_ALL_ROUTES;
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Protected guard={showAuth}>
-        <Stack.Screen name="(auth)" />
-      </Stack.Protected>
-      <Stack.Protected guard={showApp}>
-        <Stack.Screen name="(app)" />
-      </Stack.Protected>
-    </Stack>
+    <ThemeProvider value={navigationTheme}>
+      {/* Dark app: light status bar icons. */}
+      <StatusBar style="light" />
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Protected guard={showAuth}>
+          <Stack.Screen name="(auth)" />
+        </Stack.Protected>
+        <Stack.Protected guard={showApp}>
+          <Stack.Screen name="(app)" />
+        </Stack.Protected>
+      </Stack>
+    </ThemeProvider>
   );
 }
