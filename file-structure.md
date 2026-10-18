@@ -27,12 +27,13 @@ music-room/
 │   ├── .env.example             # EXPO_PUBLIC_API_URL (first-launch default)
 │   └── src/
 │       ├── app/                 # Expo Router routes, thin re-exports of the screens: (auth)/ and (app)/ groups, (app)/(tabs)/
-│       ├── api/                 # REST client + X-Platform/X-Device/X-App-Version headers
+│       ├── api/                 # http-client (headers, JSON, errors), api-error, `api` helper used by screens
 │       ├── settings/            # runtime-configurable backend URL, SettingsScreen
-│       ├── auth/                # screens/ (welcome, sign-in, ...), signed-in-flag.ts (placeholder), token storage later
+│       ├── auth/                # auth-controller (session, refresh), token storage (secure store / web), useAuth, screens/
 │       ├── sockets/             # stub
-│       ├── dev/                 # TEMP: jump list to every screen, remove before release
+│       ├── dev/                 # TEMP: jump list to every screen + temp-flags.ts, remove before release
 │       └── features/            # profile/, track-vote/ (events), playlist-editor/ (playlists); empty placeholders
+│   └── tests/                   # vitest tests of the app's logic (api client, auth); screens are not tested here
 │
 ├── shared/
 │   └── types/                   # TS types mirrored from the API contract

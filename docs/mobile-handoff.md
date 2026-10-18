@@ -45,6 +45,9 @@ Events (Track Vote) and playlists (Playlist Editor) are **separate resources wit
 - **Tokens**: access token 15 minutes, sent as `Authorization: Bearer`, kept in memory only; the refresh token (7 days) goes in secure storage. On `401 TOKEN_EXPIRED` refresh once with
   `POST /auth/refresh` and retry. Refresh tokens **rotate**: store the new one every time, and never refresh from two
   places at once (reuse revokes the session). `401 INVALID_REFRESH_TOKEN` means log in again.
+  **This is implemented** (ADR-028, `mobile/src/auth`, `mobile/src/api`): screens never handle tokens. Use
+  `useAuth()` for the signed-in state, `auth.signIn / register / verifyEmail / signOut ...` for the account actions,
+  and `api.get / post / put / patch / delete` for every other call; errors are `RequestError` with the backend's `code`.
 - **Errors** are `{ error: { code, message, details? } }`; switch on `code`, show your own text. `429 RATE_LIMITED`: wait and retry.
 - **Pagination**: lists return `{ items, nextCursor }`; pass `nextCursor` back as `?cursor=`, never build one.
 - **Sockets** (`/live`): connect with `auth: { token }`, then `subscribe` `{ resource: "event" | "playlist", id }`. Apply a
