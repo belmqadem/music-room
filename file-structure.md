@@ -10,6 +10,7 @@ music-room/
 ├── eslint.config.mjs  .prettierrc  tsconfig.base.json
 ├── .githooks/commit-msg         # Conventional Commits check (enabled by `make install`)
 ├── .github/                     # ci.yml, CODEOWNERS, PULL_REQUEST_TEMPLATE.md
+├── DESIGN.md  design-tokens.json  # mobile design system: usage rules + the tokens exported from Stitch
 │
 ├── backend/                     # Node + Express 5 + TypeScript (strict)
 │   ├── src/
