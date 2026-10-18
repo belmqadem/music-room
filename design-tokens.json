@@ -1,0 +1,185 @@
+{
+  "name": "Music Room (Sonic Parlor)",
+  "colorMode": "dark",
+  "colors": {
+    "brand": {
+      "electricEmber": {
+        "value": "#FF5A36",
+        "description": "Primary kinetic brand accent, active voting states, playback hero, main CTA"
+      },
+      "electricEmberHover": {
+        "value": "#E04826",
+        "description": "Interactive hover/pressed state for primary buttons"
+      },
+      "chartreuse": {
+        "value": "#C8FF00",
+        "description": "High-voltage presence indicator, live sync status, active real-time cursors"
+      }
+    },
+    "surfaces": {
+      "canvas": {
+        "value": "#12131C",
+        "description": "Vinyl Ink base background — deep studio night tone"
+      },
+      "surfaceContainerLowest": {
+        "value": "#0D0E16",
+        "description": "Recessed card backgrounds and input fills"
+      },
+      "surfaceContainerLow": {
+        "value": "#1A1B24",
+        "description": "Subtle card layering and list item containers"
+      },
+      "surfaceElevated": {
+        "value": "#222638",
+        "description": "Cobalt Studio interactive cards, modals, and track list surfaces"
+      },
+      "surfaceContainerHigh": {
+        "value": "#2A2E42",
+        "description": "Selected state backgrounds and hover surfaces"
+      },
+      "surfaceBright": {
+        "value": "#383843",
+        "description": "Outlines, subtle dividers, and inactive borders"
+      }
+    },
+    "borders": {
+      "subtle": {
+        "value": "rgba(255, 255, 255, 0.08)",
+        "description": "1px hairline borders for minimal input fields and card outlines"
+      },
+      "focus": {
+        "value": "#FF5A36",
+        "description": "Primary active input ring and focus indicator"
+      },
+      "liveSync": {
+        "value": "#C8FF00",
+        "description": "Multiplayer active selection ring"
+      }
+    },
+    "text": {
+      "primary": {
+        "value": "#F3F4F8",
+        "description": "Pure White / Mist — display headings and high-contrast titles"
+      },
+      "secondary": {
+        "value": "#8E94A8",
+        "description": "Acoustic Steel — subtext, timestamps, metadata, and supporting labels"
+      },
+      "tertiary": {
+        "value": "#5F6578",
+        "description": "Placeholders and inactive icons"
+      },
+      "inverse": {
+        "value": "#12131C",
+        "description": "High-contrast text on bright buttons (e.g. on Chartreuse or Ember)"
+      }
+    },
+    "feedback": {
+      "success": {
+        "value": "#00E599",
+        "description": "Track queued, connected state"
+      },
+      "warning": {
+        "value": "#FFB800",
+        "description": "Expiring room link, warning alert"
+      },
+      "error": {
+        "value": "#FF3366",
+        "description": "Invalid room code or disconnected playback"
+      }
+    }
+  },
+  "typography": {
+    "fontFamilies": {
+      "display": {
+        "value": "Syne, sans-serif",
+        "weights": ["700", "800"],
+        "description": "Used for page titles, hero numbers, and impactful headers"
+      },
+      "sans": {
+        "value": "Plus Jakarta Sans, -apple-system, BlinkMacSystemFont, sans-serif",
+        "weights": ["400", "500", "600", "700"],
+        "description": "Used for UI controls, inputs, track titles, and metadata"
+      },
+      "mono": {
+        "value": "JetBrains Mono, ui-monospace, monospace",
+        "weights": ["500", "700"],
+        "description": "Used for room invite codes (e.g. ROOM-742), BPM counters, and timer meters"
+      }
+    },
+    "scale": {
+      "hero": {
+        "fontSize": "32px",
+        "lineHeight": "38px",
+        "fontWeight": "800",
+        "letterSpacing": "-0.03em",
+        "fontFamily": "display"
+      },
+      "h1": {
+        "fontSize": "26px",
+        "lineHeight": "32px",
+        "fontWeight": "700",
+        "letterSpacing": "-0.02em",
+        "fontFamily": "display"
+      },
+      "h2": {
+        "fontSize": "20px",
+        "lineHeight": "26px",
+        "fontWeight": "700",
+        "letterSpacing": "-0.01em",
+        "fontFamily": "sans"
+      },
+      "h3": {
+        "fontSize": "16px",
+        "lineHeight": "22px",
+        "fontWeight": "600",
+        "letterSpacing": "0em",
+        "fontFamily": "sans"
+      },
+      "bodyLarge": {
+        "fontSize": "15px",
+        "lineHeight": "22px",
+        "fontWeight": "400",
+        "letterSpacing": "0em",
+        "fontFamily": "sans"
+      },
+      "body": {
+        "fontSize": "14px",
+        "lineHeight": "20px",
+        "fontWeight": "400",
+        "letterSpacing": "0em",
+        "fontFamily": "sans"
+      },
+      "caption": {
+        "fontSize": "12px",
+        "lineHeight": "16px",
+        "fontWeight": "500",
+        "letterSpacing": "0.01em",
+        "fontFamily": "sans"
+      },
+      "badge": {
+        "fontSize": "11px",
+        "lineHeight": "14px",
+        "fontWeight": "700",
+        "letterSpacing": "0.04em",
+        "textTransform": "uppercase",
+        "fontFamily": "sans"
+      },
+      "code": {
+        "fontSize": "18px",
+        "lineHeight": "24px",
+        "fontWeight": "700",
+        "letterSpacing": "0.08em",
+        "fontFamily": "mono"
+      }
+    }
+  },
+  "borderRadius": {
+    "sm": "6px",
+    "md": "8px",
+    "lg": "12px",
+    "xl": "16px",
+    "2xl": "20px",
+    "full": "9999px"
+  }
+}

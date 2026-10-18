@@ -71,6 +71,12 @@ its own module rather than intermixing (`backend/src/modules/*`,
   explicit, intentional resolution strategy — not an implicit "it usually
   works."
 
+## Design system (mobile)
+
+Before building or editing any screen or component, read DESIGN.md and
+design-tokens.json. Use the theme generated from those tokens; never hardcode
+colors, fonts, sizes or radii. If a needed value isn't a token, propose one.
+
 ## What "done" looks like for the mandatory part
 
 Both Track Vote and Playlist Editor fully working, including their
