@@ -3,6 +3,9 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "dependencies": {
+    "@expo-google-fonts/jetbrains-mono": "^0.4.1",
+    "@expo-google-fonts/plus-jakarta-sans": "^0.4.2",
+    "@expo-google-fonts/syne": "^0.4.2",
     "@expo/ui": "~57.0.19",
     "@react-native-async-storage/async-storage": "2.2.0",
     "eslint-config-expo": "~57.0.2",
@@ -34,6 +37,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.1.12",
+    "@types/node": "^26.6.5",
     "@types/react": "~19.2.2",
     "eslint": "^9.39.5",
     "lightningcss": "1.30.1",
