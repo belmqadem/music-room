@@ -3,3 +3,6 @@
 @import "tailwindcss/utilities.css";
 
 @import "nativewind/theme";
+
+/* The design tokens (generated, see DESIGN.md). Last, so it replaces the default palette, radii, fonts and sizes. */
+@import "./theme/theme.generated.css";

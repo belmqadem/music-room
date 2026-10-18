@@ -1,0 +1,11 @@
+{
+  "about": "Tokens we add on top of design-tokens.json. The Stitch export stays unchanged; scripts/generate-theme.mjs merges this file into it and refuses a token that already exists there.",
+  "colors": {
+    "text": {
+      "placeholder": {
+        "value": "#757B8B",
+        "description": "Placeholder text inside inputs. 4.55:1 on surfaceContainerLowest (the input fill), where text.tertiary is only 3.32:1. text.tertiary stays for inactive icons."
+      }
+    }
+  }
+}

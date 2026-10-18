@@ -10,7 +10,8 @@ music-room/
 ├── eslint.config.mjs  .prettierrc  tsconfig.base.json
 ├── .githooks/commit-msg         # Conventional Commits check (enabled by `make install`)
 ├── .github/                     # ci.yml, CODEOWNERS, PULL_REQUEST_TEMPLATE.md
-├── DESIGN.md  design-tokens.json  # mobile design system: usage rules + the tokens exported from Stitch
+├── DESIGN.md  design-tokens.json  # mobile design system: usage rules + the tokens exported from Stitch (unchanged)
+├── design-tokens.extensions.json # tokens we add on top of the export (text.placeholder)
 │
 ├── backend/                     # Node + Express 5 + TypeScript (strict)
 │   ├── src/
@@ -22,6 +23,7 @@ music-room/
 │   │   ├── sockets/             # Socket.io attach + authenticated /live namespace
 │   │   └── modules/             # auth, users, access, track-vote, playlist-editor, logging
 │   │                            #   each: controller/service/repository/schema/routes
+│   ├── scripts/                 # generate-theme.mjs (design tokens -> theme)
 │   └── tests/                   # health.test.ts, unit/, load/ (README only for now)
 │
 ├── mobile/                      # Expo + Expo Router + NativeWind
@@ -31,6 +33,7 @@ music-room/
 │       ├── api/                 # http-client (headers, JSON, errors), api-error, `api` helper used by screens
 │       ├── settings/            # runtime-configurable backend URL, SettingsScreen
 │       ├── auth/                # auth-controller (session, refresh), token storage (secure store / web), useAuth, screens/
+│       ├── theme/               # GENERATED from the tokens (make theme): colors, radius, typography, fonts, theme.generated.css
 │       ├── sockets/             # stub
 │       ├── dev/                 # TEMP: jump list to every screen + temp-flags.ts, remove before release
 │       └── features/            # profile/, track-vote/ (events), playlist-editor/ (playlists); empty placeholders
