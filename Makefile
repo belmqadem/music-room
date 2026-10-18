@@ -2,7 +2,7 @@
 # Dependencies are installed from lockfiles (npm ci); nothing third-party is committed.
 
 .DEFAULT_GOAL := help
-.PHONY: help install dev dev-mobile db-up db-down loadtest-up loadtest-down loadtest migrate lint typecheck test test-integration format format-check clean
+.PHONY: help install dev dev-mobile theme db-up db-down loadtest-up loadtest-down loadtest migrate lint typecheck test test-integration format format-check clean
 
 # Loads the root .env into the environment of a command (used by `migrate`).
 LOAD_ENV = set -a; . ./.env; set +a;
@@ -19,6 +19,9 @@ install: ## Install all dependencies (root, backend, mobile, shared) and enable 
 
 dev: ## Run the backend in watch mode (needs `make db-up` and a .env)
 	npm run dev --prefix backend
+
+theme: ## Regenerate the mobile theme from design-tokens.json (+ design-tokens.extensions.json); `make test` fails if it is out of date
+	node mobile/scripts/generate-theme.mjs
 
 dev-mobile: ## Start the Expo dev server (interactive)
 	npm run start --prefix mobile
