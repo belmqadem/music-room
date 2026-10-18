@@ -403,6 +403,27 @@ Each decision must be defensible in detail at the defense. Copy the template for
 - Alternatives: `helmet` (above); protecting `/docs` with a login instead of switching it off (more code and a credential to manage for a document that adds little over `docs/api-contract.md`).
 - Consequences: the production deployment must set `TRUST_PROXY` for HSTS to be sent. The header list is deliberately short; `Permissions-Policy` and cross-origin isolation headers are not set because they matter for pages, not for a JSON API. If the team prefers `helmet`, only `middleware/security-headers.ts` and its tests change.
 
+### ADR-028: How the app keeps the session: one guarded refresh, tokens handled outside the screens
+
+- Status: accepted
+- Date: 2026-10-18
+- Deciders: kaoutharrr, belmqadem to confirm in review
+- Context: refresh tokens are single use and a token used twice revokes the whole session (ADR-003, ADR-010). The access token lives 15 minutes. The app has many screens that call the API at the same time, and runs on phones and in browsers with several tabs (ADR-012). A bug in token handling logs users out at random, so it must exist in one place and be tested.
+- Options considered:
+  - **When to refresh**: on a timer before the token expires, or only when the server answers `401 TOKEN_EXPIRED`. A timer needs background timers (not reliable on a phone) and clock handling; reacting to the answer costs one extra failed call every 15 minutes.
+  - **How**: an HTTP library with interceptors (axios), or a small client of our own on `fetch`. The library is one more dependency for about 60 lines of logic we must be able to explain.
+  - **State**: a state library (zustand, Redux) or React's `useSyncExternalStore`.
+- Decision:
+  - Reactive refresh. A call sends the access token; on `401 TOKEN_EXPIRED` the app refreshes **once** and repeats the call **once**. Any other error is passed through untouched (a `403 REAUTH_FAILED` or a wrong password must never look like an expired session). A second `401` on the repeat ends the session instead of looping.
+  - **One refresh in flight**: simultaneous calls that all see an expired token share one refresh. A call whose "expired" answer arrives after another call already refreshed just repeats with the new token. On web, `navigator.locks` makes tabs take turns, and the refresh token is read from storage inside the turn, so a tab that waited uses the token the other tab saved.
+  - **The new refresh token is saved before it is used**, because the old one is already spent on the server. If the device storage refuses the write, the session lasts until the app closes (a warning is logged) instead of failing in the middle of use.
+  - The session ends locally only when the server says it is over (`401` on refresh). Offline or a server error keeps the stored token, so the next launch can try again.
+  - Signing out never depends on the network: the server is told when reachable, the phone forgets the session either way, and the caller is told whether the server was reached. If the device cannot delete the stored token the error is raised, not hidden.
+  - Storage: iOS Keychain / Android Keystore through `expo-secure-store` on phones; `localStorage` on web (ADR-012, option A, risk accepted in `docs/security.md`). The access token is never stored.
+  - Plain TypeScript with injected `fetch`, storage and backend address, so it is tested in Node without a phone (60 tests, mutation-checked). Screens use `useAuth()`, `auth.*` and `api.*` only.
+- Alternatives: the options above.
+- Consequences: two new dependencies, `expo-secure-store` (runtime) and `vitest` (tests, same as the backend). The retry is only safe for calls that can be repeated; voting (`PUT`) and reading are idempotent, adding a track is not, but a request that was refused as expired was never run by the server. A response lost after a successful refresh means the next refresh reuses a spent token and logs the user out (ADR-010, accepted). Web tabs without `navigator.locks` (old browsers) can still race.
+
 ## Still to decide (record each as an ADR)
 
 TODO:
