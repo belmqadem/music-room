@@ -1,7 +1,6 @@
 import { router } from "expo-router";
 import { View } from "react-native";
 import { Button, Screen, Text } from "@/components";
-import DevScreenLinks from "@/dev/DevScreenLinks";
 
 // The first screen when signed out: what the app is, and the two ways in. One primary action.
 export default function WelcomeScreen() {
@@ -26,10 +25,6 @@ export default function WelcomeScreen() {
           fullWidth
           onPress={() => router.push("/sign-in")}
         />
-      </View>
-      {/* TEMP: remove before release, with src/dev. */}
-      <View className="pt-12">
-        <DevScreenLinks />
       </View>
     </Screen>
   );

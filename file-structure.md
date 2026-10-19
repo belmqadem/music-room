@@ -36,7 +36,7 @@ music-room/
 │       ├── components/          # shared UI: Text, Button, Input, Card, Badge, Screen (+ their pure *-styles.ts rules)
 │       ├── theme/               # GENERATED from the tokens (make theme): colors, radius, typography, fonts, theme.generated.css
 │       ├── sockets/             # stub
-│       ├── dev/                 # TEMP: jump list to every screen + temp-flags.ts, remove before release
+│       ├── dev/                 # TEMP: component gallery (/gallery) + temp-flags.ts, remove before release
 │       └── features/            # profile/, track-vote/ (events), playlist-editor/ (playlists); empty placeholders
 │   └── tests/                   # vitest tests of the app's logic (api client, auth); screens are not tested here
 │
