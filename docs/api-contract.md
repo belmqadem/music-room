@@ -89,8 +89,9 @@ rejects the request; values are stripped of unsafe characters and capped at 64 c
 | POST   | `/users/me/providers/{provider}` | bearer | Link a Google/Facebook account (body: `credential` + `reauth`)        | 200 `User`                | 400, 401, 403 `REAUTH_FAILED`, 409 `PROVIDER_ACCOUNT_LINKED`, 429, 502 |
 | DELETE | `/users/me/providers/{provider}` | bearer | Unlink a provider (body: `reauth`)                                    | 200 `User`                | 400, 403 `REAUTH_FAILED`, 404, 409 `LAST_LOGIN_METHOD`, 429            |
 
-- `{provider}` is `google` or `facebook`. The OAuth body is `{ "credential": string }`: Google ID token or Facebook
-  access token, obtained by the app from the provider. **The backend verifies it with the provider**; it never trusts
+- `{provider}` is `google` or `facebook`. The OAuth body is `{ "credential": string }`: the Google ID token, or for
+  Facebook either the access token or, on iOS when the user did not allow tracking, the Limited Login token (a JWT;
+  ADR-032). The app sends whichever the Facebook SDK gave it; the backend tells them apart. **The backend verifies it with the provider**; it never trusts
   an identity the client merely claims.
 - **No automatic linking by email.** If the provider's email matches an existing account, the backend answers
   `409 EMAIL_TAKEN`; the user logs in and links from settings (otherwise an unverified provider email could take over
@@ -472,3 +473,4 @@ ANCHOR_NOT_FOUND`. Moving an entry after itself, or to the place it already has,
 | 2026-10-15 | Friends: `POST/GET /friends/requests`, `.../accept`, `DELETE /friends/requests/{id}`, `GET /friends`, `DELETE /friends/{userId}`; type `Friendship`; new error codes `USER_NOT_FOUND`, `FRIENDSHIP_NOT_FOUND`, `FRIEND_REQUEST_EXISTS`, `ALREADY_FRIENDS`; additive                                        | belmqadem | pending     |
 | 2026-10-15 | Profiles: `GET/PATCH /users/me/profile`, `GET /users/{userId}/profile`; types `Profile`, `PublicInfo`, `FriendsInfo`, `PrivateInfo`, `MusicPreferences`, `UpdateProfileRequest`; no new error codes; additive                                                                                              | belmqadem | pending     |
 | 2026-10-16 | Provider link and unlink need proof of ownership: `POST /users/me/providers/{provider}` body is now `{ credential, reauth }`, `DELETE` takes `{ reauth }`; new type `Reauth`, `LinkProviderRequest`, `UnlinkProviderRequest`, error code `REAUTH_FAILED` (403). **Breaking** for the link and unlink calls | belmqadem | pending     |
+| 2026-10-19 | Facebook `credential` may also be a Limited Login token (JWT, iOS without tracking permission); same body and error codes; additive (ADR-032)                                                                                                                                                              | belmqadem | pending     |
