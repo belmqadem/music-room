@@ -32,11 +32,11 @@ music-room/
 │       ├── app/                 # Expo Router routes, thin re-exports of the screens: (auth)/ and (app)/ groups, (app)/(tabs)/
 │       ├── api/                 # http-client (headers, JSON, errors), api-error, `api` helper used by screens
 │       ├── settings/            # runtime-configurable backend URL, SettingsScreen
-│       ├── auth/                # auth-controller (session, refresh), token storage (secure store / web), useAuth, screens/
+│       ├── auth/                # auth-controller (session, refresh), token storage, useAuth; screens/ (welcome, sign-up, verify, sign-in, reset); forms/ (validation, messages, handoff)
 │       ├── components/          # shared UI: Text, Button, Input, Card, Badge, Screen (+ their pure *-styles.ts rules)
 │       ├── theme/               # GENERATED from the tokens (make theme): colors, radius, typography, fonts, theme.generated.css
 │       ├── sockets/             # stub
-│       ├── dev/                 # TEMP: jump list to every screen + temp-flags.ts, remove before release
+│       ├── dev/                 # TEMP: component gallery (/gallery) + temp-flags.ts, remove before release
 │       └── features/            # profile/, track-vote/ (events), playlist-editor/ (playlists); empty placeholders
 │   └── tests/                   # vitest tests of the app's logic (api client, auth); screens are not tested here
 │

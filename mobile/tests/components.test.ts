@@ -13,6 +13,7 @@ import {
 } from "@/components/button-styles";
 import { cardClasses, type CardTone } from "@/components/card-styles";
 import {
+  INPUT_TEXT_CLASS,
   inputClasses,
   resolveInputState,
   type InputState,
@@ -171,6 +172,15 @@ describe("Input", () => {
     expect(inputClasses("focused")).toContain("border-line-focus");
     expect(colors.lineFocus).toBe(colors.ember);
     expect(inputClasses("error")).toContain("border-error");
+  });
+
+  it("lets a tap anywhere on the box focus the field: the text field itself is the 48 px box", () => {
+    expect(classesOf(INPUT_TEXT_CLASS)).toEqual(
+      expect.arrayContaining(["min-h-12", "px-4"]),
+    );
+    for (const state of INPUT_STATES) {
+      expect(classesOf(inputClasses(state))).not.toContain("px-4"); // no dead padding around the field
+    }
   });
 
   it("shows exactly one border color per state", () => {

@@ -82,7 +82,7 @@ describe("http client", () => {
     });
     void http;
 
-    expect(seen[0]).toBe("http://backend.test/events?limit=20&cursor=a%20b%26c");
+    expect(seen[0]).toBe("http://backend.test/api/v1/events?limit=20&cursor=a%20b%26c");
   });
 
   it("returns the JSON body, and undefined for an empty answer (204)", async () => {
@@ -181,7 +181,7 @@ describe("http client", () => {
     base = "http://two.test";
     await http.send("GET", "/a");
 
-    expect(seen).toEqual(["http://one.test/a", "http://two.test/a"]);
+    expect(seen).toEqual(["http://one.test/api/v1/a", "http://two.test/api/v1/a"]);
   });
 
   it("a failing base-URL lookup is a NETWORK_ERROR too, not an unhandled crash", async () => {
