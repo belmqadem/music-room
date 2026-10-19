@@ -1,5 +1,7 @@
 import { Link, type Href } from "expo-router";
-import { Text, View } from "react-native";
+import { View } from "react-native";
+import { Text } from "@/components";
+import { colors } from "@/theme";
 
 // TEMP: remove before release. A jump list to every screen, shown on the welcome screen.
 // "demo" stands in for an event or playlist id.
@@ -22,10 +24,12 @@ const SCREENS: [label: string, href: Href][] = [
 
 export default function DevScreenLinks() {
   return (
-    <View className="items-center">
-      <Text>TEMP: remove before release</Text>
+    <View className="items-center gap-2">
+      <Text variant="badge" tone="tertiary">
+        TEMP: remove before release
+      </Text>
       {SCREENS.map(([label, href]) => (
-        <Link key={label} href={href}>
+        <Link key={label} href={href} style={{ color: colors.contentSecondary }}>
           {label}
         </Link>
       ))}
