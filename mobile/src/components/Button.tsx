@@ -56,7 +56,9 @@ export function Button({
       className={look.container}
       testID={testID}
     >
-      <View className={buttonContentClass(loading)}>
+      {/* Never flattened away: when loading ends this view loses its opacity, and Android (Fabric)
+          would then move the icon into the button and crash ("child already has a parent"). */}
+      <View collapsable={false} className={buttonContentClass(loading)}>
         {icon}
         <Text variant="h3" tone={look.labelTone}>
           {title}
