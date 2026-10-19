@@ -508,6 +508,7 @@ Each decision must be defensible in detail at the defense. Copy the template for
   - Verified for real on an iOS simulator (2026-10-19): the SDK sent a Limited Login token (RS256, a `kid` from the published key set, issuer `https://www.facebook.com`, audience = our app id) and sign-in succeeded. The same run showed that after a Limited Login the SDK also returns an access token that `debug_token` reports as invalid; the app therefore sends the JWT (ADR-033).
   - The observed token was valid for **90 days** (`exp` about 7,776,000 s after `iat`), not "short-lived" as Facebook's page says. Like Google's ID token it is not bound to a server-issued nonce, so a captured token could be replayed for that long, against Google's hour or so. Chosen mitigation: the backend refuses a Limited Login token issued more than 10 minutes ago (`maxTokenAge`), since the app sends it seconds after the login; a stolen token is useless after that. Rejected for now: a server-issued, single-use nonce passed to the SDK, which is stronger (no replay at all) but needs a new endpoint and app changes.
   - The RS256 pin is a second line of defence: `jose` already refuses an HS256 token against an RSA key, so a mutation that also allows HS256 is not caught by a test.
+
 ### ADR-033: Google and Facebook sign-in in the app: native SDKs in a development build
 
 - Status: accepted
