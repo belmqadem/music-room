@@ -10,7 +10,11 @@ import {
   socialConfigFrom,
   SocialSignInError,
 } from "@/auth/social/social-config";
-import { iosUrlSchemeFromClientId, withSocialSignIn } from "../app.config";
+import {
+  iosUrlSchemeFromClientId,
+  signDebugWithDeveloperKey,
+  withSocialSignIn,
+} from "../app.config";
 
 const WEB = "111-web.apps.googleusercontent.com";
 const IOS = "222-ios.apps.googleusercontent.com";
@@ -202,5 +206,50 @@ describe("the build configuration (app.config.ts)", () => {
 
     expect(config.plugins?.[0]).toBe("expo-router");
     expect(base.plugins).toEqual(["expo-router"]);
+  });
+});
+
+describe("Android debug signing (app.config.ts)", () => {
+  // The signing block exactly as `expo prebuild` generates it (SDK 57).
+  const generated = `    signingConfigs {
+        debug {
+            storeFile file('debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+    }`;
+
+  it("uses the developer's own ~/.android/debug.keystore, falling back to the template key", () => {
+    const signed = signDebugWithDeveloperKey(generated);
+
+    expect(signed).toContain(
+      'new File(System.getProperty("user.home"), ".android/debug.keystore")',
+    );
+    expect(signed).toContain(
+      "storeFile developerDebugKeystore.exists() ? developerDebugKeystore : file('debug.keystore')",
+    );
+    expect(signed).not.toContain("storeFile file('debug.keystore')");
+  });
+
+  it("keeps the rest of the signing block (alias and passwords of every debug key)", () => {
+    const signed = signDebugWithDeveloperKey(generated);
+
+    for (const line of [
+      "storePassword 'android'",
+      "keyAlias 'androiddebugkey'",
+      "keyPassword 'android'",
+    ])
+      expect(signed).toContain(line);
+  });
+
+  it("changes nothing when applied twice (prebuild can run again on the same folder)", () => {
+    const once = signDebugWithDeveloperKey(generated);
+
+    expect(signDebugWithDeveloperKey(once)).toBe(once);
+  });
+
+  it("refuses a build.gradle without the expected line, rather than keep the shared key silently", () => {
+    expect(() => signDebugWithDeveloperKey("android { }")).toThrow(/debug\.keystore/);
   });
 });

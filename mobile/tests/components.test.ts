@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { badgeLook, type BadgeTone } from "@/components/badge-styles";
 import {
+  buttonContentClass,
   buttonLook,
   type ButtonState,
   type ButtonVariant,
@@ -162,6 +163,14 @@ describe("Button", () => {
   it("shows a spinner that can be seen on its own fill", () => {
     expect(buttonLook("primary", "idle", false).spinnerColor).toBe("contentInverse");
     expect(buttonLook("secondary", "idle", false).spinnerColor).toBe("contentPrimary");
+  });
+
+  it("puts the icon before the label and hides both while loading (width does not change)", () => {
+    expect(buttonContentClass(false).split(" ")).toEqual(
+      expect.arrayContaining(["flex-row", "items-center", "gap-2"]),
+    );
+    expect(buttonContentClass(false)).not.toContain("opacity-0");
+    expect(buttonContentClass(true)).toContain("opacity-0");
   });
 });
 

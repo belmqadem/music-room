@@ -1,7 +1,7 @@
 import type { OAuthProvider } from "@music-room/shared";
 import { router } from "expo-router";
 import { useState } from "react";
-import { View } from "react-native";
+import { Image, View } from "react-native";
 import { auth } from "@/auth";
 import { socialErrorMessage } from "@/auth/forms/error-messages";
 import { clearHandoff } from "@/auth/forms/handoff";
@@ -41,7 +41,27 @@ const PROVIDERS: Provider[] = [
     : []),
 ];
 
-// "Continue with Google / Facebook" (ADR-033). The provider's SDK gives the app a credential, the
+// The providers' own logos, in their brand colors. They are artwork (each brand requires its logo
+// unaltered), not UI colors, so they stay out of the design tokens. PNGs at 1x/2x/3x rendered from
+// the SVGs next to them, shown with React Native's own Image (no extra native view needed).
+const LOGOS: Record<OAuthProvider, number> = {
+  google: require("../../../assets/icons/google.png"),
+  facebook: require("../../../assets/icons/facebook.png"),
+};
+
+/** 16 px, the size of the button label (h3). Decorative: the button's label names the provider. */
+function ProviderLogo({ provider }: { provider: OAuthProvider }) {
+  return (
+    <Image
+      source={LOGOS[provider]}
+      className="size-4"
+      resizeMode="contain"
+      accessible={false}
+    />
+  );
+}
+
+// The Google and Facebook buttons: logo + provider name (ADR-033). The provider's SDK gives the app a credential, the
 // backend checks it with the provider (ADR-011, ADR-032) and answers with our own session. Secondary
 // buttons: the screen's one Ember button stays its email action. Nothing is shown when the build
 // has no provider configured.
@@ -74,7 +94,9 @@ export function SocialSignIn() {
       {PROVIDERS.map((provider) => (
         <Button
           key={provider.id}
-          title={`Continue with ${provider.name}`}
+          title={provider.name}
+          icon={<ProviderLogo provider={provider.id} />}
+          accessibilityLabel={`Continue with ${provider.name}`}
           variant="secondary"
           fullWidth
           loading={busy === provider.id}

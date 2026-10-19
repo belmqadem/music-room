@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { ActivityIndicator, Pressable, View } from "react-native";
 import { colors } from "@/theme/tokens.generated";
 import {
-  BUTTON_LABEL_HIDDEN,
   BUTTON_SPINNER_LAYER,
+  buttonContentClass,
   buttonLook,
   type ButtonState,
   type ButtonVariant,
@@ -19,6 +19,8 @@ export interface ButtonProps {
   /** Shows a spinner and ignores presses until the work is done. */
   loading?: boolean;
   fullWidth?: boolean;
+  /** Shown before the title, e.g. a provider logo. Decorative: screen readers read the title. */
+  icon?: ReactNode;
   accessibilityLabel?: string;
   testID?: string;
 }
@@ -30,6 +32,7 @@ export function Button({
   disabled = false,
   loading = false,
   fullWidth = false,
+  icon,
   accessibilityLabel,
   testID,
 }: ButtonProps) {
@@ -53,7 +56,10 @@ export function Button({
       className={look.container}
       testID={testID}
     >
-      <View className={loading ? BUTTON_LABEL_HIDDEN : undefined}>
+      {/* Never flattened away: when loading ends this view loses its opacity, and Android (Fabric)
+          would then move the icon into the button and crash ("child already has a parent"). */}
+      <View collapsable={false} className={buttonContentClass(loading)}>
+        {icon}
         <Text variant="h3" tone={look.labelTone}>
           {title}
         </Text>

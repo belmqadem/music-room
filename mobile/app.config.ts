@@ -1,4 +1,5 @@
 import type { ConfigContext, ExpoConfig } from "expo/config";
+import { withAppBuildGradle } from "expo/config-plugins";
 
 // app.json holds the static config; this adds what depends on mobile/.env (ADR-033): the Google and
 // Facebook sign-in SDKs, each only when its ids are set, so a build without them still works.
@@ -53,5 +54,38 @@ export function withSocialSignIn(
   return { ...config, plugins };
 }
 
+const TEMPLATE_DEBUG_STORE = "storeFile file('debug.keystore')";
+const DEVELOPER_DEBUG_STORE = [
+  `def developerDebugKeystore = new File(System.getProperty("user.home"), ".android/debug.keystore")`,
+  `            storeFile developerDebugKeystore.exists() ? developerDebugKeystore : file('debug.keystore')`,
+].join("\n");
+
+/**
+ * Android debug builds are signed with the developer's own debug key (~/.android/debug.keystore,
+ * created by the Android tools), not React Native's template key. The template key is public and
+ * the same in every React Native app, so Google refuses an Android OAuth client for our package with
+ * its SHA-1 once anyone else registered that pair. Each developer registers their own SHA-1 (Google)
+ * and key hash (Facebook); the key never leaves their machine. Without that file, the template key
+ * is used and social sign-in fails on Android (Google error 10).
+ */
+export function signDebugWithDeveloperKey(buildGradle: string): string {
+  if (buildGradle.includes(DEVELOPER_DEBUG_STORE)) return buildGradle;
+  if (!buildGradle.includes(TEMPLATE_DEBUG_STORE)) {
+    // Loud on purpose: a changed template must not silently fall back to the shared key.
+    throw new Error(`android/app/build.gradle: "${TEMPLATE_DEBUG_STORE}" not found`);
+  }
+  return buildGradle.replace(TEMPLATE_DEBUG_STORE, DEVELOPER_DEBUG_STORE);
+}
+
+function withDeveloperDebugKey(config: ExpoConfig): ExpoConfig {
+  return withAppBuildGradle(config, (gradle) => {
+    if (gradle.modResults.language !== "groovy") {
+      throw new Error("android/app/build.gradle: expected Groovy, not Kotlin");
+    }
+    gradle.modResults.contents = signDebugWithDeveloperKey(gradle.modResults.contents);
+    return gradle;
+  });
+}
+
 export default ({ config }: ConfigContext): ExpoConfig =>
-  withSocialSignIn(config as ExpoConfig, process.env);
+  withDeveloperDebugKey(withSocialSignIn(config as ExpoConfig, process.env));

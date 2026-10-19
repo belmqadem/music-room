@@ -54,4 +54,9 @@ export function buttonLook(
 
 /** While loading the label stays (so the width does not change) but is hidden under the spinner. */
 export const BUTTON_LABEL_HIDDEN = "opacity-0";
+
+/** The optional icon sits before the label, 8 px apart; both hide together while loading. */
+export function buttonContentClass(loading: boolean): string {
+  return `flex-row items-center gap-2${loading ? ` ${BUTTON_LABEL_HIDDEN}` : ""}`;
+}
 export const BUTTON_SPINNER_LAYER = "absolute inset-0 items-center justify-center";
