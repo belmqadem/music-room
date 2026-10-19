@@ -1,4 +1,5 @@
 import { isRequestError } from "@/api/api-error";
+import { SocialSignInError } from "@/auth/social/social-config";
 
 // What the user reads when an auth call fails. The backend's codes are stable (docs/api-contract.md,
 // "Errors"); the words are ours, so a screen never shows a raw server message it did not expect.
@@ -85,4 +86,28 @@ export function formErrorsFrom(error: unknown, action: AuthAction): FormErrors {
       void action;
       return only(MESSAGES.server);
   }
+}
+
+/** What the user reads when "Continue with Google / Facebook" fails. Cancelling is not a failure. */
+export function socialErrorMessage(
+  error: unknown,
+  provider: "Google" | "Facebook",
+): string {
+  if (error instanceof SocialSignInError) {
+    return error.reason === "unavailable"
+      ? `${provider} sign-in isn't set up in this version of the app. Use your email instead.`
+      : `${provider} sign-in didn't work. Try again.`;
+  }
+  if (isRequestError(error)) {
+    switch (error.code) {
+      case "INVALID_PROVIDER_CREDENTIAL":
+        return `${provider} didn't confirm your account. Try again.`;
+      case "PROVIDER_UNAVAILABLE":
+        return `${provider} sign-in isn't available right now. Try again later, or use your email.`;
+      case "EMAIL_TAKEN":
+        // No automatic linking by email (ADR-007): the owner signs in, then links the provider.
+        return `An account already uses this email. Sign in with your password, then link ${provider} from your profile.`;
+    }
+  }
+  return formErrorsFrom(error, "signIn").form ?? MESSAGES.server;
 }

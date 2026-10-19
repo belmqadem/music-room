@@ -508,6 +508,29 @@ Each decision must be defensible in detail at the defense. Copy the template for
   - Verified for real on an iOS simulator (2026-10-19): the SDK sent a Limited Login token (RS256, a `kid` from the published key set, issuer `https://www.facebook.com`, audience = our app id) and sign-in succeeded. The same run showed that after a Limited Login the SDK also returns an access token that `debug_token` reports as invalid; the app therefore sends the JWT (ADR-033).
   - The observed token was valid for **90 days** (`exp` about 7,776,000 s after `iat`), not "short-lived" as Facebook's page says. Like Google's ID token it is not bound to a server-issued nonce, so a captured token could be replayed for that long, against Google's hour or so. Chosen mitigation: the backend refuses a Limited Login token issued more than 10 minutes ago (`maxTokenAge`), since the app sends it seconds after the login; a stolen token is useless after that. Rejected for now: a server-issued, single-use nonce passed to the SDK, which is stronger (no replay at all) but needs a new endpoint and app changes.
   - The RS256 pin is a second line of defence: `jose` already refuses an HS256 token against an RSA key, so a mutation that also allows HS256 is not caught by a test.
+### ADR-033: Google and Facebook sign-in in the app: native SDKs in a development build
+
+- Status: accepted
+- Date: 2026-10-19
+- Deciders: kaoutharrr, belmqadem to confirm in review
+- Context: the backend already verifies Google ID tokens and Facebook tokens (ADR-007, ADR-011, ADR-032); the app needs to obtain them. The defense runs on a development build on a simulator or emulator.
+- Options considered:
+  - **Native SDKs** (chosen; Expo's current recommendation): `@react-native-google-signin/google-signin` and `react-native-fbsdk-next`. Native account pickers; they need a development build (not Expo Go).
+  - `expo-auth-session` in the browser: runs in Expo Go and on the web, but Expo has deprecated its Google and Facebook helpers and the redirect setup is fragile.
+- Decision:
+  - "Continue with Google" and "Continue with Facebook" on the sign-in and sign-up screens, as secondary buttons (the screen's one Ember button stays its email action). The SDK gives the app a credential, `auth.signInWithProvider` sends it, and the backend answers with our own session. The provider's SDK is signed out right after it hands over its token: our session is the backend's (ADR-028).
+  - Google: the Web client id is configured, because the ID token is issued for it; the backend's `GOOGLE_CLIENT_IDS` must list it. Facebook: only `public_profile` is asked (the backend ignores the Facebook email). The tracking permission is never requested, so on iOS the SDK returns a Limited Login token, which the backend accepts (ADR-032).
+  - Automatic event logging and advertiser-id collection are off, and the tracking prompt is never shown. Note: the SDK adapter registers itself in the app delegate, so the Facebook SDK is loaded when the app launches (seen on the simulator: an SKAdNetwork message at launch), not only when the button is tapped; `Settings.initializeSDK()` on tap is kept as a safety net.
+  - Ids come from `mobile/.env`: `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`, `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`, `EXPO_PUBLIC_FACEBOOK_APP_ID` (public identifiers), and `FACEBOOK_CLIENT_TOKEN`, used only when the app is built. `app.config.ts` adds each SDK's config plugin only when its ids are set, so a build without them still works and simply shows no button. The web build never shows them (the native SDKs do not run in a browser).
+  - The SDKs are loaded only when a button is tapped, so Expo Go and the web build do not crash on a missing native module; there, the button is either hidden or explains that this build has no such sign-in.
+  - Failures have our own words, naming the provider. A provider account whose verified email belongs to an existing password account gets `EMAIL_TAKEN` (no automatic linking, ADR-007): the message tells the user to sign in with the password and link the provider from their profile.
+- Alternatives: the options above.
+- Consequences:
+  - Two native dependencies. `npm run ios` / `npm run android` in `mobile/` now build and install a development build (`expo run:*`). The generated `mobile/ios` and `mobile/android` folders are not committed.
+  - Checked without real ids: the config with and without ids, the generated `Info.plist` (URL schemes, Facebook settings, no tracking text) and Android manifest, and bundles for web and iOS. Checked for real on an iPhone 17 Pro simulator (iOS 26.5) against the backend: Google and Facebook sign-in both create a social-only account and a session, which survives an app restart. That run found that after a Limited Login the iOS SDK also returns an access token which Facebook's `debug_token` reports as invalid, so the app now sends the Limited Login JWT whenever there is one (`pickFacebookCredential`). Facebook's developer settings must list an iOS platform with the bundle id `com.musicroom.app`, otherwise its login page refuses the redirect.
+  - Building inside an iCloud-synced folder (this repo on the Desktop) fails: iCloud adds "… 2" duplicates to `node_modules` and file attributes that code signing rejects. Build from a folder outside iCloud.
+  - The buttons are text only. Google's and Facebook's branding guidelines ask for their logo and colours; that is a design task (the logos are not design tokens).
+  - Linking a provider to an existing account (with re-authentication, ADR-025) has no screen yet.
 
 ## Still to decide (record each as an ADR)
 
