@@ -28,6 +28,13 @@ export interface HttpClientDeps {
 
 export const DEFAULT_TIMEOUT_MS = 15_000;
 
+/**
+ * Every API path lives under this prefix (docs/api-contract.md, "Base path"). The backend address
+ * from the settings is only the server (http://host:3000); the client adds the API version, so
+ * callers write "/auth/login" exactly as the contract does.
+ */
+export const API_PREFIX = "/api/v1";
+
 // Built by hand: URLSearchParams.toString() is not reliable on every React Native version.
 function queryString(query: SendOptions["query"]): string {
   const parts = Object.entries(query ?? {})
@@ -57,12 +64,15 @@ export function createHttpClient(deps: HttpClientDeps): HttpClient {
       let text: string;
       try {
         const baseUrl = await deps.getBaseUrl();
-        response = await deps.fetch(`${baseUrl}${path}${queryString(options.query)}`, {
-          method,
-          headers,
-          body: options.body === undefined ? undefined : JSON.stringify(options.body),
-          signal: controller.signal,
-        });
+        response = await deps.fetch(
+          `${baseUrl}${API_PREFIX}${path}${queryString(options.query)}`,
+          {
+            method,
+            headers,
+            body: options.body === undefined ? undefined : JSON.stringify(options.body),
+            signal: controller.signal,
+          },
+        );
         text = await response.text();
       } catch {
         // The reason (offline, DNS, refused, timeout) is not useful to the user; the address is.

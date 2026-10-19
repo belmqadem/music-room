@@ -50,7 +50,8 @@ export function createFakeBackend(events: string[] = []) {
     );
     const recorded: RecordedRequest = {
       method: init?.method ?? "GET",
-      path: url.pathname,
+      // The fake answers the contract's paths; the real prefix is checked in http-client.test.ts.
+      path: url.pathname.replace(/^\/api\/v1(?=\/)/, ""),
       headers,
       body: init?.body === undefined ? undefined : JSON.parse(String(init.body)),
     };

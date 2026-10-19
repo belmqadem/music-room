@@ -161,6 +161,7 @@ accepts their own request; a friend reads the private profile block).
   are stored as plain text so the owner can read them back, and are returned only to their owner. Caller-specific responses (profiles, friends,
   queues, playlists, search, the signed-in user) are sent with `Cache-Control: no-store`. Deleting a user deletes their profile, friendships, invitations and
   sessions (`ON DELETE CASCADE`).
+- **In the app**: an email or a password is never put in a route (on the web build a route is a URL, which ends up in browser history and server logs); screens hand the email over in memory, and a password never leaves the screen where it is typed (ADR-031). The access token is held in memory only and the refresh token in the secure store (ADR-028).
 - In development the console mailer prints the 6-digit codes to the log; production refuses it.
 
 ## Real-time channel

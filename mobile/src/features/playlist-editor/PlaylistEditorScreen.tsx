@@ -1,9 +1,10 @@
-import { Text, View } from "react-native";
+import { View } from "react-native";
+import { Text } from "@/components";
 
 // Shared, real-time playlist editing: add, remove and reorder tracks.
 export default function PlaylistEditorScreen() {
   return (
-    <View className="flex-1 items-center justify-center">
+    <View className="flex-1 items-center justify-center bg-canvas">
       <Text>playlist/[id]</Text>
     </View>
   );
