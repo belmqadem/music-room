@@ -50,8 +50,9 @@ export interface AuthSession {
 
 /**
  * Body of POST /auth/oauth/{provider} and POST /users/me/providers/{provider}.
- * `credential` is the Google ID token or Facebook access token the app got from
- * the provider. The backend verifies it with the provider (ADR-007).
+ * `credential` is what the provider's SDK gave the app: the Google ID token, or the
+ * Facebook access token, or on iOS the Facebook Limited Login token (a JWT, ADR-032).
+ * The backend verifies it with the provider (ADR-007).
  */
 export interface OAuthCredentialRequest {
   credential: string;

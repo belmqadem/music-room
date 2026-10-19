@@ -486,6 +486,29 @@ Each decision must be defensible in detail at the defense. Copy the template for
 - Alternatives: the options above.
 - Consequences: one extra step after confirming the email. The rules live in two places, held together by the parity test. Google and Facebook sign-in buttons come later (the logic exists, `auth.signInWithProvider`). The backend address can only be changed in Settings, which is in the signed-in group: a signed-out user cannot reach it yet (see the open item in `docs/mobile-handoff.md`).
 
+### ADR-032: Facebook Limited Login tokens are accepted (iOS)
+
+- Status: accepted
+- Date: 2026-10-19
+- Deciders: kaoutharrr and belmqadem
+- Context: on iOS, the Facebook SDK only gives a classic access token when the user allows App Tracking Transparency. If they do not, it falls back to Limited Login and gives an OpenID token (a JWT) instead, which cannot be checked with the Graph API. ADR-011 verified access tokens only, so Facebook sign-in on iOS would have failed for everyone who says no to tracking.
+- Options considered:
+  - **Accept the Limited Login token too** (chosen): check it locally, like Google's ID token.
+  - Ask for the tracking permission before Facebook login: no backend change, but an odd prompt for a login and a dead end when the user says no.
+  - Offer Facebook on Android only.
+- Decision:
+  - The credential body does not change. The backend tells the two kinds apart by shape: a JWT is three base64url parts separated by dots, a classic access token has no dots.
+  - A Limited Login token is verified with `jose`, like Google's (ADR-011): signature against Facebook's public keys (`https://www.facebook.com/.well-known/oauth/openid/jwks/`), RS256 only, issuer `https://www.facebook.com`, audience = our app id (otherwise a token issued to another app could log in here), expiry, and a non-empty `sub`. The values come from Facebook's discovery document (`https://limited.facebook.com/.well-known/openid-configuration/`). The Graph API is never asked about such a token.
+  - The identity is `sub` and `name`. The email in the token is ignored, as for the classic login (ADR-011).
+  - A failure to download Facebook's keys is `502 PROVIDER_UNAVAILABLE` (we could not decide), not a rejected credential.
+- Alternatives: the options above.
+- Consequences:
+  - Facebook sign-in works on iOS whatever the user answers to tracking. No contract shape change; the description of `credential` gains the third kind.
+  - Assumption to confirm on a device: Facebook says its subject identifiers are "pairwise" (per app). We assume a Limited Login `sub` equals the app-scoped user id that the classic login returns for the same person and app, so one person keeps one account across Android and iOS. If they differ, the same person would get two accounts; the fix would be linking, not a new rule.
+  - Verified for real on an iOS simulator (2026-10-19): the SDK sent a Limited Login token (RS256, a `kid` from the published key set, issuer `https://www.facebook.com`, audience = our app id) and sign-in succeeded. The same run showed that after a Limited Login the SDK also returns an access token that `debug_token` reports as invalid; the app therefore sends the JWT (ADR-033).
+  - The observed token was valid for **90 days** (`exp` about 7,776,000 s after `iat`), not "short-lived" as Facebook's page says. Like Google's ID token it is not bound to a server-issued nonce, so a captured token could be replayed for that long, against Google's hour or so. Chosen mitigation: the backend refuses a Limited Login token issued more than 10 minutes ago (`maxTokenAge`), since the app sends it seconds after the login; a stolen token is useless after that. Rejected for now: a server-issued, single-use nonce passed to the SDK, which is stronger (no replay at all) but needs a new endpoint and app changes.
+  - The RS256 pin is a second line of defence: `jose` already refuses an HS256 token against an RSA key, so a mutation that also allows HS256 is not caught by a test.
+
 ### ADR-033: Google and Facebook sign-in in the app: native SDKs in a development build
 
 - Status: accepted

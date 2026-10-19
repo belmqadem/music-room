@@ -1,4 +1,12 @@
-import { describe, expect, it } from "vitest";
+import {
+  createLocalJWKSet,
+  exportJWK,
+  generateKeyPair,
+  SignJWT,
+  type JWK,
+  type JWTVerifyGetKey,
+} from "jose";
+import { beforeAll, describe, expect, it } from "vitest";
 import { createFacebookVerifier } from "../../src/modules/auth/facebook-verifier.js";
 import {
   ProviderCredentialError,
@@ -151,5 +159,183 @@ describe("Facebook access token verifier", () => {
 
     expect(String((error as Error).message)).not.toContain(USER_TOKEN);
     expect(String((error as Error).message)).not.toContain(APP_SECRET);
+  });
+});
+
+// ---- Limited Login (ADR-032): an OpenID JWT signed by Facebook, checked locally ----
+
+let facebookKey: CryptoKey;
+let strangerKey: CryptoKey;
+let getKey: JWTVerifyGetKey;
+
+beforeAll(async () => {
+  const pair = await generateKeyPair("RS256");
+  facebookKey = pair.privateKey;
+  strangerKey = (await generateKeyPair("RS256")).privateKey;
+  const jwk: JWK = { ...(await exportJWK(pair.publicKey)), kid: "fb1", alg: "RS256" };
+  getKey = createLocalJWKSet({ keys: [jwk] });
+});
+
+interface LimitedTokenOptions {
+  key?: CryptoKey;
+  /** Seconds since the epoch; default: now. */
+  issuedAt?: number;
+  issuer?: string;
+  audience?: string;
+  expiresAt?: number;
+  subject?: string | null;
+  claims?: Record<string, unknown>;
+}
+
+async function limitedToken(options: LimitedTokenOptions = {}): Promise<string> {
+  const jwt = new SignJWT({
+    name: "Grace Hopper",
+    email: "grace@example.com",
+    ...options.claims,
+  })
+    .setProtectedHeader({ alg: "RS256", kid: "fb1" })
+    .setIssuer(options.issuer ?? "https://www.facebook.com")
+    .setAudience(options.audience ?? APP_ID)
+    .setIssuedAt(options.issuedAt)
+    .setExpirationTime(options.expiresAt ?? Math.floor(Date.now() / 1000) + 600);
+  if (options.subject !== null) jwt.setSubject(options.subject ?? "fb-user-1");
+  return jwt.sign(options.key ?? facebookKey);
+}
+
+/** The Graph API must never be asked about a Limited Login token. */
+function limitedVerifier() {
+  const { fakeFetch, requested } = fakeGraph({});
+  const verifier = createFacebookVerifier({
+    appId: APP_ID,
+    appSecret: APP_SECRET,
+    fetch: fakeFetch,
+    getKey,
+  });
+  return { verifier, requested };
+}
+
+describe("Facebook Limited Login token verifier", () => {
+  it("returns the identity of a valid token, locally, without asking the Graph API", async () => {
+    const { verifier, requested } = limitedVerifier();
+
+    const identity = await verifier.verify(await limitedToken());
+
+    expect(identity).toEqual({
+      providerUserId: "fb-user-1",
+      displayName: "Grace Hopper",
+      verifiedEmail: null,
+    });
+    expect(requested).toHaveLength(0);
+  });
+
+  it("ignores the email in the token, like the classic login (ADR-011)", async () => {
+    const { verifier } = limitedVerifier();
+
+    const identity = await verifier.verify(
+      await limitedToken({ claims: { email: "grace@example.com" } }),
+    );
+
+    expect(identity.verifiedEmail).toBeNull();
+  });
+
+  it("uses a null display name when the token has none", async () => {
+    const { verifier } = limitedVerifier();
+
+    const identity = await verifier.verify(
+      await limitedToken({ claims: { name: undefined } }),
+    );
+
+    expect(identity.displayName).toBeNull();
+  });
+
+  it.each([
+    ["issued to another Facebook app", { audience: "9999999999" }],
+    ["from another issuer", { issuer: "https://evil.example" }],
+    [
+      "signed with a key that is not Facebook's",
+      { key: undefined as unknown as CryptoKey, useStranger: true },
+    ],
+    ["expired", { expiresAt: Math.floor(Date.now() / 1000) - 60 }],
+    ["without a subject", { subject: null }],
+    ["with an empty subject", { subject: "" }],
+  ])("rejects a token %s", async (_label, options) => {
+    const { verifier } = limitedVerifier();
+    const { useStranger, ...rest } = options as LimitedTokenOptions & {
+      useStranger?: boolean;
+    };
+    const token = await limitedToken(useStranger ? { ...rest, key: strangerKey } : rest);
+
+    await expect(verifier.verify(token)).rejects.toBeInstanceOf(ProviderCredentialError);
+  });
+
+  it("refuses a token issued more than 10 minutes ago, even if it has not expired (90-day tokens)", async () => {
+    const { verifier } = limitedVerifier();
+    const now = Math.floor(Date.now() / 1000);
+    const old = await limitedToken({
+      issuedAt: now - 11 * 60,
+      expiresAt: now + 90 * 24 * 3600,
+    });
+
+    await expect(verifier.verify(old)).rejects.toBeInstanceOf(ProviderCredentialError);
+  });
+
+  it("accepts a token issued a few minutes ago", async () => {
+    const { verifier } = limitedVerifier();
+    const now = Math.floor(Date.now() / 1000);
+    const recent = await limitedToken({
+      issuedAt: now - 5 * 60,
+      expiresAt: now + 90 * 24 * 3600,
+    });
+
+    expect((await verifier.verify(recent)).providerUserId).toBe("fb-user-1");
+  });
+
+  it("rejects an unsigned token (alg none) and a token claiming HS256", async () => {
+    const { verifier } = limitedVerifier();
+    const encode = (value: object) =>
+      Buffer.from(JSON.stringify(value)).toString("base64url");
+    const now = Math.floor(Date.now() / 1000);
+    const body = encode({
+      iss: "https://www.facebook.com",
+      aud: APP_ID,
+      sub: "fb-user-1",
+      iat: now,
+      exp: now + 600,
+    });
+    const unsigned = `${encode({ alg: "none" })}.${body}.x`;
+    const hs256 = `${encode({ alg: "HS256", kid: "fb1" })}.${body}.c2lnbmF0dXJl`;
+
+    await expect(verifier.verify(unsigned)).rejects.toBeInstanceOf(
+      ProviderCredentialError,
+    );
+    await expect(verifier.verify(hs256)).rejects.toBeInstanceOf(ProviderCredentialError);
+  });
+
+  it("reports the provider as unavailable when Facebook's keys cannot be fetched", async () => {
+    const { fakeFetch } = fakeGraph({});
+    const verifier = createFacebookVerifier({
+      appId: APP_ID,
+      appSecret: APP_SECRET,
+      fetch: fakeFetch,
+      getKey: () => Promise.reject(new TypeError("fetch failed")),
+    });
+
+    await expect(verifier.verify(await limitedToken())).rejects.toBeInstanceOf(
+      ProviderUnavailableError,
+    );
+  });
+
+  it("still sends a classic access token (no dots) to the Graph API", async () => {
+    const { fakeFetch, requested } = fakeGraph({ debug: okDebug, me: okMe });
+    const verifier = createFacebookVerifier({
+      appId: APP_ID,
+      appSecret: APP_SECRET,
+      fetch: fakeFetch,
+      getKey,
+    });
+
+    await verifier.verify(USER_TOKEN);
+
+    expect(requested.map((url) => url.pathname)).toEqual(["/debug_token", "/me"]);
   });
 });
