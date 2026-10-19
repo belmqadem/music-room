@@ -1,4 +1,5 @@
 import type { OAuthProvider } from "@music-room/shared";
+import { Image } from "expo-image";
 import { router } from "expo-router";
 import { useState } from "react";
 import { View } from "react-native";
@@ -18,6 +19,30 @@ interface Provider {
   id: OAuthProvider;
   name: "Google" | "Facebook";
   getCredential: () => Promise<ProviderOutcome>;
+}
+
+// The providers' own logos, in their brand colors. They are artwork files (like a PNG), not UI
+// colors, so they stay out of the design tokens; each brand requires its logo unaltered.
+const LOGOS: Record<OAuthProvider, number> = {
+  google: require("../../../assets/icons/google.svg"),
+  facebook: require("../../../assets/icons/facebook.svg"),
+};
+
+const FILL = { width: "100%", height: "100%" } as const;
+
+/** 16 px, the size of the button label (h3). */
+function ProviderLogo({ provider }: { provider: OAuthProvider }) {
+  return (
+    <View className="size-4">
+      <Image
+        source={LOGOS[provider]}
+        contentFit="contain"
+        // expo-image is not a React Native core view, so className is not applied to it.
+        style={FILL}
+        accessible={false}
+      />
+    </View>
+  );
 }
 
 const PROVIDERS: Provider[] = [
@@ -41,7 +66,7 @@ const PROVIDERS: Provider[] = [
     : []),
 ];
 
-// "Continue with Google / Facebook" (ADR-033). The provider's SDK gives the app a credential, the
+// The Google and Facebook buttons: logo + provider name (ADR-033). The provider's SDK gives the app a credential, the
 // backend checks it with the provider (ADR-011, ADR-032) and answers with our own session. Secondary
 // buttons: the screen's one Ember button stays its email action. Nothing is shown when the build
 // has no provider configured.
@@ -74,7 +99,9 @@ export function SocialSignIn() {
       {PROVIDERS.map((provider) => (
         <Button
           key={provider.id}
-          title={`Continue with ${provider.name}`}
+          title={provider.name}
+          icon={<ProviderLogo provider={provider.id} />}
+          accessibilityLabel={`Continue with ${provider.name}`}
           variant="secondary"
           fullWidth
           loading={busy === provider.id}

@@ -11,6 +11,7 @@ import { badgeLook, type BadgeTone } from "@/components/badge-styles";
 import {
   BUTTON_LABEL_HIDDEN,
   BUTTON_SPINNER_LAYER,
+  buttonContentClass,
   buttonLook,
   type ButtonState,
   type ButtonVariant,
@@ -55,6 +56,8 @@ function classesFromStyles(): string[] {
   const all: string[] = [
     BUTTON_LABEL_HIDDEN,
     BUTTON_SPINNER_LAYER,
+    buttonContentClass(false),
+    buttonContentClass(true),
     INPUT_FIELD_CLASS,
     INPUT_TEXT_CLASS,
     ...Object.values(TEXT_TONE_CLASS),
