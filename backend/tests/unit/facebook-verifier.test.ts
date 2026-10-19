@@ -178,6 +178,8 @@ beforeAll(async () => {
 
 interface LimitedTokenOptions {
   key?: CryptoKey;
+  /** Seconds since the epoch; default: now. */
+  issuedAt?: number;
   issuer?: string;
   audience?: string;
   expiresAt?: number;
@@ -194,7 +196,7 @@ async function limitedToken(options: LimitedTokenOptions = {}): Promise<string> 
     .setProtectedHeader({ alg: "RS256", kid: "fb1" })
     .setIssuer(options.issuer ?? "https://www.facebook.com")
     .setAudience(options.audience ?? APP_ID)
-    .setIssuedAt()
+    .setIssuedAt(options.issuedAt)
     .setExpirationTime(options.expiresAt ?? Math.floor(Date.now() / 1000) + 600);
   if (options.subject !== null) jwt.setSubject(options.subject ?? "fb-user-1");
   return jwt.sign(options.key ?? facebookKey);
@@ -264,6 +266,28 @@ describe("Facebook Limited Login token verifier", () => {
     const token = await limitedToken(useStranger ? { ...rest, key: strangerKey } : rest);
 
     await expect(verifier.verify(token)).rejects.toBeInstanceOf(ProviderCredentialError);
+  });
+
+  it("refuses a token issued more than 10 minutes ago, even if it has not expired (90-day tokens)", async () => {
+    const { verifier } = limitedVerifier();
+    const now = Math.floor(Date.now() / 1000);
+    const old = await limitedToken({
+      issuedAt: now - 11 * 60,
+      expiresAt: now + 90 * 24 * 3600,
+    });
+
+    await expect(verifier.verify(old)).rejects.toBeInstanceOf(ProviderCredentialError);
+  });
+
+  it("accepts a token issued a few minutes ago", async () => {
+    const { verifier } = limitedVerifier();
+    const now = Math.floor(Date.now() / 1000);
+    const recent = await limitedToken({
+      issuedAt: now - 5 * 60,
+      expiresAt: now + 90 * 24 * 3600,
+    });
+
+    expect((await verifier.verify(recent)).providerUserId).toBe("fb-user-1");
   });
 
   it("rejects an unsigned token (alg none) and a token claiming HS256", async () => {

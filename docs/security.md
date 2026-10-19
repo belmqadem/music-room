@@ -201,7 +201,7 @@ accepts their own request; a friend reads the private profile block).
   deny-list in Redis would close it at the price of a Redis read on every request.
 - **A Google ID token (and a Facebook Limited Login token) is not bound to a nonce.** A captured, still-valid token
   could be replayed to log in. A Facebook Limited Login token was observed valid for 90 days (a Google ID token for about
-  an hour), so for Facebook the window is long (ADR-032). Mitigations: the app sends it over TLS only, it is verified for signature, issuer, audience and expiry, and login
+  an hour), so the backend refuses one issued more than 10 minutes ago; the replay window is those 10 minutes (ADR-032). Mitigations: the app sends it over TLS only, it is verified for signature, issuer, audience and expiry, and login
   is rate limited. Open item: a per-login nonce.
 - **The guess limits are per IP, not per account.** An attacker with many addresses can spread guesses of a password
   (through login or the link/unlink re-authentication) or of an emailed code (5 tries per code, 60 s between codes, about

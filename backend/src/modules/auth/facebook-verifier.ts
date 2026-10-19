@@ -18,6 +18,9 @@ const TIMEOUT_MS = 5000;
 // Limited Login (ADR-032): values from Facebook's OpenID discovery document,
 // https://limited.facebook.com/.well-known/openid-configuration/
 const LIMITED_LOGIN_ISSUER = "https://www.facebook.com";
+// A Limited Login token was observed valid for 90 days. The app sends it seconds after the login,
+// so one issued longer ago than this is refused: a stolen token stops being useful quickly.
+export const LIMITED_LOGIN_MAX_AGE = "10m";
 const LIMITED_LOGIN_KEYS_URL = new URL(
   "https://www.facebook.com/.well-known/oauth/openid/jwks/",
 );
@@ -73,6 +76,7 @@ export function createFacebookVerifier(
         issuer: LIMITED_LOGIN_ISSUER,
         audience: options.appId,
         requiredClaims: ["sub", "exp", "iat"],
+        maxTokenAge: LIMITED_LOGIN_MAX_AGE,
       }));
     } catch (error) {
       // jose's own errors mean "this token is bad"; anything else (the key download failing)
