@@ -67,7 +67,8 @@ export async function getFacebookCredential(): Promise<ProviderOutcome> {
   }
   const { AccessToken, AuthenticationToken, LoginManager, Settings } = sdk;
   try {
-    // Started here, not at app launch, so the SDK sends nothing until someone chooses Facebook.
+    // The adapter already loads the SDK at app launch (app delegate); initializing here is a safety
+    // net. Event logging and advertiser-id collection are off in app.config.ts.
     Settings.initializeSDK();
     // Only the public profile: the backend ignores the Facebook email anyway (ADR-011).
     const result = await LoginManager.logInWithPermissions(["public_profile"]);

@@ -35,15 +35,18 @@ export function socialConfigFrom(env: SocialEnv, platform: string): SocialConfig
 }
 
 /**
- * What to send the backend after a Facebook login: the classic access token when there is one, or on
- * iOS the Limited Login token (the SDK gives that instead when tracking is not allowed; ADR-032).
+ * What to send the backend after a Facebook login. On iOS the Limited Login token (a signed OpenID
+ * JWT, ADR-032) whenever the SDK gives one: the backend verifies it locally, whatever the user said
+ * about tracking. Found on a real simulator: after a Limited Login the iOS SDK ALSO returns an access
+ * token, but one that Facebook's debug_token reports as invalid, so it must not be preferred.
+ * Android gives no Limited Login token, so there the access token is sent.
  */
 export function pickFacebookCredential(tokens: {
   accessToken: string | null | undefined;
   limitedLoginToken: string | null | undefined;
 }): string | null {
-  if (present(tokens.accessToken ?? undefined)) return tokens.accessToken!;
   if (present(tokens.limitedLoginToken ?? undefined)) return tokens.limitedLoginToken!;
+  if (present(tokens.accessToken ?? undefined)) return tokens.accessToken!;
   return null;
 }
 

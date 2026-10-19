@@ -76,19 +76,24 @@ describe("Google's iOS URL scheme", () => {
 });
 
 describe("the Facebook credential sent to the backend", () => {
-  it("is the classic access token when there is one", () => {
+  it("is the Limited Login token whenever iOS gives one, even with an access token next to it", () => {
+    // Seen on the simulator: after a Limited Login the SDK also returns an access token that
+    // Facebook's debug_token reports as invalid. The signed JWT is the one the backend can verify.
     expect(
       pickFacebookCredential({ accessToken: "EAA-token", limitedLoginToken: "a.b.c" }),
-    ).toBe("EAA-token");
-  });
-
-  it("is the Limited Login token when iOS gave only that (no tracking permission, ADR-032)", () => {
+    ).toBe("a.b.c");
     expect(
       pickFacebookCredential({ accessToken: null, limitedLoginToken: "a.b.c" }),
     ).toBe("a.b.c");
-    expect(pickFacebookCredential({ accessToken: "", limitedLoginToken: "a.b.c" })).toBe(
-      "a.b.c",
-    );
+  });
+
+  it("is the access token when there is no Limited Login token (Android)", () => {
+    expect(
+      pickFacebookCredential({ accessToken: "EAA-token", limitedLoginToken: null }),
+    ).toBe("EAA-token");
+    expect(
+      pickFacebookCredential({ accessToken: "EAA-token", limitedLoginToken: "" }),
+    ).toBe("EAA-token");
   });
 
   it("is nothing when the SDK gave neither", () => {
