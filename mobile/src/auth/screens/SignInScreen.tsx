@@ -13,6 +13,7 @@ import { clearHandoff, handOff, readHandoff, takeNotice } from "@/auth/forms/han
 import { emailError, normalizeEmail, signInPasswordError } from "@/auth/forms/validation";
 import { Button, Input, Screen } from "@/components";
 import { FormMessage, ScreenTitle } from "./parts";
+import { SocialSignIn } from "./SocialSignIn";
 
 const NO_ERRORS: FormErrors = { form: null, fields: {} };
 
@@ -103,6 +104,7 @@ export default function SignInScreen() {
         </View>
         {errors.form ? <FormMessage tone="error">{errors.form}</FormMessage> : null}
         <Button title="Sign in" fullWidth loading={submitting} onPress={submit} />
+        <SocialSignIn />
         <View className="gap-1">
           <Button
             title="Forgot your password?"

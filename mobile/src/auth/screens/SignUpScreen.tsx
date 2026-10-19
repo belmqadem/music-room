@@ -18,6 +18,7 @@ import {
 } from "@/auth/forms/validation";
 import { Button, Input, Screen } from "@/components";
 import { FormMessage, ScreenTitle } from "./parts";
+import { SocialSignIn } from "./SocialSignIn";
 
 const NO_ERRORS: FormErrors = { form: null, fields: {} };
 
@@ -122,6 +123,7 @@ export default function SignUpScreen() {
         </View>
         {errors.form ? <FormMessage tone="error">{errors.form}</FormMessage> : null}
         <Button title="Create account" fullWidth loading={submitting} onPress={submit} />
+        <SocialSignIn />
         <Button
           title="I already have an account"
           variant="ghost"
