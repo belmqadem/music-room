@@ -56,6 +56,18 @@ test (`backend/tests/load/README.md`).
 `mobile/.env.example`), then build and install it with `npm run ios --prefix mobile` (Xcode) or
 `npm run android --prefix mobile` (Android Studio). Without those values the app works and just hides the buttons.
 
+On Android, debug builds are signed with **your own** debug key, `~/.android/debug.keystore` (created by the Android
+tools), so each developer registers their key once, with package `com.musicroom.app`:
+
+- Google Cloud Console (the project of the web client id): an **Android** OAuth client with your SHA-1, from
+  `keytool -list -v -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey`.
+- Facebook developers, Android platform: your key hash, from
+  `keytool -exportcert -alias androiddebugkey -keystore ~/.android/debug.keystore -storepass android | openssl sha1 -binary | openssl base64`.
+
+Google answering error 10 (`DEVELOPER_ERROR`) means the SHA-1 of the installed app is not registered.
+
+Build from a folder outside iCloud (not `~/Desktop` or `~/Documents` when they sync): iCloud breaks native builds.
+
 Where to read more: `docs/api-contract.md` (the API), `docs/mobile-handoff.md` (what the app must do),
 `docs/architecture-decisions.md`, `docs/security.md`, `docs/ramp-up-results.md`, and `file-structure.md`.
 
