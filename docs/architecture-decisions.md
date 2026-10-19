@@ -486,6 +486,29 @@ Each decision must be defensible in detail at the defense. Copy the template for
 - Alternatives: the options above.
 - Consequences: one extra step after confirming the email. The rules live in two places, held together by the parity test. Google and Facebook sign-in buttons come later (the logic exists, `auth.signInWithProvider`). The backend address can only be changed in Settings, which is in the signed-in group: a signed-out user cannot reach it yet (see the open item in `docs/mobile-handoff.md`).
 
+### ADR-033: Google and Facebook sign-in in the app: native SDKs in a development build
+
+- Status: accepted
+- Date: 2026-10-19
+- Deciders: kaoutharrr, belmqadem to confirm in review
+- Context: the backend already verifies Google ID tokens and Facebook tokens (ADR-007, ADR-011, ADR-032); the app needs to obtain them. The defense runs on a development build on a simulator or emulator.
+- Options considered:
+  - **Native SDKs** (chosen; Expo's current recommendation): `@react-native-google-signin/google-signin` and `react-native-fbsdk-next`. Native account pickers; they need a development build (not Expo Go).
+  - `expo-auth-session` in the browser: runs in Expo Go and on the web, but Expo has deprecated its Google and Facebook helpers and the redirect setup is fragile.
+- Decision:
+  - "Continue with Google" and "Continue with Facebook" on the sign-in and sign-up screens, as secondary buttons (the screen's one Ember button stays its email action). The SDK gives the app a credential, `auth.signInWithProvider` sends it, and the backend answers with our own session. The provider's SDK is signed out right after it hands over its token: our session is the backend's (ADR-028).
+  - Google: the Web client id is configured, because the ID token is issued for it; the backend's `GOOGLE_CLIENT_IDS` must list it. Facebook: only `public_profile` is asked (the backend ignores the Facebook email). The tracking permission is never requested, so on iOS the SDK returns a Limited Login token, which the backend accepts (ADR-032).
+  - The Facebook SDK starts only when someone taps the button, with automatic event logging and advertiser-id collection off.
+  - Ids come from `mobile/.env`: `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`, `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`, `EXPO_PUBLIC_FACEBOOK_APP_ID` (public identifiers), and `FACEBOOK_CLIENT_TOKEN`, used only when the app is built. `app.config.ts` adds each SDK's config plugin only when its ids are set, so a build without them still works and simply shows no button. The web build never shows them (the native SDKs do not run in a browser).
+  - The SDKs are loaded only when a button is tapped, so Expo Go and the web build do not crash on a missing native module; there, the button is either hidden or explains that this build has no such sign-in.
+  - Failures have our own words, naming the provider. A provider account whose verified email belongs to an existing password account gets `EMAIL_TAKEN` (no automatic linking, ADR-007): the message tells the user to sign in with the password and link the provider from their profile.
+- Alternatives: the options above.
+- Consequences:
+  - Two native dependencies. `npm run ios` / `npm run android` in `mobile/` now build and install a development build (`expo run:*`). The generated `mobile/ios` and `mobile/android` folders are not committed.
+  - Checked without real ids: the config with and without ids, the generated `Info.plist` (URL schemes, Facebook settings, no tracking text) and Android manifest, and bundles for web and iOS. Not yet checked: a real sign-in on a simulator, which needs the team's ids in `mobile/.env`.
+  - The buttons are text only. Google's and Facebook's branding guidelines ask for their logo and colours; that is a design task (the logos are not design tokens).
+  - Linking a provider to an existing account (with re-authentication, ADR-025) has no screen yet.
+
 ## Still to decide (record each as an ADR)
 
 TODO:

@@ -51,6 +51,11 @@ Other useful targets (`make help` lists them all): `make test-integration` (all 
 `migrate`), `make lint`, `make typecheck`, `make format-check`, and `make loadtest-up` / `make loadtest` for the load
 test (`backend/tests/load/README.md`).
 
+**Google and Facebook sign-in** need a development build (they do not run in Expo Go or on the web): fill the
+`EXPO_PUBLIC_GOOGLE_*`, `EXPO_PUBLIC_FACEBOOK_APP_ID` and `FACEBOOK_CLIENT_TOKEN` lines of `mobile/.env` (see
+`mobile/.env.example`), then build and install it with `npm run ios --prefix mobile` (Xcode) or
+`npm run android --prefix mobile` (Android Studio). Without those values the app works and just hides the buttons.
+
 Where to read more: `docs/api-contract.md` (the API), `docs/mobile-handoff.md` (what the app must do),
 `docs/architecture-decisions.md`, `docs/security.md`, `docs/ramp-up-results.md`, and `file-structure.md`.
 
