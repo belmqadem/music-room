@@ -199,8 +199,8 @@ accepts their own request; a friend reads the private profile block).
 - **Access tokens are not revoked at logout.** Logout revokes the refresh token, but the access token (and so a stolen
   copy) stays valid until it expires, at most 15 minutes. Accepted: stateless verification is the point of ADR-003. A
   deny-list in Redis would close it at the price of a Redis read on every request.
-- **A Google ID token is not bound to a nonce.** A captured, still-valid ID token (about an hour) could be replayed to log
-  in. Mitigations: the app sends it over TLS only, it is verified for signature, issuer, audience and expiry, and login
+- **A Google ID token (and a Facebook Limited Login token) is not bound to a nonce.** A captured, still-valid token
+  could be replayed to log in. Mitigations: the app sends it over TLS only, it is verified for signature, issuer, audience and expiry, and login
   is rate limited. Open item: a per-login nonce.
 - **The guess limits are per IP, not per account.** An attacker with many addresses can spread guesses of a password
   (through login or the link/unlink re-authentication) or of an emailed code (5 tries per code, 60 s between codes, about
