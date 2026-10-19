@@ -465,6 +465,27 @@ Each decision must be defensible in detail at the defense. Copy the template for
 - Alternatives: the options above.
 - Consequences: what the tests cannot prove is how it looks and feels (spacing, press feedback, keyboard behaviour, the fonts rendering); that needs a device, and the gallery is for that. Spacing is not part of the design tokens, so the components use Tailwind's spacing scale (`p-4`, `px-5`, `gap-3`); a spacing token set should be proposed before many screens exist. A component that should accept a new look must get its rule in the style module and a test first.
 
+### ADR-031: The auth screens: checks that mirror the backend, no personal data in routes
+
+- Status: accepted
+- Date: 2026-10-19
+- Deciders: kaoutharrr, belmqadem to confirm in review
+- Context: the auth screens (welcome, sign-up, verify-email, sign-in, forgot-password) sit on the auth logic of ADR-028 and the components of ADR-030. Decisions were needed on how much to check before the network, how screens pass the email to each other, what the user reads when something fails, and what happens after the email is confirmed.
+- Options considered:
+  - **Checks**: only the backend's answer; or the same rules in the app, for an answer before the network.
+  - **Passing the email between screens**: a route parameter (`/verify-email?email=...`); or a small in-memory handoff.
+  - **After confirming the email**: sign in automatically (the app would have to carry the password from the sign-up screen to the code screen); or go to sign-in with the email filled in.
+  - **Error text**: show the backend's `message`; or map each stable `code` to our own words.
+- Decision:
+  - The app mirrors the backend's rules (password 8 to 72 UTF-8 bytes with a lowercase, an uppercase, a digit and a symbol, all Unicode-aware; email trimmed and lowercased, 254 at most; display name 1 to 50 after trimming; 6-digit codes). The backend still decides: a test runs the backend's own rules against the app's on a table of inputs (Unicode letters and digits, emoji, accented characters, the 72-byte edge) and fails if they ever disagree.
+  - The email is handed over in memory (`auth/forms/handoff.ts`), never in the route: on the web build a route becomes a URL, and a URL ends up in browser history and server logs. A screen that finds the handoff empty (app reopened, link opened directly) asks for the email.
+  - The password never leaves the screen where it is typed. So confirming the email leads to sign-in with the email filled in and a one-time notice, not to an automatic sign-in.
+  - Every failure is mapped from its `code` to our own words (`auth/forms/error-messages.ts`); a server message is never shown as is, except the per-field rule messages of a `VALIDATION_ERROR`. Messages never say whether an address has an account where the backend does not (forgot-password and resend say "if there is an account").
+  - `EMAIL_NOT_VERIFIED` at sign-in (which the backend only answers after the password matched) sends the user to the code screen. The "send a new code" button mirrors the backend's 60 s wait, clamped so a clock change never makes it longer.
+- Verified against the real backend in a browser: sign-up with the policy messages, a wrong then the right code, a wrong then the right password, the session restored after a reload, forgot-password and sign-in with the new password. That run found two bugs that the tests could not: the API prefix `/api/v1` was missing from every call (the fake backend in the tests used the same wrong paths), and a tap on the padding of an input did not focus it. Both are fixed with a test each.
+- Alternatives: the options above.
+- Consequences: one extra step after confirming the email. The rules live in two places, held together by the parity test. Google and Facebook sign-in buttons come later (the logic exists, `auth.signInWithProvider`). The backend address can only be changed in Settings, which is in the signed-in group: a signed-out user cannot reach it yet (see the open item in `docs/mobile-handoff.md`).
+
 ## Still to decide (record each as an ADR)
 
 TODO:
