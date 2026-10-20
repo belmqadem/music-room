@@ -69,7 +69,7 @@ tools), so each developer registers their key once, with package `com.musicroom.
 
 Google answering error 10 (`DEVELOPER_ERROR`) means the SHA-1 of the installed app is not registered.
 
-Build from a folder outside iCloud (not `~/Desktop` or `~/Documents` when they sync): iCloud breaks native builds.
+Work from a folder outside iCloud (not `~/Desktop` or `~/Documents` when they sync): iCloud breaks native builds, and its file activity makes Metro push updates that re-mount the app every few seconds (each one restores the session again).
 
 Where to read more: `docs/api-contract.md` (the API), `docs/mobile-handoff.md` (what the app must do),
 `docs/architecture-decisions.md`, `docs/security.md`, `docs/ramp-up-results.md`, and `file-structure.md`.

@@ -6,7 +6,7 @@ import { Badge, Button, Card, Text, TrackRow } from "@/components";
 import type { LiveStatus } from "@/sockets/live-connection";
 import { colors } from "@/theme";
 import { eventApi } from "./event-api";
-import { voteLicenseLabel } from "./event-labels";
+import { locationRuleText, voteLicenseLabel } from "./event-labels";
 import { trackVoteErrorMessage } from "./messages";
 import { SuggestTrackSheet } from "./SuggestTrackSheet";
 import { useEventQueue } from "./use-event-queue";
@@ -94,6 +94,12 @@ export default function TrackVoteScreen() {
               </Text>
               <LiveBadge status={queue.status} />
             </View>
+            {event.voteLicense.type === "location_time" ? (
+              <Text variant="caption" tone="secondary">
+                {locationRuleText(event.voteLicense)}
+                {canManage ? " You are the owner: the rule does not apply to you." : ""}
+              </Text>
+            ) : null}
 
             {queue.playing ? (
               <TrackRow

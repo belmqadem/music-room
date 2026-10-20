@@ -34,7 +34,8 @@ describe("suggesting a track", () => {
     const result = await suggestOrVote(calls, "e1", "p1");
 
     expect(result).toEqual({ track: entry("new", true), alreadyQueued: false });
-    expect(calls.suggest).toHaveBeenCalledWith("e1", "p1");
+    // No position in an ordinary event.
+    expect(calls.suggest).toHaveBeenCalledWith("e1", "p1", undefined);
     expect(calls.vote).not.toHaveBeenCalled();
   });
 
@@ -48,7 +49,7 @@ describe("suggesting a track", () => {
 
     const result = await suggestOrVote(calls, "e1", "p1");
 
-    expect(calls.vote).toHaveBeenCalledWith("e1", "queued-1");
+    expect(calls.vote).toHaveBeenCalledWith("e1", "queued-1", undefined);
     expect(result).toEqual({ track: entry("queued-1", true), alreadyQueued: true });
   });
 

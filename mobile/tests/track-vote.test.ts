@@ -18,7 +18,7 @@ describe("Track Vote error messages (from the stable code, never the server's te
     [404, "EVENT_NOT_FOUND", TRACK_VOTE_MESSAGES.notFound],
     [404, "NOT_FOUND", TRACK_VOTE_MESSAGES.notFound],
     [403, "NOT_INVITED", TRACK_VOTE_MESSAGES.notInvited],
-    [400, "LOCATION_REQUIRED", TRACK_VOTE_MESSAGES.needsLocation],
+    [400, "LOCATION_REQUIRED", TRACK_VOTE_MESSAGES.imprecisePosition],
     [403, "OUTSIDE_VOTING_AREA", TRACK_VOTE_MESSAGES.outsideArea],
     [403, "OUTSIDE_VOTING_TIME", TRACK_VOTE_MESSAGES.outsideTime],
     [409, "TRACK_NOT_VOTABLE", TRACK_VOTE_MESSAGES.notVotable],

@@ -35,7 +35,13 @@
           "imageWidth": 76
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Music Room uses your position only when you vote in an event that takes votes at its venue, to check that you are there."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
