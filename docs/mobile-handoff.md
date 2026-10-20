@@ -74,4 +74,5 @@ states, Playlists, Playlist rules, Real-time events. The changelog at the end li
 - Done: Track Vote part 1 (ADR-034): the events list, and the event screen with the live queue, voting and withdrawing, and the owner's "Next track", over one shared live connection (`src/sockets`).
 - Done: suggesting a track from the catalog search, in a sheet over the event screen (ADR-034).
 - Done: voting and suggesting in place-and-time events: the position is asked only when the server needs it (ADR-034, `expo-location`; rebuild the development builds).
-- Next: create-event (with the three voting modes); then the Playlist Editor screens.
+- Done: creating an event with its visibility and its three voting modes (ADR-034). Track Vote now has every screen except invitations.
+- Next: invitations (owner invites people to private or "invited people" events and playlists); then the Playlist Editor screens.

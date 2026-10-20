@@ -1,9 +1,10 @@
 import type { MusicEvent, Page } from "@music-room/shared";
-import { useEffect, useRef, useState } from "react";
+import { useFocusEffect } from "expo-router";
+import { useCallback, useRef, useState } from "react";
 import { eventApi } from "./event-api";
 import { trackVoteErrorMessage } from "./messages";
 
-/** The events tab: the first page, pull to refresh, and the next pages as the list scrolls. */
+/** The events tab: the first page (again on each return), pull to refresh, and the next pages as the list scrolls. */
 export function useEvents() {
   const [events, setEvents] = useState<MusicEvent[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -22,12 +23,15 @@ export function useEvents() {
     setError(trackVoteErrorMessage(failure));
   }
 
-  useEffect(() => {
-    eventApi
-      .list()
-      .then(showFirstPage, showError)
-      .finally(() => setLoading(false));
-  }, []);
+  // On every return to the tab, not only the first time: an event created meanwhile shows up.
+  useFocusEffect(
+    useCallback(() => {
+      eventApi
+        .list()
+        .then(showFirstPage, showError)
+        .finally(() => setLoading(false));
+    }, []),
+  );
 
   async function refresh(): Promise<void> {
     setRefreshing(true);
