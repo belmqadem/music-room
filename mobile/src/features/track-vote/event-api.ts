@@ -1,4 +1,5 @@
 import type {
+  CreateEventRequest,
   EventQueueUpdate,
   EventTrack,
   GeoPoint,
@@ -19,6 +20,9 @@ export const eventApi = {
   /** Public events, mine, and private ones I am invited to, newest first. */
   list: (cursor?: string) =>
     auth.request<Page<MusicEvent>>("GET", "/events", { query: { limit: 20, cursor } }),
+  /** The caller becomes the owner. */
+  create: (request: CreateEventRequest) =>
+    auth.request<MusicEvent>("POST", "/events", { body: request }),
   get: (eventId: string) => auth.request<MusicEvent>("GET", path(eventId)),
   /** The queue as I see it (with my votes), already ordered by the server. */
   queue: (eventId: string) =>
