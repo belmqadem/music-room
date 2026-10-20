@@ -270,6 +270,58 @@ describe("authenticated calls", () => {
     ]);
   });
 
+  it("refreshAccessToken (for the live connection): a new access token, true", async () => {
+    const { auth, backend, storage } = await signedIn();
+    backend.on("POST /auth/refresh", ok(session(2)));
+
+    await expect(auth.refreshAccessToken()).resolves.toBe(true);
+
+    expect(auth.getAccessToken()).toBe("access-2");
+    expect(storage.value()).toBe("refresh-2");
+  });
+
+  it("refreshAccessToken when the session is over: false, and signed out", async () => {
+    const { auth, backend } = await signedIn();
+    backend.on("POST /auth/refresh", fail(401, "INVALID_REFRESH_TOKEN"));
+
+    await expect(auth.refreshAccessToken()).resolves.toBe(false);
+
+    expect(auth.getState().status).toBe("signedOut");
+    expect(auth.getAccessToken()).toBeNull();
+  });
+
+  it("refreshAccessToken offline: the error is raised and the session kept for a later try", async () => {
+    const { auth, backend, storage } = await signedIn();
+    backend.on("POST /auth/refresh", networkDown());
+
+    const error = await caught(auth.refreshAccessToken());
+
+    expect(error.code).toBe("NETWORK_ERROR");
+    expect(auth.getState().status).toBe("signedIn");
+    expect(storage.value()).toBe("refresh-1");
+  });
+
+  it("refreshAccessToken and a REST call expiring together share ONE refresh", async () => {
+    const { auth, backend } = await signedIn();
+    backend.on("GET /events", (req) =>
+      req.headers["authorization"] === bearer(2)
+        ? ok({ n: 1 })
+        : fail(401, "TOKEN_EXPIRED"),
+    );
+    backend.on("POST /auth/refresh", async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      return ok(session(2));
+    });
+
+    const [, refreshed] = await Promise.all([
+      auth.request("GET", "/events"),
+      auth.refreshAccessToken(),
+    ]);
+
+    expect(refreshed).toBe(true);
+    expect(backend.count("POST /auth/refresh")).toBe(1);
+  });
+
   it("five calls expiring together make ONE refresh (a second use of a token would end the session)", async () => {
     const { auth, backend } = await signedIn();
     backend.on("GET /events", (req) =>

@@ -280,6 +280,12 @@ export function createAuthController(deps: AuthControllerDeps) {
     },
     /** For the live connection's handshake (`auth: { token }`). Null when signed out. */
     getAccessToken: (): string | null => accessToken,
+    /**
+     * For the live connection, whose handshake was refused with TOKEN_EXPIRED: a new access token,
+     * from the same single refresh REST calls use (so a socket and a call expiring together refresh
+     * once). False when the session is over (signed out). Offline or server errors are raised.
+     */
+    refreshAccessToken: async (): Promise<boolean> => (await refresh()) === "refreshed",
     request,
     restore,
     signIn,
