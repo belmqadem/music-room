@@ -1,8 +1,10 @@
-import type { EventQueueUpdate, EventTrack } from "@music-room/shared";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import type { EventQueueUpdate, EventTrack, GeoPoint } from "@music-room/shared";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { currentPosition } from "@/location/current-position";
 import { live } from "@/sockets/live";
 import type { LiveStatus } from "@/sockets/live-connection";
 import { eventApi } from "./event-api";
+import { sendWithLocationIfRequired } from "./location-required";
 import { currentQueueFrom, TRACK_VOTE_MESSAGES, trackVoteErrorMessage } from "./messages";
 import {
   applyMyQueue,
@@ -33,6 +35,8 @@ export function useEventQueue(eventId: string) {
   const [notice, setNotice] = useState<string | null>(null);
   const [busyTrackId, setBusyTrackId] = useState<string | null>(null);
   const [advancing, setAdvancing] = useState(false);
+  // Once the server asked for a position in this event, send it straight away with the next ones.
+  const locationRequired = useRef(false);
   const status = useLiveStatus();
 
   useEffect(() => {
@@ -78,14 +82,30 @@ export function useEventQueue(eventId: string) {
     }
   }
 
+  /** A vote or suggestion: with the phone's position only if this event's rule needs it. */
+  async function withPositionIfRequired<T>(
+    send: (location?: GeoPoint) => Promise<T>,
+  ): Promise<T> {
+    const sent = await sendWithLocationIfRequired(
+      send,
+      currentPosition,
+      locationRequired.current,
+    );
+    if (sent.locationRequired) locationRequired.current = true;
+    return sent.result;
+  }
+
   async function toggleVote(track: EventTrack): Promise<void> {
     setBusyTrackId(track.id);
     setActionError(null);
     setNotice(null);
     try {
+      // Withdrawing never needs a position (the contract): only a new vote may.
       const answer = track.votedByMe
         ? await eventApi.withdraw(eventId, track.id)
-        : await eventApi.vote(eventId, track.id);
+        : await withPositionIfRequired((location) =>
+            eventApi.vote(eventId, track.id, location),
+          );
       setQueue((s) => applyMyVote(s, answer));
       await refreshIfNotLive();
     } catch (error) {
@@ -104,10 +124,8 @@ export function useEventQueue(eventId: string) {
     setActionError(null);
     setNotice(null);
     try {
-      const { track, alreadyQueued } = await suggestOrVote(
-        eventApi,
-        eventId,
-        providerTrackId,
+      const { track, alreadyQueued } = await withPositionIfRequired((location) =>
+        suggestOrVote(eventApi, eventId, providerTrackId, location),
       );
       setQueue((s) => applyMyVote(s, track));
       if (alreadyQueued) setNotice(TRACK_VOTE_MESSAGES.alreadyQueued);

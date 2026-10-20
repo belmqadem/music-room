@@ -1,9 +1,13 @@
-import type { EventTrack } from "@music-room/shared";
+import type { EventTrack, GeoPoint } from "@music-room/shared";
 import { queuedTrackFrom } from "./messages";
 
 export interface SuggestCalls {
-  suggest(eventId: string, providerTrackId: string): Promise<EventTrack>;
-  vote(eventId: string, trackId: string): Promise<EventTrack>;
+  suggest(
+    eventId: string,
+    providerTrackId: string,
+    location?: GeoPoint,
+  ): Promise<EventTrack>;
+  vote(eventId: string, trackId: string, location?: GeoPoint): Promise<EventTrack>;
 }
 
 /**
@@ -15,12 +19,17 @@ export async function suggestOrVote(
   calls: SuggestCalls,
   eventId: string,
   providerTrackId: string,
+  /** For a "place and time" event: sent with the suggestion and with the fallback vote. */
+  location?: GeoPoint,
 ): Promise<{ track: EventTrack; alreadyQueued: boolean }> {
   try {
-    return { track: await calls.suggest(eventId, providerTrackId), alreadyQueued: false };
+    return {
+      track: await calls.suggest(eventId, providerTrackId, location),
+      alreadyQueued: false,
+    };
   } catch (error) {
     const queued = queuedTrackFrom(error);
     if (!queued) throw error;
-    return { track: await calls.vote(eventId, queued.id), alreadyQueued: true };
+    return { track: await calls.vote(eventId, queued.id, location), alreadyQueued: true };
   }
 }

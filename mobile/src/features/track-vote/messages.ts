@@ -1,6 +1,7 @@
 import type { EventQueueUpdate, EventTrack } from "@music-room/shared";
 import { isRequestError } from "@/api/api-error";
 import { MESSAGES } from "@/auth/forms/error-messages";
+import { isPositionUnavailable, type PositionProblem } from "@/location/position-error";
 
 // What to tell the user when a Track Vote call fails, from the error's stable `code` (never the
 // server's message as is). Codes: docs/api-contract.md, "Access rules" and "Events".
@@ -8,8 +9,9 @@ import { MESSAGES } from "@/auth/forms/error-messages";
 export const TRACK_VOTE_MESSAGES = {
   notFound: "This event no longer exists, or you can no longer see it.",
   notInvited: "Only invited people can vote in this event.",
-  needsLocation:
-    "This event only takes votes at its place: voting with your location comes next.",
+  // The server says this after a position was sent: it was not precise enough (worse than 100 m).
+  imprecisePosition:
+    "Your position isn't precise enough to vote here. Turn on precise location, then try again.",
   outsideArea: "You are too far from the event to vote.",
   outsideTime: "Voting is closed: the event is not running right now.",
   notVotable: "This track is already playing or has been played.",
@@ -21,7 +23,18 @@ export const TRACK_VOTE_MESSAGES = {
   unknown: "Something went wrong. Try again.",
 } as const;
 
+export const POSITION_MESSAGES: Record<PositionProblem, string> = {
+  services_off:
+    "Turn on location services to vote in this event: it takes votes at its venue.",
+  denied:
+    "This event takes votes at its venue: allow Music Room to use your location to vote.",
+  blocked:
+    "Location is turned off for Music Room. Turn it on in Settings to vote in this event.",
+  timeout: "Couldn't find your position. Try again.",
+};
+
 export function trackVoteErrorMessage(error: unknown): string {
+  if (isPositionUnavailable(error)) return POSITION_MESSAGES[error.problem];
   if (!isRequestError(error)) return TRACK_VOTE_MESSAGES.unknown;
   switch (error.code) {
     case "NETWORK_ERROR":
@@ -34,7 +47,7 @@ export function trackVoteErrorMessage(error: unknown): string {
     case "NOT_INVITED":
       return TRACK_VOTE_MESSAGES.notInvited;
     case "LOCATION_REQUIRED":
-      return TRACK_VOTE_MESSAGES.needsLocation;
+      return TRACK_VOTE_MESSAGES.imprecisePosition;
     case "OUTSIDE_VOTING_AREA":
       return TRACK_VOTE_MESSAGES.outsideArea;
     case "OUTSIDE_VOTING_TIME":

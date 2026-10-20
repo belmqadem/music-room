@@ -1,4 +1,10 @@
-import type { EventQueueUpdate, EventTrack, MusicEvent, Page } from "@music-room/shared";
+import type {
+  EventQueueUpdate,
+  EventTrack,
+  GeoPoint,
+  MusicEvent,
+  Page,
+} from "@music-room/shared";
 import { auth } from "@/auth";
 
 // The Track Vote endpoints (docs/api-contract.md, "Events"). The backend checks the access rules on
@@ -18,13 +24,16 @@ export const eventApi = {
   queue: (eventId: string) =>
     auth.request<EventQueueUpdate>("GET", path(eventId, "/tracks")),
   /** Counts as my vote. 409 TRACK_ALREADY_QUEUED (with the queued track) if it is already queued. */
-  suggest: (eventId: string, providerTrackId: string) =>
+  suggest: (eventId: string, providerTrackId: string, location?: GeoPoint) =>
     auth.request<EventTrack>("POST", path(eventId, "/tracks"), {
-      body: { providerTrackId },
+      body: { providerTrackId, ...(location && { location }) },
     }),
   /** Idempotent: voting twice counts once. */
-  vote: (eventId: string, trackId: string) =>
-    auth.request<EventTrack>("PUT", trackVote(eventId, trackId)),
+  /** `location` only for a "place and time" event that asked for it (LOCATION_REQUIRED). */
+  vote: (eventId: string, trackId: string, location?: GeoPoint) =>
+    auth.request<EventTrack>("PUT", trackVote(eventId, trackId), {
+      ...(location && { body: { location } }),
+    }),
   /** Idempotent, and allowed to anyone who can see the event (no license, no location). */
   withdraw: (eventId: string, trackId: string) =>
     auth.request<EventTrack>("DELETE", trackVote(eventId, trackId)),
