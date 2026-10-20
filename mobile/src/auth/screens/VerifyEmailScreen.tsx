@@ -139,12 +139,14 @@ export default function VerifyEmailScreen() {
             disabled={secondsLeft > 0}
             loading={resending}
             onPress={resend}
+            fullWidth
           />
           {askEmail ? null : (
             <Button
               title="Use a different email"
               variant="ghost"
               onPress={() => setAskEmail(true)}
+              fullWidth
             />
           )}
         </View>

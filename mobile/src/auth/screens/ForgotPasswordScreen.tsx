@@ -133,7 +133,7 @@ export default function ForgotPasswordScreen() {
       <View className="gap-6">
         <ScreenTitle
           title="Choose a new password"
-          subtitle={`If there is an account for ${normalizeEmail(email)}, we sent a 6-digit code there. Enter it with your new password.`}
+          subtitle={`If ${normalizeEmail(email)} has an account, we sent it a 6-digit code. Enter the code with your new password.`}
         />
         <View className="gap-4">
           <Input
