@@ -5,4 +5,5 @@ export { Card, type CardProps } from "./Card";
 export { Input, type InputProps } from "./Input";
 export { Screen, type ScreenProps } from "./Screen";
 export { Text, type AppTextProps } from "./Text";
+export { TrackPickRow, type TrackPickRowProps } from "./TrackPickRow";
 export { TrackRow, type TrackRowProps } from "./TrackRow";
