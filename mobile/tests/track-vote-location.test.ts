@@ -11,40 +11,63 @@ const HERE: GeoPoint = { latitude: 48.8966, longitude: 2.3185, accuracyMeters: 1
 const locationRequired = () => new RequestError(400, "LOCATION_REQUIRED", "x");
 
 describe("asking for the position only when the server needs it", () => {
+  function memory(alreadyRequired = false) {
+    return { alreadyRequired, onRequired: vi.fn() };
+  }
+
   it("votes without a position first; no position is asked when the server accepts", async () => {
     const send = vi.fn(async (location?: GeoPoint) => (location ? "with" : "without"));
     const getPosition = vi.fn(async () => HERE);
+    const mem = memory();
 
-    const sent = await sendWithLocationIfRequired(send, getPosition, false);
-
-    expect(sent).toEqual({ result: "without", locationRequired: false });
+    await expect(sendWithLocationIfRequired(send, getPosition, mem)).resolves.toBe(
+      "without",
+    );
     expect(getPosition).not.toHaveBeenCalled();
+    expect(mem.onRequired).not.toHaveBeenCalled();
   });
 
-  it("on LOCATION_REQUIRED: gets the position and sends again, once, with it", async () => {
+  it("on LOCATION_REQUIRED: gets the position, sends again once with it, and remembers", async () => {
     const send = vi.fn(async (location?: GeoPoint) => {
       if (!location) throw locationRequired();
       return "accepted";
     });
+    const mem = memory();
 
-    const sent = await sendWithLocationIfRequired(send, async () => HERE, false);
-
-    expect(sent).toEqual({ result: "accepted", locationRequired: true });
+    await expect(sendWithLocationIfRequired(send, async () => HERE, mem)).resolves.toBe(
+      "accepted",
+    );
     expect(send.mock.calls).toEqual([[], [HERE]]);
+    expect(mem.onRequired).toHaveBeenCalledTimes(1);
+  });
+
+  it("remembers even when the vote with the position is refused (too far): the next vote skips the 400", async () => {
+    // Found on the simulator: a refusal after sending the position used to forget it.
+    const far = new RequestError(403, "OUTSIDE_VOTING_AREA", "x");
+    const send = vi.fn(async (location?: GeoPoint) => {
+      throw location ? far : locationRequired();
+    });
+    const mem = memory();
+
+    await expect(sendWithLocationIfRequired(send, async () => HERE, mem)).rejects.toBe(
+      far,
+    );
+    expect(mem.onRequired).toHaveBeenCalledTimes(1);
   });
 
   it("once the event is known to need it, sends the position straight away", async () => {
     const send = vi.fn(async (location?: GeoPoint) => location);
 
-    const sent = await sendWithLocationIfRequired(send, async () => HERE, true);
-
+    await expect(
+      sendWithLocationIfRequired(send, async () => HERE, memory(true)),
+    ).resolves.toEqual(HERE);
     expect(send).toHaveBeenCalledTimes(1);
-    expect(sent.result).toEqual(HERE);
   });
 
   it("outside the event's hours the server says so first: nobody is asked for a position", async () => {
     const closed = new RequestError(403, "OUTSIDE_VOTING_TIME", "x");
     const getPosition = vi.fn(async () => HERE);
+    const mem = memory();
 
     await expect(
       sendWithLocationIfRequired(
@@ -52,10 +75,11 @@ describe("asking for the position only when the server needs it", () => {
           throw closed;
         },
         getPosition,
-        false,
+        mem,
       ),
     ).rejects.toBe(closed);
     expect(getPosition).not.toHaveBeenCalled();
+    expect(mem.onRequired).not.toHaveBeenCalled();
   });
 
   it("no position available (permission refused): that error is raised, nothing is sent again", async () => {
@@ -70,7 +94,7 @@ describe("asking for the position only when the server needs it", () => {
         async () => {
           throw refused;
         },
-        false,
+        memory(),
       ),
     ).rejects.toBe(refused);
     expect(send).toHaveBeenCalledTimes(1);
@@ -82,22 +106,11 @@ describe("asking for the position only when the server needs it", () => {
     });
 
     await expect(
-      sendWithLocationIfRequired(send, async () => HERE, false),
+      sendWithLocationIfRequired(send, async () => HERE, memory()),
     ).rejects.toMatchObject({
       code: "LOCATION_REQUIRED",
     });
     expect(send).toHaveBeenCalledTimes(2);
-  });
-
-  it("the outside-area answer after sending the position is raised as it is", async () => {
-    const far = new RequestError(403, "OUTSIDE_VOTING_AREA", "x");
-    const send = vi.fn(async (location?: GeoPoint) => {
-      throw location ? far : locationRequired();
-    });
-
-    await expect(sendWithLocationIfRequired(send, async () => HERE, false)).rejects.toBe(
-      far,
-    );
   });
 });
 

@@ -86,13 +86,12 @@ export function useEventQueue(eventId: string) {
   async function withPositionIfRequired<T>(
     send: (location?: GeoPoint) => Promise<T>,
   ): Promise<T> {
-    const sent = await sendWithLocationIfRequired(
-      send,
-      currentPosition,
-      locationRequired.current,
-    );
-    if (sent.locationRequired) locationRequired.current = true;
-    return sent.result;
+    return sendWithLocationIfRequired(send, currentPosition, {
+      alreadyRequired: locationRequired.current,
+      onRequired: () => {
+        locationRequired.current = true;
+      },
+    });
   }
 
   async function toggleVote(track: EventTrack): Promise<void> {
