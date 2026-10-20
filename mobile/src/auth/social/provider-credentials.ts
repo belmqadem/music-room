@@ -1,5 +1,6 @@
-import { Platform } from "react-native";
+import { NativeModules, Platform, TurboModuleRegistry } from "react-native";
 import {
+  type NativeSdks,
   pickFacebookCredential,
   SocialSignInError,
   socialConfigFrom,
@@ -12,6 +13,19 @@ export { SocialSignInError };
 // crash the app there. Our session is the backend's (ADR-028), so each SDK is signed out again
 // right after it hands over its token.
 
+/**
+ * The same lookups the SDKs make when they load (Google: a TurboModule, Facebook: a legacy native
+ * module), so a button is shown only when its SDK can start. Both are missing in Expo Go. Not
+ * attempted on the web, which has neither registry.
+ */
+function nativeSdksInThisApp(): NativeSdks {
+  if (Platform.OS === "web") return { google: false, facebook: false };
+  return {
+    google: TurboModuleRegistry.get("RNGoogleSignin") != null,
+    facebook: NativeModules.FBLoginManager != null,
+  };
+}
+
 export const socialConfig = socialConfigFrom(
   {
     EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
@@ -19,6 +33,7 @@ export const socialConfig = socialConfigFrom(
     EXPO_PUBLIC_FACEBOOK_APP_ID: process.env.EXPO_PUBLIC_FACEBOOK_APP_ID,
   },
   Platform.OS,
+  nativeSdksInThisApp(),
 );
 
 export type ProviderOutcome =

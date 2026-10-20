@@ -1,6 +1,7 @@
 // Which social sign-ins this build can offer (ADR-033). Values are public OAuth identifiers, read
-// from mobile/.env at build time (EXPO_PUBLIC_*), never secrets. A provider without its ids, or on
-// the web build (the native SDKs do not run in a browser), is simply not offered.
+// from mobile/.env at build time (EXPO_PUBLIC_*), never secrets. A provider without its ids, without
+// its native SDK in this app (Expo Go, or a build made before the SDKs were added), or on the web
+// build (the native SDKs do not run in a browser), is simply not offered.
 
 export interface SocialEnv {
   EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID?: string;
@@ -13,24 +14,36 @@ export interface SocialConfig {
   facebook: { appId: string } | null;
 }
 
+/** Whether this app contains each provider's native SDK. Without it the button could only fail. */
+export interface NativeSdks {
+  google: boolean;
+  facebook: boolean;
+}
+
 const present = (value: string | undefined): value is string =>
   typeof value === "string" && value.trim() !== "";
 
-export function socialConfigFrom(env: SocialEnv, platform: string): SocialConfig {
+export function socialConfigFrom(
+  env: SocialEnv,
+  platform: string,
+  nativeSdks: NativeSdks,
+): SocialConfig {
   if (platform === "web") return { google: null, facebook: null };
   return {
     // The Web client id is what the ID token is issued for: the backend's GOOGLE_CLIENT_IDS must list it.
-    google: present(env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID)
-      ? {
-          webClientId: env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID.trim(),
-          iosClientId: present(env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID)
-            ? env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID.trim()
-            : undefined,
-        }
-      : null,
-    facebook: present(env.EXPO_PUBLIC_FACEBOOK_APP_ID)
-      ? { appId: env.EXPO_PUBLIC_FACEBOOK_APP_ID.trim() }
-      : null,
+    google:
+      nativeSdks.google && present(env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID)
+        ? {
+            webClientId: env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID.trim(),
+            iosClientId: present(env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID)
+              ? env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID.trim()
+              : undefined,
+          }
+        : null,
+    facebook:
+      nativeSdks.facebook && present(env.EXPO_PUBLIC_FACEBOOK_APP_ID)
+        ? { appId: env.EXPO_PUBLIC_FACEBOOK_APP_ID.trim() }
+        : null,
   };
 }
 

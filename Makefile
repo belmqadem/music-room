@@ -23,7 +23,7 @@ dev: ## Run the backend in watch mode (needs `make db-up` and a .env)
 theme: ## Regenerate the mobile theme from design-tokens.json (+ design-tokens.extensions.json); `make test` fails if it is out of date
 	node mobile/scripts/generate-theme.mjs
 
-dev-mobile: ## Start the Expo dev server (interactive)
+dev-mobile: ## Start the Expo dev server for the development build (interactive; Expo Go: `npx expo start --go` in mobile/)
 	npm run start --prefix mobile
 
 db-up: ## Start Postgres + Redis and wait until healthy
