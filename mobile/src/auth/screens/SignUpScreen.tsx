@@ -128,6 +128,7 @@ export default function SignUpScreen() {
           title="I already have an account"
           variant="ghost"
           onPress={() => router.replace("/sign-in")}
+          fullWidth
         />
       </View>
     </Screen>

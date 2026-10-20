@@ -1,7 +1,3 @@
-import type { OAuthProvider } from "@music-room/shared";
-import { router } from "expo-router";
-import { useState } from "react";
-import { Image, View } from "react-native";
 import { auth } from "@/auth";
 import { socialErrorMessage } from "@/auth/forms/error-messages";
 import { clearHandoff } from "@/auth/forms/handoff";
@@ -12,6 +8,10 @@ import {
   type ProviderOutcome,
 } from "@/auth/social/provider-credentials";
 import { Button, Text } from "@/components";
+import type { OAuthProvider } from "@music-room/shared";
+import { router } from "expo-router";
+import { useState } from "react";
+import { Image, View } from "react-native";
 import { FormMessage } from "./parts";
 
 interface Provider {
@@ -91,19 +91,24 @@ export function SocialSignIn() {
       <Text tone="secondary" className="text-center">
         or
       </Text>
-      {PROVIDERS.map((provider) => (
-        <Button
-          key={provider.id}
-          title={provider.name}
-          icon={<ProviderLogo provider={provider.id} />}
-          accessibilityLabel={`Continue with ${provider.name}`}
-          variant="secondary"
-          fullWidth
-          loading={busy === provider.id}
-          disabled={busy !== null && busy !== provider.id}
-          onPress={() => continueWith(provider)}
-        />
-      ))}
+      <View className="flex flex-row gap-3 justify-center items-center">
+        {/* Each button gets an equal share of the row: flex-1 here, not in Button, so other
+            buttons keep their own size. */}
+        {PROVIDERS.map((provider) => (
+          <View key={provider.id} className="flex-1">
+            <Button
+              title={provider.name}
+              icon={<ProviderLogo provider={provider.id} />}
+              accessibilityLabel={`Continue with ${provider.name}`}
+              variant="secondary"
+              fullWidth
+              loading={busy === provider.id}
+              disabled={busy !== null && busy !== provider.id}
+              onPress={() => continueWith(provider)}
+            />
+          </View>
+        ))}
+      </View>
       {error ? <FormMessage tone="error">{error}</FormMessage> : null}
     </View>
   );

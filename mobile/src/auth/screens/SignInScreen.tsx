@@ -113,11 +113,13 @@ export default function SignInScreen() {
               handOff({ email: email.trim() ? normalizeEmail(email) : null });
               router.push("/forgot-password");
             }}
+            fullWidth
           />
           <Button
             title="Create an account"
             variant="ghost"
             onPress={() => router.replace("/sign-up")}
+            fullWidth
           />
         </View>
       </View>
