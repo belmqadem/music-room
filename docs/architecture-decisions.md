@@ -534,6 +534,29 @@ Each decision must be defensible in detail at the defense. Copy the template for
   - The buttons are text only. Google's and Facebook's branding guidelines ask for their logo and colours; that is a design task (the logos are not design tokens).
   - Linking a provider to an existing account (with re-authentication, ADR-025) has no screen yet.
 
+### ADR-034: Track Vote in the app: the server's queue only, gated by version, kept live by one socket
+
+- Status: accepted
+- Date: 2026-10-20
+- Deciders: kaoutharrr, belmqadem to confirm in review
+- Context: the Track Vote screen shows a queue that many people change at once. Updates reach the phone from three sources in any order: REST answers, the subscribe acknowledgement and `event:queue` snapshots (ADR-016, ADR-019). The broadcast snapshots are the same for everybody, so they carry no `votedByMe`. The token is checked only at the socket handshake (it expires after 15 minutes).
+- Options considered:
+  - **What the app shows**: optimistic updates (count and order change on tap, rolled back on error); or **the server's state only** (chosen).
+  - **Out-of-order messages**: apply whatever arrives last; or **apply a queue only if its `version` is higher than the one held** (chosen, as the contract asks).
+  - **Socket ownership**: one socket per screen; or **one shared connection** that screens subscribe through (chosen).
+- Decision:
+  - `features/track-vote/queue-state.ts`, pure and tested: a queue from any source replaces the held one only if its `version` is higher. The app never re-sorts and never counts votes; it shows the server's order and counts.
+  - My own votes are kept apart (a set of queue-entry ids), taken from REST queues and the subscribe acknowledgement, updated by the answer to my vote or withdrawal, and merged into every queue shown. A same-version REST queue is ignored, so a slow read cannot undo my vote's answer.
+  - No optimistic update: a vote shows once the server answered. Ranking is server-side (ADR-008), so a guessed order could be wrong and would have to be rolled back; on a LAN the round trip is short.
+  - The owner's "Next track" sends the id this phone shows as playing; a `409 QUEUE_CHANGED` (a double tap, or a second device first) shows the queue from the error's `details`, so no song is skipped.
+  - `sockets/live-connection.ts`, tested with a fake socket: one connection, opened by the first subscription and closed with the last (a new socket each time, so a changed backend address is used). After every (re)connect it subscribes again, because the server forgets subscriptions on a disconnect. `TOKEN_EXPIRED` at the handshake: one refresh through the auth controller's single refresh (`refreshAccessToken`, shared with REST calls), then reconnect; refused again right after, or `UNAUTHENTICATED`, it stops (offline) instead of looping. Sign-out closes it.
+  - The handshake sends the access token and, in React Native, our `X-Platform` / `X-Device` / `X-App-Version` headers (WebSocket transport), so the backend logs it like a request. Browsers cannot send headers on a WebSocket: the web build's socket connections are logged without them.
+  - Without a live connection, the app reads the queue again over REST after each of my actions, so counts and order are not stale.
+  - `myPermissions` only decides what is shown (the Vote control, "Next track"); the server checks every call. A user who may see but not vote gets a read-only queue; withdrawing my own vote is always offered, as the contract allows.
+- Verified against the real backend in the web build: the list; the queue with Deezer covers; another user's vote re-ordering the queue live with my marks kept; withdrawing; starting to play; a non-invited user seeing a read-only queue (and the API refusing that user's vote with `403 NOT_INVITED`).
+- Alternatives: the options above.
+- Consequences: a vote takes one round trip to show; in exchange the screen never shows a state the server did not have. Not yet: suggesting tracks (search), voting in `location_time` events (needs the phone's location), and creating events.
+
 ## Still to decide (record each as an ADR)
 
 TODO:
