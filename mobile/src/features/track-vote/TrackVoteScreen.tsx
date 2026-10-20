@@ -124,6 +124,17 @@ export default function TrackVoteScreen() {
               />
             ) : null}
 
+            {canManage &&
+            (event.visibility === "private" ||
+              event.voteLicense.type === "invited_only") ? (
+              // Invitations matter only when they change something: who sees it, or who votes.
+              <Button
+                title="Invite people"
+                variant="secondary"
+                fullWidth
+                onPress={() => router.push(`/invitations/event/${event.id}`)}
+              />
+            ) : null}
             {canAct ? (
               // Secondary: the screen's one Ember button is the owner's "Next track".
               <Button
