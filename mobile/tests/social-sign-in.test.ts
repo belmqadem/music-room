@@ -18,15 +18,17 @@ import {
 
 const WEB = "111-web.apps.googleusercontent.com";
 const IOS = "222-ios.apps.googleusercontent.com";
+/** An app that contains both native SDKs (a development build). */
+const BOTH = { google: true, facebook: true };
 
 describe("which providers a build offers", () => {
   it("offers nothing when no ids are set", () => {
-    expect(socialConfigFrom({}, "ios")).toEqual({ google: null, facebook: null });
+    expect(socialConfigFrom({}, "ios", BOTH)).toEqual({ google: null, facebook: null });
   });
 
   it("offers Google once the Web client id is set (the ID token is issued for it); the iOS id is optional", () => {
     expect(
-      socialConfigFrom({ EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: ` ${WEB} ` }, "android")
+      socialConfigFrom({ EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: ` ${WEB} ` }, "android", BOTH)
         .google,
     ).toEqual({
       webClientId: WEB,
@@ -36,23 +38,44 @@ describe("which providers a build offers", () => {
       socialConfigFrom(
         { EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: WEB, EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID: IOS },
         "ios",
+        BOTH,
       ).google,
     ).toEqual({ webClientId: WEB, iosClientId: IOS });
   });
 
   it("does not offer Google with only the iOS id, or blank values", () => {
     expect(
-      socialConfigFrom({ EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID: IOS }, "ios").google,
+      socialConfigFrom({ EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID: IOS }, "ios", BOTH).google,
     ).toBeNull();
     expect(
-      socialConfigFrom({ EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: "  " }, "ios").google,
+      socialConfigFrom({ EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: "  " }, "ios", BOTH).google,
     ).toBeNull();
   });
 
   it("offers Facebook once the app id is set", () => {
     expect(
-      socialConfigFrom({ EXPO_PUBLIC_FACEBOOK_APP_ID: "123" }, "ios").facebook,
+      socialConfigFrom({ EXPO_PUBLIC_FACEBOOK_APP_ID: "123" }, "ios", BOTH).facebook,
     ).toEqual({ appId: "123" });
+  });
+
+  it("offers a provider only when its native SDK is in this app (not in Expo Go)", () => {
+    const all = {
+      EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: WEB,
+      EXPO_PUBLIC_FACEBOOK_APP_ID: "123",
+    };
+
+    expect(socialConfigFrom(all, "ios", { google: false, facebook: false })).toEqual({
+      google: null,
+      facebook: null,
+    });
+    expect(socialConfigFrom(all, "android", { google: true, facebook: false })).toEqual({
+      google: { webClientId: WEB, iosClientId: undefined },
+      facebook: null,
+    });
+    expect(socialConfigFrom(all, "ios", { google: false, facebook: true })).toEqual({
+      google: null,
+      facebook: { appId: "123" },
+    });
   });
 
   it("offers nothing on the web build: the native SDKs do not run in a browser", () => {
@@ -61,7 +84,7 @@ describe("which providers a build offers", () => {
       EXPO_PUBLIC_FACEBOOK_APP_ID: "123",
     };
 
-    expect(socialConfigFrom(all, "web")).toEqual({ google: null, facebook: null });
+    expect(socialConfigFrom(all, "web", BOTH)).toEqual({ google: null, facebook: null });
   });
 });
 

@@ -50,7 +50,7 @@
     "vitest": "^5.0.5"
   },
   "scripts": {
-    "start": "expo start",
+    "start": "expo start --dev-client --scheme mobile",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo run:android",
     "ios": "expo run:ios",

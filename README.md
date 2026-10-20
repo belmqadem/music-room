@@ -55,6 +55,9 @@ test (`backend/tests/load/README.md`).
 `EXPO_PUBLIC_GOOGLE_*`, `EXPO_PUBLIC_FACEBOOK_APP_ID` and `FACEBOOK_CLIENT_TOKEN` lines of `mobile/.env` (see
 `mobile/.env.example`), then build and install it with `npm run ios --prefix mobile` (Xcode) or
 `npm run android --prefix mobile` (Android Studio). Without those values the app works and just hides the buttons.
+After that first build, `make dev-mobile` starts Metro for the development build (`i` / `a` open **Music Room**,
+not Expo Go). Expo Go still works for screens without native code (`npx expo start --go` in `mobile/`), but it has
+no Google or Facebook SDK, so the app hides those buttons there.
 
 On Android, debug builds are signed with **your own** debug key, `~/.android/debug.keystore` (created by the Android
 tools), so each developer registers their key once, with package `com.musicroom.app`:
