@@ -560,6 +560,23 @@ Each decision must be defensible in detail at the defense. Copy the template for
 - Creating an event (added 2026-10-20): name, who can see it (public, private) and who can vote (everyone, invited people, at the venue). `create-event-form.ts` turns the form into the request and checks what the backend checks (name 1 to 100 characters after trimming, coordinates in range, a comma accepted as decimal point); a test runs every request the app builds through the backend's own `createEventSchema`. For "at the venue": the venue comes from the owner's current position or typed coordinates (no map), the radius is 100, 200, 500 or 1000 m, and the window is a preset (opens now, in 1 or 2 hours; lasts 1, 2, 4 or 8 hours). Options considered for the window: a date and time picker (any window, but `@react-native-community/datetimepicker` is another native dependency and another rebuild) against presets (no dependency, enough for a party or a class, quick to demo); presets chosen, a picker can be added later.
 - Consequences: a vote takes one round trip to show; in exchange the screen never shows a state the server did not have. In a place-and-time event the first vote costs one extra round trip. An event cannot be scheduled further ahead than two hours from the app (presets). Not yet: inviting people (the private and "invited people" modes need it to be useful).
 
+### ADR-035: Invitations in the app, shared by events and playlists
+
+- Status: accepted
+- Date: 2026-10-20
+- Deciders: kaoutharrr, belmqadem to confirm in review
+- Context: private events and playlists, and "invited people" voting or editing, are only usable once the owner can invite people (ADR-005, ADR-013). The backend has the same invitation endpoints for both resources and a people search that returns only `{ id, displayName }`.
+- Options considered:
+  - **One invitations feature for both resources** (chosen): `features/invitations` takes the resource (`event` or `playlist`) and its id, route `invitations/[resource]/[id]`; or a copy inside each feature.
+  - **Finding people**: reuse the catalog search's runner, made generic (`api/latest-search.ts`: waits for a pause in typing, shows only the latest answer); or a second copy of it.
+- Decision:
+  - The owner sees "Invite people" on an event that is private or where only invited people vote (an invitation changes nothing elsewhere). The screen searches people from 3 characters (the backend's minimum, so the directory cannot be listed), shows each result's name and the start of its id (names are not unique; there is never an email), and lists who is invited, newest first, with Invite and Remove.
+  - Every action waits for the server; the list keeps one entry per person. `409 ALREADY_INVITED` (invited meanwhile from another device) reloads the list. A plain `404 NOT_FOUND` on an invitation means the person (the event itself answers `EVENT_NOT_FOUND`); `400` means inviting the owner, who never needs it.
+  - Invitations take effect at once on the server: an invited person can see a private event straight away, and a removed one gets `404` again and loses its live updates (`event:access-lost`).
+- Verified against the real backend in the web build: before an invitation the invitee got `404` for the private event, `200` after it, `404` again after the removal.
+- Alternatives: the options above.
+- Consequences: the Playlist Editor gets invitations by linking to `invitations/playlist/<id>`. Not done: inviting from the friends list (the contract's friends endpoints are not in the app yet).
+
 ## Still to decide (record each as an ADR)
 
 TODO:

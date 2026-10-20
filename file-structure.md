@@ -30,14 +30,14 @@ music-room/
 │   ├── .env.example             # EXPO_PUBLIC_API_URL (first-launch default)
 │   └── src/
 │       ├── app/                 # Expo Router routes, thin re-exports of the screens: (auth)/ and (app)/ groups, (app)/(tabs)/
-│       ├── api/                 # http-client (headers, JSON, errors), api-error; catalog search shared by both features (catalog-api, track-search, search-query)
+│       ├── api/                 # http-client (headers, JSON, errors), api-error; catalog and people search shared by the features (catalog-api, users-api, latest-search, search-query)
 │       ├── settings/            # runtime-configurable backend URL, SettingsScreen
 │       ├── auth/                # auth-controller (session, refresh), token storage, useAuth; screens/ (welcome, sign-up, verify, sign-in, reset); forms/ (validation, messages, handoff); social/ (Google, Facebook)
 │       ├── components/          # shared UI: Text, Button, Input, Card, Badge, Screen, ChoiceGroup, TrackRow, TrackPickRow (+ their pure *-styles.ts rules)
 │       ├── theme/               # GENERATED from the tokens (make theme): colors, radius, typography, fonts, theme.generated.css
 │       ├── sockets/             # the one live connection (/live): live-connection (tested logic) + live (the instance)
 │       ├── dev/                 # TEMP: component gallery (/gallery) + temp-flags.ts, remove before release
-│       └── features/            # profile/; track-vote/ (events list, event screen, queue-state, event-api); playlist-editor/ (placeholders)
+│       └── features/            # profile/; track-vote/ (events list, event screen, create, queue-state, event-api); invitations/ (shared by events and playlists); playlist-editor/ (placeholders)
 │   └── tests/                   # vitest tests of the app's logic (api client, auth, queue state, live connection); screens are not tested here
 │
 ├── shared/
