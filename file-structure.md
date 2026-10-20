@@ -30,10 +30,10 @@ music-room/
 │   ├── .env.example             # EXPO_PUBLIC_API_URL (first-launch default)
 │   └── src/
 │       ├── app/                 # Expo Router routes, thin re-exports of the screens: (auth)/ and (app)/ groups, (app)/(tabs)/
-│       ├── api/                 # http-client (headers, JSON, errors), api-error, `api` helper used by screens
+│       ├── api/                 # http-client (headers, JSON, errors), api-error; catalog search shared by both features (catalog-api, track-search, search-query)
 │       ├── settings/            # runtime-configurable backend URL, SettingsScreen
 │       ├── auth/                # auth-controller (session, refresh), token storage, useAuth; screens/ (welcome, sign-up, verify, sign-in, reset); forms/ (validation, messages, handoff); social/ (Google, Facebook)
-│       ├── components/          # shared UI: Text, Button, Input, Card, Badge, Screen, TrackRow (+ their pure *-styles.ts rules)
+│       ├── components/          # shared UI: Text, Button, Input, Card, Badge, Screen, TrackRow, TrackPickRow (+ their pure *-styles.ts rules)
 │       ├── theme/               # GENERATED from the tokens (make theme): colors, radius, typography, fonts, theme.generated.css
 │       ├── sockets/             # the one live connection (/live): live-connection (tested logic) + live (the instance)
 │       ├── dev/                 # TEMP: component gallery (/gallery) + temp-flags.ts, remove before release

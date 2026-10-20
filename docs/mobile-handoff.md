@@ -72,4 +72,5 @@ states, Playlists, Playlist rules, Real-time events. The changelog at the end li
 - Done: "Continue with Google / Facebook" on sign-in and sign-up (ADR-033), in a development build once the ids are in `mobile/.env`.
 - Open: the backend address is set in Settings, which is only reachable when signed in. A signed-out user (the first launch) needs a way to change it, for example a "Server address" link on the welcome or sign-in screen.
 - Done: Track Vote part 1 (ADR-034): the events list, and the event screen with the live queue, voting and withdrawing, and the owner's "Next track", over one shared live connection (`src/sockets`).
-- Next: suggesting tracks (search), voting in `location_time` events (needs `expo-location`), create-event; then the Playlist Editor screens.
+- Done: suggesting a track from the catalog search, in a sheet over the event screen (ADR-034).
+- Next: voting in `location_time` events (needs `expo-location`), create-event; then the Playlist Editor screens.
