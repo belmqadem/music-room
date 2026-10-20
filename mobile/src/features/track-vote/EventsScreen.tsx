@@ -1,11 +1,82 @@
-import { View } from "react-native";
-import { Text } from "@/components";
+import type { MusicEvent } from "@music-room/shared";
+import { router } from "expo-router";
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  RefreshControl,
+  View,
+} from "react-native";
+import { Badge, Card, Text } from "@/components";
+import { colors } from "@/theme";
+import { eventTags, voteLicenseLabel } from "./event-labels";
+import { useEvents } from "./use-events";
 
-// Events tab: browse public events and the ones you own or are invited to, and the entry point to create one.
+// Events tab: public events, mine, and private ones I am invited to (the server decides which).
 export default function EventsScreen() {
+  const { events, loading, refreshing, error, refresh, loadMore } = useEvents();
+
+  if (loading) {
+    return (
+      <View className="flex-1 items-center justify-center bg-canvas">
+        <ActivityIndicator color={colors.contentSecondary} />
+      </View>
+    );
+  }
+
   return (
-    <View className="flex-1 items-center justify-center bg-canvas">
-      <Text>events</Text>
-    </View>
+    <FlatList
+      className="flex-1 bg-canvas"
+      contentContainerClassName="gap-3 px-5 py-6"
+      data={events}
+      keyExtractor={(event) => event.id}
+      renderItem={({ item }) => <EventRow event={item} />}
+      onEndReached={() => void loadMore()}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={() => void refresh()}
+          tintColor={colors.contentSecondary}
+        />
+      }
+      ListHeaderComponent={
+        error ? (
+          <Text tone="error" accessibilityRole="alert">
+            {error}
+          </Text>
+        ) : null
+      }
+      ListEmptyComponent={
+        error ? null : (
+          <Text tone="secondary">No events yet. Pull down to check again.</Text>
+        )
+      }
+    />
+  );
+}
+
+function EventRow({ event }: { event: MusicEvent }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Open ${event.name}`}
+      onPress={() => router.push(`/event/${event.id}`)}
+    >
+      <Card className="gap-2">
+        <Text variant="h3" numberOfLines={1}>
+          {event.name}
+        </Text>
+        <Text variant="caption" tone="secondary">
+          {voteLicenseLabel(event.voteLicense)}
+        </Text>
+        {eventTags(event).length > 0 ? (
+          <View className="flex-row gap-2">
+            {eventTags(event).map((tag) => (
+              <Badge key={tag} label={tag} />
+            ))}
+          </View>
+        ) : null}
+      </Card>
+    </Pressable>
   );
 }

@@ -33,12 +33,12 @@ music-room/
 │       ├── api/                 # http-client (headers, JSON, errors), api-error, `api` helper used by screens
 │       ├── settings/            # runtime-configurable backend URL, SettingsScreen
 │       ├── auth/                # auth-controller (session, refresh), token storage, useAuth; screens/ (welcome, sign-up, verify, sign-in, reset); forms/ (validation, messages, handoff); social/ (Google, Facebook)
-│       ├── components/          # shared UI: Text, Button, Input, Card, Badge, Screen (+ their pure *-styles.ts rules)
+│       ├── components/          # shared UI: Text, Button, Input, Card, Badge, Screen, TrackRow (+ their pure *-styles.ts rules)
 │       ├── theme/               # GENERATED from the tokens (make theme): colors, radius, typography, fonts, theme.generated.css
-│       ├── sockets/             # stub
+│       ├── sockets/             # the one live connection (/live): live-connection (tested logic) + live (the instance)
 │       ├── dev/                 # TEMP: component gallery (/gallery) + temp-flags.ts, remove before release
-│       └── features/            # profile/, track-vote/ (events), playlist-editor/ (playlists); empty placeholders
-│   └── tests/                   # vitest tests of the app's logic (api client, auth); screens are not tested here
+│       └── features/            # profile/; track-vote/ (events list, event screen, queue-state, event-api); playlist-editor/ (placeholders)
+│   └── tests/                   # vitest tests of the app's logic (api client, auth, queue state, live connection); screens are not tested here
 │
 ├── shared/
 │   └── types/                   # TS types mirrored from the API contract

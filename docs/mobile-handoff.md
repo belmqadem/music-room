@@ -66,9 +66,10 @@ Events (Track Vote) and playlists (Playlist Editor) are **separate resources wit
 Authentication (register, verify, reset, login, OAuth, link), Friends, Profiles, Access rules, Events, Music catalog, Queue
 states, Playlists, Playlist rules, Real-time events. The changelog at the end lists every change with the date.
 
-## 5. Status of the app (updated 2026-10-19)
+## 5. Status of the app (updated 2026-10-20)
 
 - Done: routes and navigation (ADR-026), API client and session (ADR-028), theme from the design tokens (ADR-029), shared components (ADR-030), and the auth screens (ADR-031): welcome, sign-up, verify-email, sign-in, forgot-password, checked against the real backend.
 - Done: "Continue with Google / Facebook" on sign-in and sign-up (ADR-033), in a development build once the ids are in `mobile/.env`.
 - Open: the backend address is set in Settings, which is only reachable when signed in. A signed-out user (the first launch) needs a way to change it, for example a "Server address" link on the welcome or sign-in screen.
-- Next: events and playlists lists, create screens, the Track Vote and Playlist Editor screens with the live socket.
+- Done: Track Vote part 1 (ADR-034): the events list, and the event screen with the live queue, voting and withdrawing, and the owner's "Next track", over one shared live connection (`src/sockets`).
+- Next: suggesting tracks (search), voting in `location_time` events (needs `expo-location`), create-event; then the Playlist Editor screens.
