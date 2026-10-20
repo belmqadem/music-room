@@ -24,6 +24,12 @@ import {
   type InputState,
 } from "@/components/input-styles";
 import { TEXT_TONE_CLASS } from "@/components/text-styles";
+import {
+  TRACK_COVER_CLASS,
+  TRACK_ROW_CLASS,
+  TRACK_TEXT_CLASS,
+  voteLook,
+} from "@/components/track-row-styles";
 
 // A class that Tailwind does not know renders NOTHING in React Native, with no error: a typo in
 // "bg-ember" would just draw a transparent button. So every class the app uses is compiled with the
@@ -61,6 +67,12 @@ function classesFromStyles(): string[] {
     INPUT_FIELD_CLASS,
     INPUT_TEXT_CLASS,
     ...Object.values(TEXT_TONE_CLASS),
+    TRACK_ROW_CLASS,
+    TRACK_COVER_CLASS,
+    TRACK_TEXT_CLASS,
+    voteLook(true, false).container,
+    voteLook(false, false).container,
+    voteLook(false, true).container,
   ];
   for (const variant of ["primary", "secondary", "ghost"] as ButtonVariant[]) {
     for (const state of ["idle", "pressed", "disabled"] as ButtonState[]) {
