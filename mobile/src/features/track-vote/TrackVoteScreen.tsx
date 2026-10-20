@@ -8,6 +8,7 @@ import { colors } from "@/theme";
 import { eventApi } from "./event-api";
 import { voteLicenseLabel } from "./event-labels";
 import { trackVoteErrorMessage } from "./messages";
+import { SuggestTrackSheet } from "./SuggestTrackSheet";
 import { useEventQueue } from "./use-event-queue";
 
 // Track Vote (docs/api-contract.md, "Events"; ADR-034): the playing track, the ranked queue with my
@@ -18,6 +19,7 @@ export default function TrackVoteScreen() {
   const [event, setEvent] = useState<MusicEvent | null>(null);
   const [eventError, setEventError] = useState<string | null>(null);
   const queue = useEventQueue(id);
+  const [suggesting, setSuggesting] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -116,14 +118,28 @@ export default function TrackVoteScreen() {
               />
             ) : null}
 
+            {canAct ? (
+              // Secondary: the screen's one Ember button is the owner's "Next track".
+              <Button
+                title="Suggest a track"
+                variant="secondary"
+                fullWidth
+                onPress={() => setSuggesting(true)}
+              />
+            ) : (
+              <Text variant="caption" tone="secondary">
+                You can follow this event, but not vote in it.
+              </Text>
+            )}
+
             {queue.actionError ? (
               <Text tone="error" accessibilityRole="alert">
                 {queue.actionError}
               </Text>
             ) : null}
-            {!canAct ? (
-              <Text variant="caption" tone="secondary">
-                You can follow this event, but not vote in it.
+            {queue.notice ? (
+              <Text tone="secondary" accessibilityLiveRegion="polite">
+                {queue.notice}
               </Text>
             ) : null}
 
@@ -131,6 +147,11 @@ export default function TrackVoteScreen() {
           </View>
         }
         ListEmptyComponent={<Text tone="secondary">No tracks in the queue yet.</Text>}
+      />
+      <SuggestTrackSheet
+        visible={suggesting}
+        onClose={() => setSuggesting(false)}
+        onPick={(track) => queue.suggest(track.providerTrackId)}
       />
     </>
   );

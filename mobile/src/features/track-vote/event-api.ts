@@ -17,6 +17,11 @@ export const eventApi = {
   /** The queue as I see it (with my votes), already ordered by the server. */
   queue: (eventId: string) =>
     auth.request<EventQueueUpdate>("GET", path(eventId, "/tracks")),
+  /** Counts as my vote. 409 TRACK_ALREADY_QUEUED (with the queued track) if it is already queued. */
+  suggest: (eventId: string, providerTrackId: string) =>
+    auth.request<EventTrack>("POST", path(eventId, "/tracks"), {
+      body: { providerTrackId },
+    }),
   /** Idempotent: voting twice counts once. */
   vote: (eventId: string, trackId: string) =>
     auth.request<EventTrack>("PUT", trackVote(eventId, trackId)),

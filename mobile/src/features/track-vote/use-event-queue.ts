@@ -13,6 +13,7 @@ import {
   visibleTracks,
   type QueueState,
 } from "./queue-state";
+import { suggestOrVote } from "./suggest-track";
 
 /** The live connection's state, for a "Live" / "Reconnecting" indicator. */
 export function useLiveStatus(): LiveStatus {
@@ -29,6 +30,7 @@ export function useEventQueue(eventId: string) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [accessLost, setAccessLost] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [busyTrackId, setBusyTrackId] = useState<string | null>(null);
   const [advancing, setAdvancing] = useState(false);
   const status = useLiveStatus();
@@ -79,6 +81,7 @@ export function useEventQueue(eventId: string) {
   async function toggleVote(track: EventTrack): Promise<void> {
     setBusyTrackId(track.id);
     setActionError(null);
+    setNotice(null);
     try {
       const answer = track.votedByMe
         ? await eventApi.withdraw(eventId, track.id)
@@ -92,10 +95,34 @@ export function useEventQueue(eventId: string) {
     }
   }
 
+  /**
+   * Suggest a catalog track; it counts as my vote. If it is already queued (409 with that track),
+   * vote for it instead, as the contract suggests. The answer is applied like any vote of mine, so
+   * the track shows as voted. Returns an error message, or null when it worked.
+   */
+  async function suggest(providerTrackId: string): Promise<string | null> {
+    setActionError(null);
+    setNotice(null);
+    try {
+      const { track, alreadyQueued } = await suggestOrVote(
+        eventApi,
+        eventId,
+        providerTrackId,
+      );
+      setQueue((s) => applyMyVote(s, track));
+      if (alreadyQueued) setNotice(TRACK_VOTE_MESSAGES.alreadyQueued);
+    } catch (error) {
+      return trackVoteErrorMessage(error);
+    }
+    await refreshIfNotLive();
+    return null;
+  }
+
   /** Owner only. Sends the track this phone shows as playing, so a double tap cannot skip a song. */
   async function advance(): Promise<void> {
     setAdvancing(true);
     setActionError(null);
+    setNotice(null);
     try {
       const next = await eventApi.advance(eventId, playingTrack(queue)?.id ?? null);
       setQueue((s) => applyMyQueue(s, next));
@@ -116,9 +143,11 @@ export function useEventQueue(eventId: string) {
     loadError,
     accessLost,
     actionError,
+    notice,
     busyTrackId,
     advancing,
     toggleVote,
+    suggest,
     advance,
   };
 }

@@ -1,4 +1,4 @@
-import type { EventQueueUpdate } from "@music-room/shared";
+import type { EventQueueUpdate, EventTrack } from "@music-room/shared";
 import { isRequestError } from "@/api/api-error";
 import { MESSAGES } from "@/auth/forms/error-messages";
 
@@ -15,6 +15,9 @@ export const TRACK_VOTE_MESSAGES = {
   notVotable: "This track is already playing or has been played.",
   queueChanged: "The queue moved on another device first. Here is the current one.",
   ownerOnly: "Only the event's owner can do that.",
+  alreadyQueued: "That track is already in the queue: your vote was added to it.",
+  catalogMissing: "The catalog no longer has this track.",
+  catalogDown: "The music catalog can't be reached right now. Try again in a moment.",
   unknown: "Something went wrong. Try again.",
 } as const;
 
@@ -42,6 +45,10 @@ export function trackVoteErrorMessage(error: unknown): string {
       return TRACK_VOTE_MESSAGES.queueChanged;
     case "FORBIDDEN":
       return TRACK_VOTE_MESSAGES.ownerOnly;
+    case "TRACK_NOT_FOUND":
+      return TRACK_VOTE_MESSAGES.catalogMissing;
+    case "PROVIDER_UNAVAILABLE":
+      return TRACK_VOTE_MESSAGES.catalogDown;
     default:
       return error.status >= 500 ? MESSAGES.server : TRACK_VOTE_MESSAGES.unknown;
   }
@@ -53,5 +60,14 @@ export function currentQueueFrom(error: unknown): EventQueueUpdate | null {
   const details = error.details as Partial<EventQueueUpdate> | null;
   return details && typeof details.version === "number" && Array.isArray(details.tracks)
     ? (details as EventQueueUpdate)
+    : null;
+}
+
+/** A 409 TRACK_ALREADY_QUEUED carries the track already in the queue: the app can vote for it. */
+export function queuedTrackFrom(error: unknown): EventTrack | null {
+  if (!isRequestError(error) || error.code !== "TRACK_ALREADY_QUEUED") return null;
+  const details = error.details as Partial<EventTrack> | null;
+  return details && typeof details.id === "string" && typeof details.eventId === "string"
+    ? (details as EventTrack)
     : null;
 }
