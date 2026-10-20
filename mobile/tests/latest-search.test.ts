@@ -1,7 +1,7 @@
 import type { Track } from "@music-room/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { searchQueryFrom } from "@/api/search-query";
-import { createTrackSearch, type SearchState } from "@/api/track-search";
+import { peopleQueryFrom, searchQueryFrom } from "@/api/search-query";
+import { createLatestSearch, type SearchState } from "@/api/latest-search";
 
 const track = (title: string): Track => ({
   providerTrackId: title,
@@ -27,14 +27,23 @@ describe("the query sent to the catalog", () => {
   });
 });
 
+describe("the query sent to find people (GET /users)", () => {
+  it("needs 3 characters (so nobody can list everyone) and is cut at 50", () => {
+    expect(peopleQueryFrom("ad")).toBeNull();
+    expect(peopleQueryFrom("  ada  ")).toBe("ada");
+    expect(peopleQueryFrom("x".repeat(80))).toHaveLength(50);
+  });
+});
+
 describe("searching while typing", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
   function setup(search: (q: string) => Promise<Track[]>) {
-    const states: SearchState[] = [];
+    const states: SearchState<Track>[] = [];
     const searchFn = vi.fn(search);
-    const runner = createTrackSearch({
+    const runner = createLatestSearch<Track>({
+      queryFrom: searchQueryFrom,
       search: searchFn,
       onChange: (s) => states.push(s),
       delayMs: 400,
@@ -57,7 +66,7 @@ describe("searching while typing", () => {
     expect(states.at(-1)).toEqual({
       status: "done",
       query: "daft",
-      tracks: [track("daft")],
+      results: [track("daft")],
     });
   });
 
@@ -76,7 +85,7 @@ describe("searching while typing", () => {
     await vi.runAllTimersAsync();
 
     const done = states.filter((s) => s.status === "done");
-    expect(done).toEqual([{ status: "done", query: "fast", tracks: [track("fast")] }]);
+    expect(done).toEqual([{ status: "done", query: "fast", results: [track("fast")] }]);
   });
 
   it("goes back to idle, without searching, when the text gets too short", async () => {
@@ -120,7 +129,7 @@ describe("searching while typing", () => {
     expect(states.at(-1)).toEqual({
       status: "done",
       query: "daft",
-      tracks: [track("daft")],
+      results: [track("daft")],
     });
   });
 

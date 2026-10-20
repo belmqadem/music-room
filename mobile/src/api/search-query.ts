@@ -1,14 +1,14 @@
-// The search text rules, kept apart from the API call so they are tested without the app.
+// The search text rules, kept apart from the API calls so they are tested without the app.
 
-export const SEARCH_MIN_LENGTH = 2;
-export const SEARCH_MAX_LENGTH = 100;
-
-/**
- * The query to send, or null when there is nothing to search yet. Spaces are collapsed and the
- * ends trimmed; the backend refuses fewer than 2 or more than 100 characters (400).
- */
-export function searchQueryFrom(input: string): string | null {
+/** Spaces collapsed and ends trimmed; null below `min` characters, cut at `max` (the backend's). */
+function queryFrom(input: string, min: number, max: number): string | null {
   const query = input.trim().replace(/\s+/g, " ");
-  if (query.length < SEARCH_MIN_LENGTH) return null;
-  return query.slice(0, SEARCH_MAX_LENGTH);
+  if (query.length < min) return null;
+  return query.slice(0, max);
 }
+
+/** The music catalog: 2 to 100 characters (GET /tracks/search). */
+export const searchQueryFrom = (input: string) => queryFrom(input, 2, 100);
+
+/** People, by the start of their display name: 3 to 50 characters (GET /users). */
+export const peopleQueryFrom = (input: string) => queryFrom(input, 3, 50);

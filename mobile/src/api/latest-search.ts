@@ -1,25 +1,25 @@
-import type { Track } from "@music-room/shared";
-import { searchQueryFrom } from "./search-query";
+// Searching as the user types (the catalog, people to invite), without flooding the backend (both
+// searches are rate limited: 30 per minute per IP). A search starts only once typing has paused,
+// and only the answer to the latest query is shown: an older, slower answer arriving last must not
+// replace newer results.
 
-// Searching as the user types, without flooding the catalog (it is rate limited: 30 per minute per
-// IP). A search starts only once typing has paused, and only the answer to the latest query is
-// shown: an older, slower answer arriving last must not replace newer results.
-
-export type SearchState =
+export type SearchState<T> =
   | { status: "idle" }
   | { status: "searching"; query: string }
-  | { status: "done"; query: string; tracks: Track[] }
+  | { status: "done"; query: string; results: T[] }
   | { status: "failed"; query: string; error: unknown };
 
 export const SEARCH_DELAY_MS = 400;
 
-export interface TrackSearchDeps {
-  search(query: string): Promise<Track[]>;
-  onChange(state: SearchState): void;
+export interface LatestSearchDeps<T> {
+  /** The query to send for this text, or null when there is nothing to search yet. */
+  queryFrom(text: string): string | null;
+  search(query: string): Promise<T[]>;
+  onChange(state: SearchState<T>): void;
   delayMs?: number;
 }
 
-export function createTrackSearch(deps: TrackSearchDeps) {
+export function createLatestSearch<T>(deps: LatestSearchDeps<T>) {
   const delayMs = deps.delayMs ?? SEARCH_DELAY_MS;
   let timer: ReturnType<typeof setTimeout> | null = null;
   let latest = 0; // bumped by every new input, so answers to older queries are dropped
@@ -33,8 +33,8 @@ export function createTrackSearch(deps: TrackSearchDeps) {
   async function run(query: string, ticket: number): Promise<void> {
     deps.onChange({ status: "searching", query });
     try {
-      const tracks = await deps.search(query);
-      if (ticket === latest) deps.onChange({ status: "done", query, tracks });
+      const results = await deps.search(query);
+      if (ticket === latest) deps.onChange({ status: "done", query, results });
     } catch (error) {
       if (ticket === latest) deps.onChange({ status: "failed", query, error });
     }
@@ -43,7 +43,7 @@ export function createTrackSearch(deps: TrackSearchDeps) {
   return {
     /** Every change of the text field. */
     input(text: string): void {
-      const query = searchQueryFrom(text);
+      const query = deps.queryFrom(text);
       if (query === lastQuery) return; // only spaces changed: same search
       lastQuery = query;
       stopWaiting();
