@@ -90,7 +90,7 @@ function SheetContent({ onClose, onPick }: Omit<SuggestTrackSheetProps, "visible
           className="flex-1"
           contentContainerClassName="gap-3 pb-6"
           keyboardShouldPersistTaps="handled"
-          data={state.tracks}
+          data={state.results}
           keyExtractor={(track) => track.providerTrackId}
           renderItem={({ item }) => (
             <TrackPickRow
