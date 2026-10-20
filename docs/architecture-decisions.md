@@ -555,7 +555,8 @@ Each decision must be defensible in detail at the defense. Copy the template for
   - `myPermissions` only decides what is shown (the Vote control, "Next track"); the server checks every call. A user who may see but not vote gets a read-only queue; withdrawing my own vote is always offered, as the contract allows.
 - Verified against the real backend in the web build: the list; the queue with Deezer covers; another user's vote re-ordering the queue live with my marks kept; withdrawing; starting to play; a non-invited user seeing a read-only queue (and the API refusing that user's vote with `403 NOT_INVITED`).
 - Alternatives: the options above.
-- Consequences: a vote takes one round trip to show; in exchange the screen never shows a state the server did not have. Not yet: suggesting tracks (search), voting in `location_time` events (needs the phone's location), and creating events.
+- Suggesting (added 2026-10-20): the catalog search is a sheet over the event screen, not a screen of its own, because a suggestion counts as my vote and the event screen's queue must record that answer (a re-read could not: a same-version queue is ignored, see above). Search waits for a 400 ms pause in typing and shows only the latest query's answer (`api/track-search.ts`, tested with fake timers), since search is rate limited (30 per minute per IP). A `409 TRACK_ALREADY_QUEUED` carries the queued track: the app votes for it instead and says so (`suggest-track.ts`).
+- Consequences: a vote takes one round trip to show; in exchange the screen never shows a state the server did not have. Not yet: voting and suggesting in `location_time` events (needs the phone's location), and creating events.
 
 ## Still to decide (record each as an ADR)
 
