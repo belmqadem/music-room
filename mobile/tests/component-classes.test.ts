@@ -23,6 +23,7 @@ import {
   inputClasses,
   type InputState,
 } from "@/components/input-styles";
+import { CHOICE_GROUP_CLASS, choiceLook } from "@/components/choice-styles";
 import { TEXT_TONE_CLASS } from "@/components/text-styles";
 import {
   TRACK_COVER_CLASS,
@@ -67,6 +68,9 @@ function classesFromStyles(): string[] {
     INPUT_FIELD_CLASS,
     INPUT_TEXT_CLASS,
     ...Object.values(TEXT_TONE_CLASS),
+    CHOICE_GROUP_CLASS,
+    choiceLook(true).container,
+    choiceLook(false).container,
     TRACK_ROW_CLASS,
     TRACK_COVER_CLASS,
     TRACK_TEXT_CLASS,
