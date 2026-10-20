@@ -73,4 +73,5 @@ states, Playlists, Playlist rules, Real-time events. The changelog at the end li
 - Open: the backend address is set in Settings, which is only reachable when signed in. A signed-out user (the first launch) needs a way to change it, for example a "Server address" link on the welcome or sign-in screen.
 - Done: Track Vote part 1 (ADR-034): the events list, and the event screen with the live queue, voting and withdrawing, and the owner's "Next track", over one shared live connection (`src/sockets`).
 - Done: suggesting a track from the catalog search, in a sheet over the event screen (ADR-034).
-- Next: voting in `location_time` events (needs `expo-location`), create-event; then the Playlist Editor screens.
+- Done: voting and suggesting in place-and-time events: the position is asked only when the server needs it (ADR-034, `expo-location`; rebuild the development builds).
+- Next: create-event (with the three voting modes); then the Playlist Editor screens.
