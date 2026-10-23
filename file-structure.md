@@ -33,11 +33,12 @@ music-room/
 │       ├── api/                 # http-client (headers, JSON, errors), api-error; catalog and people search shared by the features (catalog-api, users-api, latest-search, search-query)
 │       ├── settings/            # runtime-configurable backend URL, SettingsScreen
 │       ├── auth/                # auth-controller (session, refresh), token storage, useAuth; screens/ (welcome, sign-up, verify, sign-in, reset); forms/ (validation, messages, handoff); social/ (Google, Facebook)
-│       ├── components/          # shared UI: Text, Button, Input, Card, Badge, Screen, ChoiceGroup, TrackRow, TrackPickRow (+ their pure *-styles.ts rules)
+│       ├── components/          # shared UI: Text, Button, Input, Card, Badge, Screen, ChoiceGroup, TrackRow, TrackPickRow, PlaylistRow (+ their pure *-styles.ts rules)
 │       ├── theme/               # GENERATED from the tokens (make theme): colors, radius, typography, fonts, theme.generated.css
-│       ├── sockets/             # the one live connection (/live): live-connection (tested logic) + live (the instance)
+│       ├── sockets/             # the one live connection (/live): live-connection (tested logic), live (the instance), LiveBadge
+│       ├── catalog/             # TrackSearchSheet, the catalog search sheet shared by Track Vote and the Playlist Editor
 │       ├── dev/                 # TEMP: component gallery (/gallery) + temp-flags.ts, remove before release
-│       └── features/            # profile/; track-vote/ (events list, event screen, create, queue-state, event-api); invitations/ (shared by events and playlists); playlist-editor/ (placeholders)
+│       └── features/            # profile/; track-vote/ (events list, event screen, create, queue-state, event-api); invitations/ (shared by events and playlists); playlist-editor/ (list, live editor, playlist-state)
 │   └── tests/                   # vitest tests of the app's logic (api client, auth, queue state, live connection); screens are not tested here
 │
 ├── shared/

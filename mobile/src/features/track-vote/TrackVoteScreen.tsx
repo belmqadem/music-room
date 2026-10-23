@@ -2,14 +2,15 @@ import type { MusicEvent } from "@music-room/shared";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, FlatList, View } from "react-native";
-import { Badge, Button, Card, Text, TrackRow } from "@/components";
-import type { LiveStatus } from "@/sockets/live-connection";
+import { Button, Card, Text, TrackRow } from "@/components";
+import { LiveBadge } from "@/sockets/LiveBadge";
 import { colors } from "@/theme";
 import { eventApi } from "./event-api";
 import { locationRuleText, voteLicenseLabel } from "./event-labels";
 import { trackVoteErrorMessage } from "./messages";
-import { SuggestTrackSheet } from "./SuggestTrackSheet";
+
 import { useEventQueue } from "./use-event-queue";
+import { TrackSearchSheet } from "@/catalog/TrackSearchSheet";
 
 // Track Vote (docs/api-contract.md, "Events"; ADR-034): the playing track, the ranked queue with my
 // votes, and for the owner the button to move to the next track. Everyone sees changes live.
@@ -92,7 +93,7 @@ export default function TrackVoteScreen() {
                 {voteLicenseLabel(event.voteLicense)}
                 {event.visibility === "private" ? " · Private" : ""}
               </Text>
-              <LiveBadge status={queue.status} />
+              <LiveBadge />
             </View>
             {event.voteLicense.type === "location_time" ? (
               <Text variant="caption" tone="secondary">
@@ -165,20 +166,16 @@ export default function TrackVoteScreen() {
         }
         ListEmptyComponent={<Text tone="secondary">No tracks in the queue yet.</Text>}
       />
-      <SuggestTrackSheet
+      <TrackSearchSheet
+        title="Suggest a track"
+        actionLabel="Add"
+        searchErrorMessage={trackVoteErrorMessage}
         visible={suggesting}
         onClose={() => setSuggesting(false)}
         onPick={(track) => queue.suggest(track.providerTrackId)}
       />
     </>
   );
-}
-
-/** Chartreuse is for live state only (DESIGN.md rule 4): shown only while updates really arrive. */
-function LiveBadge({ status }: { status: LiveStatus }) {
-  if (status === "live") return <Badge label="Live" tone="live" />;
-  if (status === "offline") return <Badge label="Not live" tone="error" />;
-  return <Badge label="Connecting" />;
 }
 
 function Centered({ title, children }: { title?: string; children: React.ReactNode }) {

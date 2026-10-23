@@ -30,3 +30,13 @@ export function voteLook(votedByMe: boolean, disabled: boolean): VoteLook {
         labelTone: "primary",
       };
 }
+
+// A square 48 px icon button (move up, move down, remove) in a row: outlined, dimmed when it cannot act.
+const ICON_BUTTON_BASE =
+  "size-12 items-center justify-center rounded-lg border border-line-subtle";
+
+export function iconButtonLook(disabled: boolean): VoteLook {
+  return disabled
+    ? { container: `${ICON_BUTTON_BASE} bg-transparent`, labelTone: "tertiary" }
+    : { container: `${ICON_BUTTON_BASE} bg-transparent`, labelTone: "primary" };
+}

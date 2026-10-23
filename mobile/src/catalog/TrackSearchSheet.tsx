@@ -5,32 +5,44 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTrackSearch } from "@/api/use-track-search";
 import { Button, Input, Text, TrackPickRow } from "@/components";
 import { colors } from "@/theme";
-import { trackVoteErrorMessage } from "./messages";
 
-export interface SuggestTrackSheetProps {
+export interface TrackSearchSheetProps {
   visible: boolean;
+  /** "Suggest a track", "Add a track", ... */
+  title: string;
+  /** The button on each result: "Add". */
+  actionLabel: string;
   onClose: () => void;
-  /** Suggest the picked track; an error message, or null when it worked (the sheet then closes). */
+  /** Use the picked track; an error message, or null when it worked (the sheet then closes). */
   onPick: (track: Track) => Promise<string | null>;
+  /** The words for a failed search (the feature's own messages). */
+  searchErrorMessage: (error: unknown) => string;
 }
 
-// Search the catalog and suggest a track. A sheet over the event screen rather than a screen of its
-// own: the suggestion counts as my vote, and the event screen's queue must record that answer.
-export function SuggestTrackSheet({ visible, onClose, onPick }: SuggestTrackSheetProps) {
+// Search the catalog and pick a track, in a sheet over the screen that uses it (Track Vote: suggest;
+// Playlist Editor: add). A sheet rather than a screen of its own, so the screen underneath records
+// the server's answer itself (for a suggestion, that it counts as my vote).
+export function TrackSearchSheet({ visible, ...content }: TrackSearchSheetProps) {
   return (
     <Modal
       visible={visible}
       animationType="slide"
       presentationStyle="pageSheet"
-      onRequestClose={onClose}
+      onRequestClose={content.onClose}
     >
       {/* Mounted only while open: each opening starts with an empty search. */}
-      {visible ? <SheetContent onClose={onClose} onPick={onPick} /> : null}
+      {visible ? <SheetContent {...content} /> : null}
     </Modal>
   );
 }
 
-function SheetContent({ onClose, onPick }: Omit<SuggestTrackSheetProps, "visible">) {
+function SheetContent({
+  title,
+  actionLabel,
+  onClose,
+  onPick,
+  searchErrorMessage,
+}: Omit<TrackSearchSheetProps, "visible">) {
   const insets = useSafeAreaInsets();
   const search = useTrackSearch();
   const [text, setText] = useState("");
@@ -53,7 +65,7 @@ function SheetContent({ onClose, onPick }: Omit<SuggestTrackSheetProps, "visible
       style={{ paddingBottom: insets.bottom }}
     >
       <View className="flex-row items-center justify-between">
-        <Text variant="h2">Suggest a track</Text>
+        <Text variant="h2">{title}</Text>
         <Button title="Close" variant="ghost" onPress={onClose} />
       </View>
       <Input
@@ -81,7 +93,7 @@ function SheetContent({ onClose, onPick }: Omit<SuggestTrackSheetProps, "visible
       ) : state.status === "failed" ? (
         <View className="gap-3">
           <Text tone="error" accessibilityRole="alert">
-            {trackVoteErrorMessage(state.error)}
+            {searchErrorMessage(state.error)}
           </Text>
           <Button title="Try again" variant="secondary" onPress={search.retry} />
         </View>
@@ -95,7 +107,7 @@ function SheetContent({ onClose, onPick }: Omit<SuggestTrackSheetProps, "visible
           renderItem={({ item }) => (
             <TrackPickRow
               track={item}
-              actionLabel="Add"
+              actionLabel={actionLabel}
               busy={pickingId === item.providerTrackId}
               disabled={pickingId !== null && pickingId !== item.providerTrackId}
               onPick={() => void pick(item)}
