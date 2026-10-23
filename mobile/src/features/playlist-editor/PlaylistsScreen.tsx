@@ -7,7 +7,7 @@ import {
   RefreshControl,
   View,
 } from "react-native";
-import { Badge, Card, Text } from "@/components";
+import { Badge, Button, Card, Text } from "@/components";
 import { colors } from "@/theme";
 import { editLicenseLabel, playlistTags } from "./messages";
 import { usePlaylists } from "./use-playlists";
@@ -40,11 +40,18 @@ export default function PlaylistsScreen() {
         />
       }
       ListHeaderComponent={
-        error ? (
-          <Text tone="error" accessibilityRole="alert">
-            {error}
-          </Text>
-        ) : null
+        <View className="gap-3 pb-1">
+          <Button
+            title="Create a playlist"
+            fullWidth
+            onPress={() => router.push("/create-playlist")}
+          />
+          {error ? (
+            <Text tone="error" accessibilityRole="alert">
+              {error}
+            </Text>
+          ) : null}
+        </View>
       }
       ListEmptyComponent={
         error ? null : (
