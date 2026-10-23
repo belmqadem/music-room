@@ -115,6 +115,10 @@ strict, so a request can only change the caller's own profile. A pending friend 
 All of this is exercised by tests that try the denied case (for example: a stranger reads a private event; a requester
 accepts their own request; a friend reads the private profile block).
 
+**In the app** (ADR-037): signed out, only the sign-in screens can be opened; signed in, only the app (Expo Router
+`Stack.Protected`, also for a URL typed or opened as a link). This is for the user, not a security boundary: every
+request is checked by the server, and an app screen opened without a session would get nothing but `401`.
+
 ## Input validation
 
 - Every body is parsed with a **strict** schema (zod): unknown fields are `400`, so a client cannot slip in `userId`,
@@ -144,6 +148,10 @@ accepts their own request; a friend reads the private profile block).
 - The Docker image runs as a non-root user and holds compiled code and production dependencies only; the load-test
   container uses `NODE_ENV=test`, with a fixed CPU and memory limit.
 - No third-party library is committed; dependencies are installed from the lock files.
+- **The app's server address** can be changed only while signed out (ADR-037): a session's refresh token belongs to one
+  server, and changing the address while signed in would send that token to another server at the next refresh. The
+  address must be `http(s)://`; "Check connection" only reads `/health`. Plain `http` is accepted for the local network
+  of the defense; a production build should require `https` (open item).
 
 ## Logging and privacy
 
