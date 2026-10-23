@@ -1,8 +1,7 @@
 import type { EventQueueUpdate, EventTrack, GeoPoint } from "@music-room/shared";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState } from "react";
 import { currentPosition } from "@/location/current-position";
 import { live } from "@/sockets/live";
-import type { LiveStatus } from "@/sockets/live-connection";
 import { eventApi } from "./event-api";
 import { sendWithLocationIfRequired } from "./location-required";
 import { currentQueueFrom, TRACK_VOTE_MESSAGES, trackVoteErrorMessage } from "./messages";
@@ -16,11 +15,6 @@ import {
   type QueueState,
 } from "./queue-state";
 import { suggestOrVote } from "./suggest-track";
-
-/** The live connection's state, for a "Live" / "Reconnecting" indicator. */
-export function useLiveStatus(): LiveStatus {
-  return useSyncExternalStore(live.onStatus, live.getStatus, live.getStatus);
-}
 
 /**
  * An event's queue on screen (ADR-034): read once over REST, then kept up to date by the live
@@ -37,7 +31,6 @@ export function useEventQueue(eventId: string) {
   const [advancing, setAdvancing] = useState(false);
   // Once the server asked for a position in this event, send it straight away with the next ones.
   const locationRequired = useRef(false);
-  const status = useLiveStatus();
 
   useEffect(() => {
     let active = true;
@@ -156,7 +149,6 @@ export function useEventQueue(eventId: string) {
     loaded: queue.version >= 0,
     tracks: visibleTracks(queue),
     playing: playingTrack(queue),
-    status,
     loadError,
     accessLost,
     actionError,
