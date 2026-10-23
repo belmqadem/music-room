@@ -26,6 +26,7 @@ import {
 import { CHOICE_GROUP_CLASS, choiceLook } from "@/components/choice-styles";
 import { TEXT_TONE_CLASS } from "@/components/text-styles";
 import {
+  iconButtonLook,
   TRACK_COVER_CLASS,
   TRACK_ROW_CLASS,
   TRACK_TEXT_CLASS,
@@ -77,6 +78,8 @@ function classesFromStyles(): string[] {
     voteLook(true, false).container,
     voteLook(false, false).container,
     voteLook(false, true).container,
+    iconButtonLook(true).container,
+    iconButtonLook(false).container,
   ];
   for (const variant of ["primary", "secondary", "ghost"] as ButtonVariant[]) {
     for (const state of ["idle", "pressed", "disabled"] as ButtonState[]) {

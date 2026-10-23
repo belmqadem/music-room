@@ -4,6 +4,7 @@ export { Button, type ButtonProps } from "./Button";
 export { Card, type CardProps } from "./Card";
 export { ChoiceGroup, type ChoiceGroupProps } from "./ChoiceGroup";
 export { Input, type InputProps } from "./Input";
+export { PlaylistRow, type PlaylistRowProps } from "./PlaylistRow";
 export { Screen, type ScreenProps } from "./Screen";
 export { Text, type AppTextProps } from "./Text";
 export { TrackPickRow, type TrackPickRowProps } from "./TrackPickRow";
