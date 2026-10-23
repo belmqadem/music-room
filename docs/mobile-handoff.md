@@ -76,4 +76,5 @@ states, Playlists, Playlist rules, Real-time events. The changelog at the end li
 - Done: voting and suggesting in place-and-time events: the position is asked only when the server needs it (ADR-034, `expo-location`; rebuild the development builds).
 - Done: creating an event with its visibility and its three voting modes (ADR-034). Track Vote now has every screen except invitations.
 - Done: invitations, shared by events and playlists (ADR-035): the owner finds people by name and invites or removes them.
-- Next: the Playlist Editor screens (list, create, live editor), reusing invitations; then `TEMP_ALLOW_ALL_ROUTES` off and a server address before sign-in.
+- Done: the Playlist Editor: the playlists list and the live editor (add, move, remove; invitations for the owner) (ADR-036).
+- Next: creating a playlist; then `TEMP_ALLOW_ALL_ROUTES` off and a server address before sign-in.

@@ -577,6 +577,26 @@ Each decision must be defensible in detail at the defense. Copy the template for
 - Alternatives: the options above.
 - Consequences: the Playlist Editor gets invitations by linking to `invitations/playlist/<id>`. Not done: inviting from the friends list (the contract's friends endpoints are not in the app yet).
 
+### ADR-036: Playlist Editor in the app: the server's list only, edits by intent, kept live
+
+- Status: accepted
+- Date: 2026-10-23
+- Deciders: kaoutharrr, belmqadem to confirm in review
+- Context: several people edit the same playlist at once. The backend applies edits one at a time per playlist, expressed by intent ("after this entry"), and answers every edit, like every live update, with the whole ordered list and its `version` (ADR-009, ADR-020).
+- Options considered:
+  - **What the app shows**: move the row on tap and roll back on error; or **the server's list only** (chosen, as for Track Vote, ADR-034).
+  - **Reordering**: drag and drop (needs a gesture library and gives an index); or **one place up or down** per tap (chosen), turned into an anchor.
+  - **A gap in versions** (the contract says to refetch): every message is a full list, so a newer one already contains everything; the app applies it and does not refetch.
+- Decision:
+  - `playlist-state.ts`, pure and tested: a list from any source (REST, subscribe acknowledgement, `playlist:updated`, an edit's answer) replaces the one held only if its `version` is higher; the app never computes positions.
+  - "Move up" is sent as "after the entry two above" (or `null`, the start), "move down" as "after the entry below"; a test applies the server's rule to prove each gives the expected order. The buttons are dimmed where a move is impossible.
+  - Adding appends at the end, from the same catalog search sheet as Track Vote (now shared, `catalog/TrackSearchSheet.tsx`). Anyone allowed to edit can move and remove any entry.
+  - `409 ANCHOR_NOT_FOUND` (the anchor was removed meanwhile) or `TRACK_NOT_FOUND` on a move (the entry is gone): the app says so and reads the list again. On an add, `TRACK_NOT_FOUND` means the catalog does not know the track.
+  - The owner gets "Invite people" when the playlist is private or only invited people edit (ADR-035).
+- Verified against the real backend in the web build: the list with its live badge; adding from the search; moving up; another user's move and removal arriving live; removing. Not reproduced by hand: the `409` conflict path (it needs two edits within the same instant); its message and reload decision are unit-tested.
+- Alternatives: the options above.
+- Consequences: one tap moves one place, so a long move takes several taps; drag and drop can come later. Not yet: creating a playlist from the app.
+
 ## Still to decide (record each as an ADR)
 
 TODO:
