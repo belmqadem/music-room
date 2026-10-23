@@ -47,6 +47,12 @@ export default function ProfileScreen() {
             </Text>
           ) : null}
           <Button
+            title="Settings"
+            variant="ghost"
+            fullWidth
+            onPress={() => router.push("/settings")}
+          />
+          <Button
             title="Sign out"
             variant="secondary"
             fullWidth
