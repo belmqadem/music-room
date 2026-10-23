@@ -4,7 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
 import { auth, useAuth } from "@/auth";
-import { TEMP_ALLOW_ALL_ROUTES } from "@/dev/temp-flags";
+
 import { navigationTheme, useAppFonts } from "@/theme";
 
 // Keep the splash screen up until the fonts are loaded and the stored session is checked.
@@ -29,17 +29,18 @@ export default function RootLayout() {
   // Until then show nothing, rather than flashing the wrong group or the wrong font.
   if (!ready) return null;
 
-  const showAuth = status !== "signedIn" || TEMP_ALLOW_ALL_ROUTES;
-  const showApp = status === "signedIn" || TEMP_ALLOW_ALL_ROUTES;
+  // Signed out: only the sign-in screens. Signed in: only the app. A screen of the other group
+  // cannot be opened, even by its URL; the server checks every request again anyway.
+  const signedIn = status === "signedIn";
   return (
     <ThemeProvider value={navigationTheme}>
       {/* Dark app: light status bar icons. */}
       <StatusBar style="light" />
       <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Protected guard={showAuth}>
+        <Stack.Protected guard={!signedIn}>
           <Stack.Screen name="(auth)" />
         </Stack.Protected>
-        <Stack.Protected guard={showApp}>
+        <Stack.Protected guard={signedIn}>
           <Stack.Screen name="(app)" />
         </Stack.Protected>
       </Stack>
