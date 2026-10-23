@@ -595,7 +595,8 @@ Each decision must be defensible in detail at the defense. Copy the template for
   - The owner gets "Invite people" when the playlist is private or only invited people edit (ADR-035).
 - Verified against the real backend in the web build: the list with its live badge; adding from the search; moving up; another user's move and removal arriving live; removing. Not reproduced by hand: the `409` conflict path (it needs two edits within the same instant); its message and reload decision are unit-tested.
 - Alternatives: the options above.
-- Consequences: one tap moves one place, so a long move takes several taps; drag and drop can come later. Not yet: creating a playlist from the app.
+- Creating a playlist (added 2026-10-23): name, who can see it (public, private) and who may edit (everyone, invited people), with the same checks as the backend's `createPlaylistSchema` (a test runs every request through it); the new playlist opens straight away, and the Playlists tab reloads on return.
+- Consequences: one tap moves one place, so a long move takes several taps; drag and drop can come later.
 
 ## Still to decide (record each as an ADR)
 

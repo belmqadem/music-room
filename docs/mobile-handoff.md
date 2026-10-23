@@ -77,4 +77,5 @@ states, Playlists, Playlist rules, Real-time events. The changelog at the end li
 - Done: creating an event with its visibility and its three voting modes (ADR-034). Track Vote now has every screen except invitations.
 - Done: invitations, shared by events and playlists (ADR-035): the owner finds people by name and invites or removes them.
 - Done: the Playlist Editor: the playlists list and the live editor (add, move, remove; invitations for the owner) (ADR-036).
-- Next: creating a playlist; then `TEMP_ALLOW_ALL_ROUTES` off and a server address before sign-in.
+- Done: creating a playlist with its visibility and who may edit (ADR-036). Every screen of the mandatory part is now in the app.
+- Next: `TEMP_ALLOW_ALL_ROUTES` off and a server address before sign-in; then every flow on the iOS and Android builds.

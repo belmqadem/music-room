@@ -1,4 +1,9 @@
-import type { Page, Playlist, PlaylistSnapshot } from "@music-room/shared";
+import type {
+  CreatePlaylistRequest,
+  Page,
+  Playlist,
+  PlaylistSnapshot,
+} from "@music-room/shared";
 import { auth } from "@/auth";
 
 // The Playlist Editor endpoints (docs/api-contract.md, "Playlists"). Every edit answers with the
@@ -13,6 +18,9 @@ export const playlistApi = {
   /** Public playlists, mine, and private ones I am invited to, newest first. */
   list: (cursor?: string) =>
     auth.request<Page<Playlist>>("GET", "/playlists", { query: { limit: 20, cursor } }),
+  /** The caller becomes the owner. */
+  create: (request: CreatePlaylistRequest) =>
+    auth.request<Playlist>("POST", "/playlists", { body: request }),
   get: (playlistId: string) => auth.request<Playlist>("GET", path(playlistId)),
   tracks: (playlistId: string) =>
     auth.request<PlaylistSnapshot>("GET", path(playlistId, "/tracks")),
