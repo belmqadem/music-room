@@ -1,13 +1,15 @@
+import { SymbolView, type SymbolViewProps } from "expo-symbols";
 import { Tabs } from "expo-router";
+import type { ColorValue } from "react-native";
 import { colors, typography } from "@/theme";
 
-// Plain text labels for now: the design will define the icons. The bar is a surface tier with a
-// hairline on top, the active tab reads as primary text and the others as inactive.
+// The bar is a surface tier with a hairline on top. The active tab (icon and label) reads as
+// primary text and the others as tertiary, the token for inactive icons. Icons are SF Symbols on
+// iOS and Material Symbols on Android and web (expo-symbols); the bar gives their size and color.
 export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarIcon: () => null,
         tabBarStyle: {
           backgroundColor: colors.surfaceLow,
           borderTopColor: colors.lineSubtle,
@@ -17,9 +19,41 @@ export default function TabsLayout() {
         tabBarLabelStyle: typography.caption,
       }}
     >
-      <Tabs.Screen name="events" options={{ title: "Events" }} />
-      <Tabs.Screen name="playlists" options={{ title: "Playlists" }} />
-      <Tabs.Screen name="profile" options={{ title: "Profile" }} />
+      <Tabs.Screen
+        name="events"
+        options={{
+          title: "Events",
+          tabBarIcon: tabIcon({ ios: "calendar", android: "event", web: "event" }),
+        }}
+      />
+      <Tabs.Screen
+        name="playlists"
+        options={{
+          title: "Playlists",
+          tabBarIcon: tabIcon({
+            ios: "music.note.list",
+            android: "queue_music",
+            web: "queue_music",
+          }),
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: "Profile",
+          tabBarIcon: tabIcon({
+            ios: "person.crop.circle",
+            android: "account_circle",
+            web: "account_circle",
+          }),
+        }}
+      />
     </Tabs>
   );
+}
+
+function tabIcon(name: SymbolViewProps["name"]) {
+  return function TabIcon({ color, size }: { color: ColorValue; size: number }) {
+    return <SymbolView name={name} tintColor={color} size={size} />;
+  };
 }
