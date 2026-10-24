@@ -598,6 +598,24 @@ Each decision must be defensible in detail at the defense. Copy the template for
 - Creating a playlist (added 2026-10-23): name, who can see it (public, private) and who may edit (everyone, invited people), with the same checks as the backend's `createPlaylistSchema` (a test runs every request through it); the new playlist opens straight away, and the Playlists tab reloads on return.
 - Consequences: one tap moves one place, so a long move takes several taps; drag and drop can come later.
 
+### ADR-037: Screens guarded by the sign-in state; the server address is set while signed out
+
+- Status: accepted
+- Date: 2026-10-23
+- Deciders: kaoutharrr, belmqadem to confirm in review
+- Context: while the screens were being built, a temporary flag let every screen open whatever the sign-in state. The subject requires the backend address to be configurable in the app, and the defense runs the backend on another machine of the local network, so the address must be set before the first sign-in.
+- Options considered:
+  - **Changing the address**: anytime; or **only while signed out** (chosen).
+  - **The component gallery** (`/gallery`, a design tool): delete it; or **keep it in development builds only** (chosen).
+- Decision:
+  - The flag is gone. Signed out: only the sign-in screens; signed in: only the app (`Stack.Protected` in the root layout), also for a URL typed or opened as a link. The server checks every request anyway.
+  - "Server address" on the welcome screen: type `http(s)://address:port`, "Check connection" (reads `/health` and tells "a Music Room server", "something else answers" or "no answer", in 5 s at most), Save, or "Use the default" (the build's `EXPO_PUBLIC_API_URL`). The rules are pure and tested (`settings/server-address.ts`).
+  - Signed in, Settings (from Profile) shows the address read-only with "Sign out to change it": a session's refresh token belongs to one server, and changing the address while signed in would send it to another server at the next refresh.
+  - `/gallery` redirects to the welcome screen in a release build.
+- Verified in the web build against the backend: a sign-in URL while signed in opens the app, an app URL while signed out opens the welcome screen; the address refused without `http://`, "no answer" on a free port, "not a Music Room server" on another service, saved and kept across a reload, reset to the default. Not yet: the gallery redirect in a release build.
+- Alternatives: the options above.
+- Consequences: to switch servers, sign out first. Plain `http` is accepted (the defense network); a production build should require `https`.
+
 ## Still to decide (record each as an ADR)
 
 TODO:

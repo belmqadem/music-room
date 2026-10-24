@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { normalizeBackendUrl } from "./server-address";
 
 // The backend address must be changeable at RUNTIME (the subject requires it
 // for tests), so it is stored on-device and read on every request instead of
@@ -7,19 +8,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 const STORAGE_KEY = "settings.backendUrl";
 const DEFAULT_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3000";
 
-/** Returns a normalized http(s) URL without trailing slash, or throws. */
-export function normalizeBackendUrl(input: string): string {
-  let url: URL;
-  try {
-    url = new URL(input.trim());
-  } catch {
-    throw new Error(`Invalid backend URL: "${input}"`);
-  }
-  if (url.protocol !== "http:" && url.protocol !== "https:") {
-    throw new Error(`Backend URL must start with http:// or https:// (got "${input}")`);
-  }
-  return url.toString().replace(/\/+$/, "");
-}
+/** The address this build starts with (EXPO_PUBLIC_API_URL), for "Reset to default". */
+export const defaultBackendUrl = (): string => normalizeBackendUrl(DEFAULT_URL);
 
 export async function getBackendUrl(): Promise<string> {
   try {

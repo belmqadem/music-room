@@ -25,6 +25,12 @@ export default function WelcomeScreen() {
           fullWidth
           onPress={() => router.push("/sign-in")}
         />
+        <Button
+          title="Server address"
+          variant="ghost"
+          fullWidth
+          onPress={() => router.push("/server-address")}
+        />
       </View>
     </Screen>
   );

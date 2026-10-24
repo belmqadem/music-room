@@ -1,11 +1,13 @@
-import { View } from "react-native";
-import { Text } from "@/components";
+import { Stack } from "expo-router";
+import { Screen } from "@/components";
+import { ServerAddressForm } from "./ServerAddressForm";
 
-// Settings, including the configurable backend URL.
+// Settings while signed in: the server address, read-only (sign out to change it).
 export default function SettingsScreen() {
   return (
-    <View className="flex-1 items-center justify-center bg-canvas">
-      <Text>settings</Text>
-    </View>
+    <Screen scroll>
+      <Stack.Screen options={{ title: "Settings" }} />
+      <ServerAddressForm editable={false} />
+    </Screen>
   );
 }
