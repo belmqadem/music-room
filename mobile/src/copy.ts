@@ -11,6 +11,7 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
 export const copy = {
   common: {
     tryAgain: "Try again",
+    back: "Back",
     close: "Close",
     showMore: "Show more",
     invitePeople: "Invite people",
