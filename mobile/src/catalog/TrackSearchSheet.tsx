@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTrackSearch } from "@/api/use-track-search";
 import { Button, Input, Text, TrackPickRow } from "@/components";
 import { colors } from "@/theme";
+import { copy } from "@/copy";
 
 export interface TrackSearchSheetProps {
   visible: boolean;
@@ -66,11 +67,11 @@ function SheetContent({
     >
       <View className="flex-row items-center justify-between">
         <Text variant="h2">{title}</Text>
-        <Button title="Close" variant="ghost" onPress={onClose} />
+        <Button title={copy.common.close} variant="ghost" onPress={onClose} />
       </View>
       <Input
-        label="Search the catalog"
-        placeholder="Artist or title"
+        label={copy.search.label}
+        placeholder={copy.search.placeholder}
         value={text}
         onChangeText={(value) => {
           setText(value);
@@ -87,7 +88,7 @@ function SheetContent({
       ) : null}
 
       {state.status === "idle" ? (
-        <Text tone="secondary">Type at least 2 characters.</Text>
+        <Text tone="secondary">{copy.search.tooShort}</Text>
       ) : state.status === "searching" ? (
         <ActivityIndicator color={colors.contentSecondary} />
       ) : state.status === "failed" ? (
@@ -95,7 +96,11 @@ function SheetContent({
           <Text tone="error" accessibilityRole="alert">
             {searchErrorMessage(state.error)}
           </Text>
-          <Button title="Try again" variant="secondary" onPress={search.retry} />
+          <Button
+            title={copy.common.tryAgain}
+            variant="secondary"
+            onPress={search.retry}
+          />
         </View>
       ) : (
         <FlatList
@@ -114,7 +119,7 @@ function SheetContent({
             />
           )}
           ListEmptyComponent={
-            <Text tone="secondary">No tracks found for “{state.query}”.</Text>
+            <Text tone="secondary">{copy.search.noResults(state.query)}</Text>
           }
         />
       )}

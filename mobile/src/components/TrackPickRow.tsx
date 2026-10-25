@@ -3,6 +3,7 @@ import { Image, View } from "react-native";
 import { Button } from "./Button";
 import { Text } from "./Text";
 import { TRACK_COVER_CLASS, TRACK_ROW_CLASS, TRACK_TEXT_CLASS } from "./track-row-styles";
+import { copy } from "@/copy";
 
 export interface TrackPickRowProps {
   track: Track;
@@ -48,7 +49,7 @@ export function TrackPickRow({
         loading={busy}
         disabled={disabled}
         onPress={onPick}
-        accessibilityLabel={`${actionLabel} ${track.title}`}
+        accessibilityLabel={copy.tracks.action(actionLabel, track.title)}
       />
     </View>
   );

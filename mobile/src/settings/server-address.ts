@@ -1,5 +1,7 @@
 // The backend address rules, kept apart from the storage (backend-url.ts) so they are tested in Node.
 
+import { copy } from "@/copy";
+
 /** Returns a normalized http(s) URL without trailing slash, or throws. */
 export function normalizeBackendUrl(input: string): string {
   let url: URL;
@@ -67,13 +69,10 @@ export async function changeServerAddress(
 }
 
 export const SERVER_MESSAGES = {
-  invalid:
-    "Enter an address that starts with http:// or https://, like http://192.168.1.20:3000.",
-  reachable: "Connected: this is a Music Room server.",
-  not_music_room:
-    "Something answered at this address, but it is not a Music Room server.",
-  unreachable:
-    "No answer from this address. Check it, and that this phone is on the same network.",
-  saved: "Saved. The app now uses this server.",
-  notSaved: "Could not change the address on this phone. Try again.",
-} as const;
+  invalid: copy.settings.invalid,
+  reachable: copy.settings.reachable,
+  not_music_room: copy.settings.notMusicRoom,
+  unreachable: copy.settings.unreachable,
+  saved: copy.settings.saved,
+  notSaved: copy.settings.notSaved,
+};
