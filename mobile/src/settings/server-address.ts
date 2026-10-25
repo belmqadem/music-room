@@ -44,6 +44,28 @@ export async function checkServer(
   }
 }
 
+export interface ServerAddressChange {
+  /** The address in use now, normalized. */
+  current: () => Promise<string>;
+  /** Deletes a stored session (auth.forgetStoredSession). */
+  forgetStoredSession: () => Promise<void>;
+  /** Stores the new address (or removes the stored one, for the default). */
+  store: () => Promise<void>;
+}
+
+/**
+ * Switches to another server address (ADR-037). A stored session belongs to the old server, so a
+ * different address first forgets it; if that fails, the address is NOT changed and the error is
+ * raised. Saving the address already in use keeps the session.
+ */
+export async function changeServerAddress(
+  next: string,
+  change: ServerAddressChange,
+): Promise<void> {
+  if (next !== (await change.current())) await change.forgetStoredSession();
+  await change.store();
+}
+
 export const SERVER_MESSAGES = {
   invalid:
     "Enter an address that starts with http:// or https://, like http://192.168.1.20:3000.",
@@ -53,4 +75,5 @@ export const SERVER_MESSAGES = {
   unreachable:
     "No answer from this address. Check it, and that this phone is on the same network.",
   saved: "Saved. The app now uses this server.",
+  notSaved: "Could not change the address on this phone. Try again.",
 } as const;

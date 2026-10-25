@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { checkServer, normalizeBackendUrl } from "@/settings/server-address";
+import {
+  changeServerAddress,
+  checkServer,
+  normalizeBackendUrl,
+} from "@/settings/server-address";
 
 describe("the server address", () => {
   it.each([
@@ -87,5 +91,47 @@ describe("checking the server before using it", () => {
 
       expect(await result).toBe("unreachable");
     });
+  });
+});
+
+describe("changing the server address (the old server's session never goes to the new one)", () => {
+  function change(current: string, opts: { forgetFails?: boolean } = {}) {
+    const events: string[] = [];
+    const deps = {
+      current: async () => current,
+      forgetStoredSession: async () => {
+        events.push("forget session");
+        if (opts.forgetFails) throw new Error("storage clear failed");
+      },
+      store: async () => {
+        events.push("store address");
+      },
+    };
+    return { events, deps };
+  }
+
+  it("a different address: the stored session is forgotten BEFORE the address is stored", async () => {
+    const { events, deps } = change("http://10.0.2.2:3000");
+
+    await changeServerAddress("http://192.168.1.20:3000", deps);
+
+    expect(events).toEqual(["forget session", "store address"]);
+  });
+
+  it("when the session cannot be forgotten: the address is NOT changed, and the error is raised", async () => {
+    const { events, deps } = change("http://10.0.2.2:3000", { forgetFails: true });
+
+    await expect(changeServerAddress("http://192.168.1.20:3000", deps)).rejects.toThrow(
+      "storage clear failed",
+    );
+    expect(events).toEqual(["forget session"]);
+  });
+
+  it("the address already in use: the session is kept", async () => {
+    const { events, deps } = change("http://10.0.2.2:3000");
+
+    await changeServerAddress("http://10.0.2.2:3000", deps);
+
+    expect(events).toEqual(["store address"]);
   });
 });
