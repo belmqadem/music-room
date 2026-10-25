@@ -17,45 +17,49 @@ import { copy } from "@/copy";
 export default function EventsScreen() {
   const { events, loading, refreshing, error, refresh, loadMore } = useEvents();
 
-  if (loading) {
-    return (
-      <View className="flex-1 items-center justify-center bg-canvas">
-        <ActivityIndicator color={colors.contentSecondary} />
-      </View>
-    );
-  }
-
   return (
-    <FlatList
-      className="flex-1 bg-canvas"
-      contentContainerClassName="gap-3 px-5 py-6"
-      data={events}
-      keyExtractor={(event) => event.id}
-      renderItem={({ item }) => <EventRow event={item} />}
-      onEndReached={() => void loadMore()}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={() => void refresh()}
-          tintColor={colors.contentSecondary}
-        />
-      }
-      ListHeaderComponent={
-        <View className="gap-3 pb-1">
-          <Button
-            title={copy.rooms.create}
-            fullWidth
-            onPress={() => router.push("/create-event")}
-          />
-          {error ? (
-            <Text tone="error" accessibilityRole="alert">
-              {error}
-            </Text>
-          ) : null}
+    <View className="flex-1 bg-canvas">
+      {loading ? (
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator color={colors.contentSecondary} />
         </View>
-      }
-      ListEmptyComponent={error ? null : <Text tone="secondary">{copy.rooms.empty}</Text>}
-    />
+      ) : (
+        <FlatList
+          className="flex-1"
+          contentContainerClassName="gap-3 px-5 py-6"
+          data={events}
+          keyExtractor={(event) => event.id}
+          renderItem={({ item }) => <EventRow event={item} />}
+          onEndReached={() => void loadMore()}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => void refresh()}
+              tintColor={colors.contentSecondary}
+            />
+          }
+          ListHeaderComponent={
+            error ? (
+              <Text tone="error" accessibilityRole="alert">
+                {error}
+              </Text>
+            ) : null
+          }
+          ListEmptyComponent={
+            error ? null : <Text tone="secondary">{copy.rooms.empty}</Text>
+          }
+        />
+      )}
+      {/* At the bottom, within thumb reach, above the tab bar (which keeps clear of the home
+          indicator); the list scrolls above it. Shown while loading too. */}
+      <View className="px-5 pb-4 pt-2">
+        <Button
+          title={copy.rooms.create}
+          fullWidth
+          onPress={() => router.push("/create-event")}
+        />
+      </View>
+    </View>
   );
 }
 
