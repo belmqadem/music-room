@@ -651,6 +651,21 @@ Each decision must be defensible in detail at the defense. Copy the template for
   - A test runs the requests the form builds, and the values it refuses, through the backend's own `updateProfileSchema`.
 - Consequences: the display name is not editable (the contract has no endpoint for it). A `400` after the form's own checks means the two disagree; the app says a field was refused rather than guessing which.
 
+### ADR-040: The app draws its own headers; the profile reads as a profile, not a form
+
+- Status: accepted
+- Date: 2026-10-25
+- Deciders: kaoutharrr, belmqadem to confirm in review
+- Context: the native stack and tab headers looked dated and differed between iOS (centered title) and Android (left title, arrow), and the profile tab was a column of form-like blocks.
+- Options considered:
+  - **Headers**: style the native headers (still two looks, few levers); hide them and put a title in every screen (every screen changes); or **the navigators' `header` option with one component of ours** (chosen: one place, every screen keeps setting its title as before).
+  - **Icon sizes**: no token exists. Add size tokens (the theme generator only merges colors today); or **size an icon by the line height of the text next to it** (chosen: the icon lines up with its text and follows the type scale; nothing is hardcoded).
+- Decision:
+  - Tab screens (Rooms, Playlists, Profile): no title at all, the tab bar already says where you are; the header is only room for the status bar (`StatusBarSpace`). A large title in the display font was tried first and dropped by the team. Pushed screens: `StackHeader`, a round back button (a surface tier with a hairline) and the title centered on one line, so a room or playlist still shows its name and iOS has a visible way back. No bar line (depth from surfaces, DESIGN.md rule 2). The same on iOS and Android.
+  - The profile tab: initials in a round avatar, the name in the display font and the email, then Edit profile (the screen's one Ember button). Each block under a heading with its icon (globe, people, note, lock) and who sees it; short values on the right of their label, the bio under it, genres as lowercase pills. Settings and Sign out as rows (Sign out in the error color, no chevron: it does not open a screen).
+  - `Icon` wraps `expo-symbols` with one list of names (SF Symbols on iOS, Material Symbols on Android and web); icons are decorative, the text next to them carries the meaning.
+- Consequences: a new screen gets its header by being in one of the stacks. Tab screens start right under the status bar with their main action (Create room, Create playlist, the profile's avatar).
+
 ## Still to decide (record each as an ADR)
 
 TODO:

@@ -1,17 +1,19 @@
 import type { Profile } from "@music-room/shared";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, Pressable, View } from "react-native";
 import { auth, useAuth } from "@/auth";
-import { Button, Screen, Text } from "@/components";
+import { Button, Card, Icon, type IconName, Screen, Text } from "@/components";
 import { copy } from "@/copy";
 import { colors } from "@/theme";
+import { initialsOf } from "./initials";
 import { profileErrorMessage } from "./messages";
 import { ProfileBlocks } from "./ProfileBlocks";
 import { profileApi } from "./profile-api";
 
-// Your profile (docs/api-contract.md, "Profiles"; ADR-024): the four blocks as the server has them,
-// read again each time the tab shows (so an edit appears on return), then Edit, Settings, Sign out.
+// Your profile (docs/api-contract.md, "Profiles"; ADR-024, ADR-039): who you are at the top (initials,
+// name, email, Edit profile), then the four blocks as the server has them, then the account rows.
+// Read again each time the tab shows, so an edit appears on return.
 export default function ProfileScreen() {
   const state = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -52,18 +54,33 @@ export default function ProfileScreen() {
   }
 
   const user = state.status === "signedIn" ? state.user : null;
+  if (!user) {
+    return (
+      <Screen>
+        <Text tone="secondary">{copy.profile.notSignedIn}</Text>
+      </Screen>
+    );
+  }
+
   return (
     <Screen scroll>
-      <View className="gap-6">
-        <View className="gap-1">
-          {user ? (
-            <>
-              <Text variant="h2">{user.displayName}</Text>
-              {user.email ? <Text tone="secondary">{user.email}</Text> : null}
-            </>
-          ) : (
-            <Text tone="secondary">{copy.profile.notSignedIn}</Text>
-          )}
+      <View className="gap-8">
+        <View className="items-center gap-4">
+          <View className="h-24 w-24 items-center justify-center rounded-full border border-line-subtle bg-surface-elevated">
+            <Text variant="hero">{initialsOf(user.displayName)}</Text>
+          </View>
+          <View className="items-center gap-1">
+            <Text variant="h1" className="text-center">
+              {user.displayName}
+            </Text>
+            {user.email ? <Text tone="secondary">{user.email}</Text> : null}
+          </View>
+          <Button
+            title={copy.profile.edit}
+            fullWidth
+            disabled={!profile}
+            onPress={() => router.push("/edit-profile")}
+          />
         </View>
 
         {profile ? (
@@ -80,33 +97,64 @@ export default function ProfileScreen() {
         )}
 
         <View className="gap-3">
+          <Card>
+            <Row
+              icon="settings"
+              label={copy.profile.settings}
+              onPress={() => router.push("/settings")}
+            />
+            <View className="h-px bg-line-subtle" />
+            <Row
+              icon="signOut"
+              label={copy.profile.signOut}
+              danger
+              busy={signingOut}
+              onPress={() => void signOut()}
+            />
+          </Card>
           {error ? (
             <Text tone="error" accessibilityRole="alert">
               {error}
             </Text>
           ) : null}
-          <Button
-            title={copy.profile.edit}
-            fullWidth
-            disabled={!profile}
-            onPress={() => router.push("/edit-profile")}
-          />
-          <Button
-            title={copy.profile.settings}
-            variant="ghost"
-            fullWidth
-            onPress={() => router.push("/settings")}
-          />
-          <Button
-            title={copy.profile.signOut}
-            variant="secondary"
-            fullWidth
-            loading={signingOut}
-            disabled={!user}
-            onPress={() => void signOut()}
-          />
         </View>
       </View>
     </Screen>
+  );
+}
+
+/** A row of the account list: icon and label; a chevron when it opens a screen, a spinner while busy. */
+function Row({
+  icon,
+  label,
+  onPress,
+  danger = false,
+  busy = false,
+}: {
+  icon: IconName;
+  label: string;
+  onPress: () => void;
+  danger?: boolean;
+  busy?: boolean;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={busy}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ busy, disabled: busy }}
+      className="flex-row items-center gap-3 rounded-lg py-3 active:opacity-70"
+    >
+      <Icon name={icon} size="h3" tone={danger ? "error" : "secondary"} />
+      <Text tone={danger ? "error" : "primary"} className="flex-1">
+        {label}
+      </Text>
+      {busy ? (
+        <ActivityIndicator color={colors.contentSecondary} />
+      ) : danger ? null : (
+        <Icon name="chevronRight" tone="tertiary" />
+      )}
+    </Pressable>
   );
 }
