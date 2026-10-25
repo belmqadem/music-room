@@ -79,4 +79,5 @@ states, Playlists, Playlist rules, Real-time events. The changelog at the end li
 - Done: the Playlist Editor: the playlists list and the live editor (add, move, remove; invitations for the owner) (ADR-036).
 - Done: creating a playlist with its visibility and who may edit (ADR-036). Every screen of the mandatory part is now in the app.
 - Done: screens guarded by the sign-in state (the temporary flag is gone) and the server address on the welcome screen, read-only in Settings while signed in (ADR-037).
+- Done: your profile (ADR-039): the four blocks with who sees each, and an edit screen. Next: other people's profiles and friends, then linked accounts.
 - Next: every flow on the iOS and Android builds.
