@@ -109,17 +109,17 @@ export default function SignInScreen() {
           <Button
             title="Forgot your password?"
             variant="ghost"
+            fullWidth
             onPress={() => {
               handOff({ email: email.trim() ? normalizeEmail(email) : null });
               router.push("/forgot-password");
             }}
-            fullWidth
           />
           <Button
             title="Create an account"
             variant="ghost"
-            onPress={() => router.replace("/sign-up")}
             fullWidth
+            onPress={() => router.replace("/sign-up")}
           />
         </View>
       </View>

@@ -179,6 +179,7 @@ export default function ForgotPasswordScreen() {
               secondsLeft > 0 ? `Send a new code in ${secondsLeft} s` : "Send a new code"
             }
             variant="ghost"
+            fullWidth
             disabled={secondsLeft > 0}
             loading={busy === "send"}
             onPress={sendCode}
@@ -186,6 +187,7 @@ export default function ForgotPasswordScreen() {
           <Button
             title="Use a different email"
             variant="ghost"
+            fullWidth
             onPress={() => {
               setErrors(NO_ERRORS);
               setStep("request");

@@ -127,8 +127,8 @@ export default function SignUpScreen() {
         <Button
           title="I already have an account"
           variant="ghost"
-          onPress={() => router.replace("/sign-in")}
           fullWidth
+          onPress={() => router.replace("/sign-in")}
         />
       </View>
     </Screen>
