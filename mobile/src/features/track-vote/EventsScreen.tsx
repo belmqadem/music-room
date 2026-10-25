@@ -11,6 +11,7 @@ import { Badge, Button, Card, Text } from "@/components";
 import { colors } from "@/theme";
 import { eventTags, voteLicenseLabel } from "./event-labels";
 import { useEvents } from "./use-events";
+import { copy } from "@/copy";
 
 // Events tab: public events, mine, and private ones I am invited to (the server decides which).
 export default function EventsScreen() {
@@ -42,7 +43,7 @@ export default function EventsScreen() {
       ListHeaderComponent={
         <View className="gap-3 pb-1">
           <Button
-            title="Create an event"
+            title={copy.rooms.create}
             fullWidth
             onPress={() => router.push("/create-event")}
           />
@@ -53,11 +54,7 @@ export default function EventsScreen() {
           ) : null}
         </View>
       }
-      ListEmptyComponent={
-        error ? null : (
-          <Text tone="secondary">No events yet. Pull down to check again.</Text>
-        )
-      }
+      ListEmptyComponent={error ? null : <Text tone="secondary">{copy.rooms.empty}</Text>}
     />
   );
 }
@@ -66,7 +63,7 @@ function EventRow({ event }: { event: MusicEvent }) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Open ${event.name}`}
+      accessibilityLabel={copy.rooms.open(event.name)}
       onPress={() => router.push(`/event/${event.id}`)}
     >
       <Card className="gap-2">

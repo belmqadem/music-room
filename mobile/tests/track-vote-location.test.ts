@@ -181,6 +181,6 @@ describe("the rule as the user reads it", () => {
       (iso) => iso.slice(11, 16),
     );
 
-    expect(text).toBe("Within 150 m of the venue, from 19:00 to 23:00.");
+    expect(text).toBe("Votes count within 150 m of the venue, from 19:00 to 23:00.");
   });
 });

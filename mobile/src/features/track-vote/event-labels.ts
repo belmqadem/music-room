@@ -1,23 +1,17 @@
 import type { LocationTimeRule, MusicEvent, VoteLicense } from "@music-room/shared";
+import { copy } from "@/copy";
 
 // How an event's modes read in the app. Plain functions, so the wording is tested once.
 
 export function voteLicenseLabel(license: VoteLicense): string {
-  switch (license.type) {
-    case "everyone":
-      return "Everyone can vote";
-    case "invited_only":
-      return "Invited people vote";
-    case "location_time":
-      return "Votes at the venue, during the event";
-  }
+  return copy.rooms.voteRule[license.type];
 }
 
 /** Short tags for a list row: whose it is, and whether it is private. */
 export function eventTags(event: MusicEvent): string[] {
   const tags: string[] = [];
-  if (event.myPermissions.canManage) tags.push("Yours");
-  if (event.visibility === "private") tags.push("Private");
+  if (event.myPermissions.canManage) tags.push(copy.common.yours);
+  if (event.visibility === "private") tags.push(copy.common.private);
   return tags;
 }
 
@@ -34,5 +28,9 @@ export function locationRuleText(
   rule: LocationTimeRule,
   formatDate: (iso: string) => string = (iso) => shortDateTime.format(new Date(iso)),
 ): string {
-  return `Within ${rule.radiusMeters} m of the venue, from ${formatDate(rule.startsAt)} to ${formatDate(rule.endsAt)}.`;
+  return copy.rooms.locationRule(
+    rule.radiusMeters,
+    formatDate(rule.startsAt),
+    formatDate(rule.endsAt),
+  );
 }

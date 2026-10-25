@@ -2,36 +2,20 @@ import type { EventQueueUpdate, EventTrack } from "@music-room/shared";
 import { isRequestError } from "@/api/api-error";
 import { MESSAGES } from "@/auth/forms/error-messages";
 import { isPositionUnavailable, type PositionProblem } from "@/location/position-error";
+import { copy } from "@/copy";
 
 // What to tell the user when a Track Vote call fails, from the error's stable `code` (never the
 // server's message as is). Codes: docs/api-contract.md, "Access rules" and "Events".
 
 export const TRACK_VOTE_MESSAGES = {
-  notFound: "This event no longer exists, or you can no longer see it.",
-  notInvited: "Only invited people can vote in this event.",
-  // The server says this after a position was sent: it was not precise enough (worse than 100 m).
-  imprecisePosition:
-    "Your position isn't precise enough to vote here. Turn on precise location, then try again.",
-  outsideArea: "You are too far from the event to vote.",
-  outsideTime: "Voting is closed: the event is not running right now.",
-  notVotable: "This track is already playing or has been played.",
-  queueChanged: "The queue moved on another device first. Here is the current one.",
-  ownerOnly: "Only the event's owner can do that.",
-  alreadyQueued: "That track is already in the queue: your vote was added to it.",
-  catalogMissing: "The catalog no longer has this track.",
-  catalogDown: "The music catalog can't be reached right now. Try again in a moment.",
-  unknown: "Something went wrong. Try again.",
-} as const;
-
-export const POSITION_MESSAGES: Record<PositionProblem, string> = {
-  services_off:
-    "Turn on location services to vote in this event: it takes votes at its venue.",
-  denied:
-    "This event takes votes at its venue: allow Music Room to use your location to vote.",
-  blocked:
-    "Location is turned off for Music Room. Turn it on in Settings to vote in this event.",
-  timeout: "Couldn't find your position. Try again.",
+  ...copy.trackVote.errors,
+  alreadyQueued: copy.trackVote.alreadyQueued,
+  catalogMissing: copy.errors.catalogMissing,
+  catalogDown: copy.errors.catalogDown,
+  unknown: copy.errors.unknown,
 };
+
+export const POSITION_MESSAGES: Record<PositionProblem, string> = copy.location;
 
 export function trackVoteErrorMessage(error: unknown): string {
   if (isPositionUnavailable(error)) return POSITION_MESSAGES[error.problem];

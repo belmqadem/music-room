@@ -53,8 +53,8 @@ describe("a 409 QUEUE_CHANGED carries the real queue", () => {
 
 describe("how an event's modes read", () => {
   it.each([
-    [{ type: "everyone" } as const, "Everyone can vote"],
-    [{ type: "invited_only" } as const, "Invited people vote"],
+    [{ type: "everyone" } as const, "Everyone in the room can vote"],
+    [{ type: "invited_only" } as const, "Only invited people can vote"],
     [
       {
         type: "location_time",
@@ -64,7 +64,7 @@ describe("how an event's modes read", () => {
         startsAt: "2026-10-20T10:00:00Z",
         endsAt: "2026-10-20T12:00:00Z",
       } as const,
-      "Votes at the venue, during the event",
+      "Votes at the venue, while it's on",
     ],
   ])("%o", (license, label) => {
     expect(voteLicenseLabel(license)).toBe(label);

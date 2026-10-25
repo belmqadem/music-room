@@ -1,4 +1,5 @@
 import type { CreateEventRequest, Visibility, VoteLicense } from "@music-room/shared";
+import { copy } from "@/copy";
 
 // The create-event form (docs/api-contract.md, "Events" and "Access rules"): what the screen holds,
 // and the request it becomes. The checks mirror the backend's (track-vote/schema.ts) so the user
@@ -43,11 +44,9 @@ export type DraftResult =
   | { ok: false; errors: Partial<Record<DraftField, string>> };
 
 export const DRAFT_MESSAGES = {
-  nameMissing: "Give the event a name.",
-  nameTooLong: `Keep the name under ${NAME_MAX_LENGTH + 1} characters.`,
-  latitude: "Enter a latitude between -90 and 90 (or use your position).",
-  longitude: "Enter a longitude between -180 and 180 (or use your position).",
-} as const;
+  ...copy.createRoom.errors,
+  nameTooLong: copy.createRoom.errors.nameTooLong(NAME_MAX_LENGTH),
+};
 
 /** "48.89" or "48,89" (a comma keyboard); anything else, or out of range, is null. */
 export function coordinateFrom(text: string, limit: number): number | null {

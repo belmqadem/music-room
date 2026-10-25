@@ -14,33 +14,32 @@ import {
 } from "./create-event-form";
 import { eventApi } from "./event-api";
 import { trackVoteErrorMessage } from "./messages";
+import { copy } from "@/copy";
 
 const VISIBILITY = [
-  { value: "public", label: "Public" },
-  { value: "private", label: "Private" },
+  { value: "public", label: copy.common.public },
+  { value: "private", label: copy.common.private },
 ] as const;
 const VOTE_MODES = [
-  { value: "everyone", label: "Everyone" },
-  { value: "invited_only", label: "Invited people" },
-  { value: "location_time", label: "At the venue" },
+  { value: "everyone", label: copy.createRoom.voteChoices.everyone },
+  { value: "invited_only", label: copy.createRoom.voteChoices.invited_only },
+  { value: "location_time", label: copy.createRoom.voteChoices.location_time },
 ] as const;
-const RADIUS = RADIUS_CHOICES_M.map((m) => ({ value: m, label: `${m} m` }));
+const RADIUS = RADIUS_CHOICES_M.map((m) => ({
+  value: m,
+  label: copy.createRoom.radius(m),
+}));
 const STARTS = START_CHOICES_MIN.map((min) => ({
   value: min,
-  label: min === 0 ? "Now" : `In ${min / 60} h`,
+  label: min === 0 ? copy.createRoom.opensNow : copy.createRoom.opensIn(min / 60),
 }));
-const DURATION = DURATION_CHOICES_H.map((h) => ({ value: h, label: `${h} h` }));
+const DURATION = DURATION_CHOICES_H.map((h) => ({
+  value: h,
+  label: copy.createRoom.lasts(h),
+}));
 
-const VISIBILITY_HELP = {
-  public: "Listed for everyone.",
-  private: "Only you and the people you invite can find it.",
-} as const;
-const VOTE_HELP = {
-  everyone: "Anyone who can see the event can vote and suggest tracks.",
-  invited_only: "Everyone who can see it follows along; only invited people vote.",
-  location_time:
-    "People vote only near the venue, while the event runs. You, the owner, can always vote.",
-} as const;
+const VISIBILITY_HELP = copy.createRoom.visibilityHelp;
+const VOTE_HELP = copy.createRoom.voteHelp;
 
 // Create an event (docs/api-contract.md, "Events"): name, who can see it, who can vote. The form
 // checks what it can before sending; the server checks everything again.
@@ -91,11 +90,11 @@ export default function CreateEventScreen() {
 
   return (
     <Screen scroll>
-      <Stack.Screen options={{ title: "Create an event" }} />
+      <Stack.Screen options={{ title: copy.createRoom.title }} />
       <View className="gap-6">
         <Input
-          label="Name"
-          placeholder="Friday night"
+          label={copy.createRoom.nameLabel}
+          placeholder={copy.createRoom.namePlaceholder}
           value={draft.name}
           onChangeText={(name) => change({ name })}
           error={errors.name}
@@ -103,14 +102,14 @@ export default function CreateEventScreen() {
           returnKeyType="done"
         />
         <ChoiceGroup
-          label="Who can see it"
+          label={copy.createRoom.visibilityLabel}
           options={VISIBILITY}
           value={draft.visibility}
           onChange={(visibility) => change({ visibility })}
           helper={VISIBILITY_HELP[draft.visibility]}
         />
         <ChoiceGroup
-          label="Who can vote"
+          label={copy.createRoom.voteLabel}
           options={VOTE_MODES}
           value={draft.mode}
           onChange={(mode) => change({ mode })}
@@ -120,14 +119,14 @@ export default function CreateEventScreen() {
         {draft.mode === "location_time" ? (
           <View className="gap-4">
             <Button
-              title="Use my current position"
+              title={copy.createRoom.useMyPosition}
               variant="secondary"
               fullWidth
               loading={locating}
               onPress={() => void fillVenueFromMyPosition()}
             />
             <Input
-              label="Venue latitude"
+              label={copy.createRoom.latitudeLabel}
               placeholder="48.8966"
               value={draft.latitude}
               onChangeText={(latitude) => change({ latitude })}
@@ -135,7 +134,7 @@ export default function CreateEventScreen() {
               keyboardType="numbers-and-punctuation"
             />
             <Input
-              label="Venue longitude"
+              label={copy.createRoom.longitudeLabel}
               placeholder="2.3185"
               value={draft.longitude}
               onChangeText={(longitude) => change({ longitude })}
@@ -143,19 +142,19 @@ export default function CreateEventScreen() {
               keyboardType="numbers-and-punctuation"
             />
             <ChoiceGroup
-              label="Votes count within"
+              label={copy.createRoom.radiusLabel}
               options={RADIUS}
               value={draft.radiusMeters}
               onChange={(radiusMeters) => change({ radiusMeters })}
             />
             <ChoiceGroup
-              label="Voting opens"
+              label={copy.createRoom.opensLabel}
               options={STARTS}
               value={draft.startsInMinutes}
               onChange={(startsInMinutes) => change({ startsInMinutes })}
             />
             <ChoiceGroup
-              label="Voting lasts"
+              label={copy.createRoom.lastsLabel}
               options={DURATION}
               value={draft.durationHours}
               onChange={(durationHours) => change({ durationHours })}
@@ -169,7 +168,7 @@ export default function CreateEventScreen() {
           </Text>
         ) : null}
         <Button
-          title="Create event"
+          title={copy.createRoom.submit}
           fullWidth
           loading={creating}
           onPress={() => void create()}
