@@ -8,14 +8,10 @@ import { Text } from "./Text";
 // bars looked dated and differed per platform). Both sit on the canvas with no hairline: depth comes
 // from surface tiers, not lines (DESIGN.md rule 2). Each pads itself below the status bar.
 
-/** Tab screens: the title large, in the display font, left-aligned. */
-export function LargeHeader({ title }: { title: string }) {
+/** Tab screens: no title (the tab bar says where you are), only room for the status bar. */
+export function StatusBarSpace() {
   const insets = useSafeAreaInsets();
-  return (
-    <View className="bg-canvas px-5 pb-2 pt-4" style={{ marginTop: insets.top }}>
-      <Text variant="h1">{title}</Text>
-    </View>
-  );
+  return <View className="bg-canvas" style={{ height: insets.top }} />;
 }
 
 /** Pushed screens: a round back button and the title, centered and kept to one line. */

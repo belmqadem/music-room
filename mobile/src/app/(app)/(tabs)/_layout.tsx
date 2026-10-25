@@ -1,19 +1,19 @@
 import { SymbolView, type SymbolViewProps } from "expo-symbols";
 import { Tabs } from "expo-router";
 import type { ColorValue } from "react-native";
-import { LargeHeader } from "@/components";
+import { StatusBarSpace } from "@/components";
 import { colors, typography } from "@/theme";
 import { copy } from "@/copy";
 
-// Each tab's title is the app's large header (display font, left-aligned). The bar is a surface
-// tier with a hairline on top. The active tab (icon and label) reads as
+// Tab screens have no title: the tab bar already says where you are, so the header is only room for
+// the status bar. The bar is a surface tier with a hairline on top. The active tab (icon and label) reads as
 // primary text and the others as tertiary, the token for inactive icons. Icons are SF Symbols on
 // iOS and Material Symbols on Android and web (expo-symbols); the bar gives their size and color.
 export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
-        header: ({ options }) => <LargeHeader title={options.title ?? ""} />,
+        header: () => <StatusBarSpace />,
         tabBarStyle: {
           backgroundColor: colors.surfaceLow,
           borderTopColor: colors.lineSubtle,
