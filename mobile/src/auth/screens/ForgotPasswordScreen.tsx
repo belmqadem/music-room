@@ -19,6 +19,7 @@ import {
 } from "@/auth/forms/validation";
 import { Button, Input, Screen } from "@/components";
 import { FormMessage, ScreenTitle } from "./parts";
+import { copy } from "@/copy";
 
 const NO_ERRORS: FormErrors = { form: null, fields: {} };
 
@@ -84,7 +85,7 @@ export default function ForgotPasswordScreen() {
       handOff({
         email: normalizeEmail(email),
         codeSentAt: null,
-        notice: "Password changed. Sign in with your new password.",
+        notice: copy.auth.forgotPassword.changed,
       });
       router.replace("/sign-in");
     } catch (error) {
@@ -99,15 +100,15 @@ export default function ForgotPasswordScreen() {
       <Screen scroll>
         <View className="gap-6">
           <ScreenTitle
-            title="Reset your password"
-            subtitle="Enter the email you signed up with. If there is an account for it, we'll send a 6-digit code."
+            title={copy.auth.forgotPassword.title}
+            subtitle={copy.auth.forgotPassword.subtitle}
           />
           <Input
-            label="Email"
+            label={copy.common.emailLabel}
             value={email}
             onChangeText={edit("email", setEmail)}
             error={errors.fields.email}
-            placeholder="name@example.com"
+            placeholder={copy.common.emailPlaceholder}
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
@@ -118,7 +119,7 @@ export default function ForgotPasswordScreen() {
           />
           {errors.form ? <FormMessage tone="error">{errors.form}</FormMessage> : null}
           <Button
-            title="Send code"
+            title={copy.auth.forgotPassword.sendCode}
             fullWidth
             loading={busy === "send"}
             onPress={sendCode}
@@ -132,16 +133,16 @@ export default function ForgotPasswordScreen() {
     <Screen scroll>
       <View className="gap-6">
         <ScreenTitle
-          title="Choose a new password"
-          subtitle={`If ${normalizeEmail(email)} has an account, we sent it a 6-digit code. Enter the code with your new password.`}
+          title={copy.auth.forgotPassword.resetTitle}
+          subtitle={copy.auth.forgotPassword.resetSubtitle(normalizeEmail(email))}
         />
         <View className="gap-4">
           <Input
-            label="Code"
+            label={copy.common.codeLabel}
             value={code}
             onChangeText={edit("code", (value) => setCode(value.replace(/\D/g, "")))}
             error={errors.fields.code}
-            placeholder="123456"
+            placeholder={copy.common.codePlaceholder}
             keyboardType="number-pad"
             maxLength={6}
             autoComplete="one-time-code"
@@ -152,7 +153,7 @@ export default function ForgotPasswordScreen() {
           />
           <Input
             ref={passwordRef}
-            label="New password"
+            label={copy.auth.forgotPassword.newPasswordLabel}
             value={newPassword}
             onChangeText={edit("newPassword", setNewPassword)}
             error={errors.fields.newPassword}
@@ -168,7 +169,7 @@ export default function ForgotPasswordScreen() {
         </View>
         {errors.form ? <FormMessage tone="error">{errors.form}</FormMessage> : null}
         <Button
-          title="Change password"
+          title={copy.auth.forgotPassword.submit}
           fullWidth
           loading={busy === "reset"}
           onPress={reset}
@@ -176,7 +177,9 @@ export default function ForgotPasswordScreen() {
         <View className="gap-1">
           <Button
             title={
-              secondsLeft > 0 ? `Send a new code in ${secondsLeft} s` : "Send a new code"
+              secondsLeft > 0
+                ? copy.auth.code.resendIn(secondsLeft)
+                : copy.auth.code.resend
             }
             variant="ghost"
             fullWidth
@@ -185,7 +188,7 @@ export default function ForgotPasswordScreen() {
             onPress={sendCode}
           />
           <Button
-            title="Use a different email"
+            title={copy.auth.code.differentEmail}
             variant="ghost"
             fullWidth
             onPress={() => {

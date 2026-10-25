@@ -9,6 +9,7 @@ import { colors } from "@/theme";
 import { editLicenseLabel, playlistErrorMessage } from "./messages";
 import { playlistApi } from "./playlist-api";
 import { usePlaylist } from "./use-playlist";
+import { copy } from "@/copy";
 
 // Playlist Editor (docs/api-contract.md, "Playlists"; ADR-036): the ordered list, live for everyone;
 // anyone allowed to edit adds, moves and removes any entry. `myPermissions` only decides what to
@@ -40,12 +41,10 @@ export default function PlaylistEditorScreen() {
     return (
       <Centered title={playlist?.name}>
         <Text tone="secondary" className="text-center">
-          {editor.accessLost
-            ? "You can no longer see this playlist: it was deleted, made private, or you were removed."
-            : problem}
+          {editor.accessLost ? copy.playlistEditor.accessLost : problem}
         </Text>
         <Button
-          title="Back to playlists"
+          title={copy.playlistEditor.backToPlaylists}
           variant="secondary"
           fullWidth
           onPress={() => router.back()}
@@ -87,16 +86,20 @@ export default function PlaylistEditorScreen() {
             <View className="flex-row items-center justify-between gap-3">
               <Text variant="caption" tone="secondary" className="flex-1">
                 {editLicenseLabel(playlist.editLicense)}
-                {playlist.visibility === "private" ? " · Private" : ""}
-                {` · ${editor.entries.length} ${editor.entries.length === 1 ? "track" : "tracks"}`}
+                {playlist.visibility === "private" ? copy.common.privateSuffix : ""}
+                {copy.playlistEditor.trackCount(editor.entries.length)}
               </Text>
               <LiveBadge />
             </View>
             {canAct ? (
-              <Button title="Add a track" fullWidth onPress={() => setAdding(true)} />
+              <Button
+                title={copy.playlistEditor.addTrack}
+                fullWidth
+                onPress={() => setAdding(true)}
+              />
             ) : (
               <Text variant="caption" tone="secondary">
-                You can listen along, but not edit this playlist.
+                {copy.playlistEditor.listenOnly}
               </Text>
             )}
             {canManage &&
@@ -104,7 +107,7 @@ export default function PlaylistEditorScreen() {
               playlist.editLicense.type === "invited_only") ? (
               // Invitations matter only when they change something: who sees it, or who edits.
               <Button
-                title="Invite people"
+                title={copy.common.invitePeople}
                 variant="secondary"
                 fullWidth
                 onPress={() => router.push(`/invitations/playlist/${playlist.id}`)}
@@ -117,12 +120,16 @@ export default function PlaylistEditorScreen() {
             ) : null}
           </View>
         }
-        ListEmptyComponent={<Text tone="secondary">No tracks yet.</Text>}
+        ListEmptyComponent={
+          <Text tone="secondary">
+            {canAct ? copy.playlistEditor.empty : copy.playlistEditor.emptyListenOnly}
+          </Text>
+        }
       />
       <TrackSearchSheet
         visible={adding}
-        title="Add a track"
-        actionLabel="Add"
+        title={copy.playlistEditor.addTrack}
+        actionLabel={copy.playlistEditor.addAction}
         searchErrorMessage={playlistErrorMessage}
         onClose={() => setAdding(false)}
         onPick={(track) => editor.add(track.providerTrackId)}

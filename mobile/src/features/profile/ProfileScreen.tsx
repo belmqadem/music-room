@@ -3,6 +3,7 @@ import { useState } from "react";
 import { View } from "react-native";
 import { auth, useAuth } from "@/auth";
 import { Button, Screen, Text } from "@/components";
+import { copy } from "@/copy";
 
 // Profile: public, friends-only and private info, and music preferences (to come). For now: who is
 // signed in, and signing out.
@@ -21,7 +22,7 @@ export default function ProfileScreen() {
     } catch (failure) {
       // Only the phone's secure storage can fail here; the session may still be stored.
       console.error("Sign-out failed:", failure);
-      setError("Could not sign out. Try again.");
+      setError(copy.profile.signOutFailed);
       setSigningOut(false);
     }
   }
@@ -37,7 +38,7 @@ export default function ProfileScreen() {
               {user.email ? <Text tone="secondary">{user.email}</Text> : null}
             </>
           ) : (
-            <Text tone="secondary">Not signed in.</Text>
+            <Text tone="secondary">{copy.profile.notSignedIn}</Text>
           )}
         </View>
         <View className="gap-3">
@@ -47,13 +48,13 @@ export default function ProfileScreen() {
             </Text>
           ) : null}
           <Button
-            title="Settings"
+            title={copy.profile.settings}
             variant="ghost"
             fullWidth
             onPress={() => router.push("/settings")}
           />
           <Button
-            title="Sign out"
+            title={copy.profile.signOut}
             variant="secondary"
             fullWidth
             loading={signingOut}

@@ -1,10 +1,11 @@
 import type { Track } from "@music-room/shared";
 import { useState } from "react";
-import { ActivityIndicator, FlatList, Modal, View } from "react-native";
+import { ActivityIndicator, FlatList, Modal, Platform, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTrackSearch } from "@/api/use-track-search";
 import { Button, Input, Text, TrackPickRow } from "@/components";
 import { colors } from "@/theme";
+import { copy } from "@/copy";
 
 export interface TrackSearchSheetProps {
   visible: boolean;
@@ -59,65 +60,71 @@ function SheetContent({
   }
 
   const { state } = search;
+  // iOS shows a page sheet, already below the status bar. Android has no page sheet: the modal is
+  // full screen, edge to edge, so the status bar's height is added or the header sits under it.
+  const top = Platform.OS === "ios" ? 0 : insets.top;
   return (
-    <View
-      className="flex-1 gap-4 bg-canvas px-5 pt-6"
-      style={{ paddingBottom: insets.bottom }}
-    >
-      <View className="flex-row items-center justify-between">
-        <Text variant="h2">{title}</Text>
-        <Button title="Close" variant="ghost" onPress={onClose} />
-      </View>
-      <Input
-        label="Search the catalog"
-        placeholder="Artist or title"
-        value={text}
-        onChangeText={(value) => {
-          setText(value);
-          search.input(value);
-        }}
-        autoFocus
-        autoCorrect={false}
-        returnKeyType="search"
-      />
-      {pickError ? (
-        <Text tone="error" accessibilityRole="alert">
-          {pickError}
-        </Text>
-      ) : null}
-
-      {state.status === "idle" ? (
-        <Text tone="secondary">Type at least 2 characters.</Text>
-      ) : state.status === "searching" ? (
-        <ActivityIndicator color={colors.contentSecondary} />
-      ) : state.status === "failed" ? (
-        <View className="gap-3">
-          <Text tone="error" accessibilityRole="alert">
-            {searchErrorMessage(state.error)}
-          </Text>
-          <Button title="Try again" variant="secondary" onPress={search.retry} />
+    <View className="flex-1 bg-canvas" style={{ paddingTop: top }}>
+      <View className="flex-1 gap-4 px-5 pt-6" style={{ paddingBottom: insets.bottom }}>
+        <View className="flex-row items-center justify-between">
+          <Text variant="h2">{title}</Text>
+          <Button title={copy.common.close} variant="ghost" onPress={onClose} />
         </View>
-      ) : (
-        <FlatList
-          className="flex-1"
-          contentContainerClassName="gap-3 pb-6"
-          keyboardShouldPersistTaps="handled"
-          data={state.results}
-          keyExtractor={(track) => track.providerTrackId}
-          renderItem={({ item }) => (
-            <TrackPickRow
-              track={item}
-              actionLabel={actionLabel}
-              busy={pickingId === item.providerTrackId}
-              disabled={pickingId !== null && pickingId !== item.providerTrackId}
-              onPick={() => void pick(item)}
-            />
-          )}
-          ListEmptyComponent={
-            <Text tone="secondary">No tracks found for “{state.query}”.</Text>
-          }
+        <Input
+          label={copy.search.label}
+          placeholder={copy.search.placeholder}
+          value={text}
+          onChangeText={(value) => {
+            setText(value);
+            search.input(value);
+          }}
+          autoFocus
+          autoCorrect={false}
+          returnKeyType="search"
         />
-      )}
+        {pickError ? (
+          <Text tone="error" accessibilityRole="alert">
+            {pickError}
+          </Text>
+        ) : null}
+
+        {state.status === "idle" ? (
+          <Text tone="secondary">{copy.search.tooShort}</Text>
+        ) : state.status === "searching" ? (
+          <ActivityIndicator color={colors.contentSecondary} />
+        ) : state.status === "failed" ? (
+          <View className="gap-3">
+            <Text tone="error" accessibilityRole="alert">
+              {searchErrorMessage(state.error)}
+            </Text>
+            <Button
+              title={copy.common.tryAgain}
+              variant="secondary"
+              onPress={search.retry}
+            />
+          </View>
+        ) : (
+          <FlatList
+            className="flex-1"
+            contentContainerClassName="gap-3 pb-6"
+            keyboardShouldPersistTaps="handled"
+            data={state.results}
+            keyExtractor={(track) => track.providerTrackId}
+            renderItem={({ item }) => (
+              <TrackPickRow
+                track={item}
+                actionLabel={actionLabel}
+                busy={pickingId === item.providerTrackId}
+                disabled={pickingId !== null && pickingId !== item.providerTrackId}
+                onPick={() => void pick(item)}
+              />
+            )}
+            ListEmptyComponent={
+              <Text tone="secondary">{copy.search.noResults(state.query)}</Text>
+            }
+          />
+        )}
+      </View>
     </View>
   );
 }

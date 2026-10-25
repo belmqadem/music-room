@@ -11,6 +11,7 @@ import { trackVoteErrorMessage } from "./messages";
 
 import { useEventQueue } from "./use-event-queue";
 import { TrackSearchSheet } from "@/catalog/TrackSearchSheet";
+import { copy } from "@/copy";
 
 // Track Vote (docs/api-contract.md, "Events"; ADR-034): the playing track, the ranked queue with my
 // votes, and for the owner the button to move to the next track. Everyone sees changes live.
@@ -42,12 +43,10 @@ export default function TrackVoteScreen() {
     return (
       <Centered title={event?.name}>
         <Text tone="secondary" className="text-center">
-          {queue.accessLost
-            ? "You can no longer see this event: it was deleted, made private, or you were removed."
-            : problem}
+          {queue.accessLost ? copy.trackVote.accessLost : problem}
         </Text>
         <Button
-          title="Back to events"
+          title={copy.trackVote.backToRooms}
           variant="secondary"
           fullWidth
           onPress={() => router.back()}
@@ -92,14 +91,14 @@ export default function TrackVoteScreen() {
             <View className="flex-row items-center justify-between gap-3">
               <Text variant="caption" tone="secondary" className="flex-1">
                 {voteLicenseLabel(event.voteLicense)}
-                {event.visibility === "private" ? " · Private" : ""}
+                {event.visibility === "private" ? copy.common.privateSuffix : ""}
               </Text>
               <LiveBadge />
             </View>
             {event.voteLicense.type === "location_time" ? (
               <Text variant="caption" tone="secondary">
                 {locationRuleText(event.voteLicense)}
-                {canManage ? " You are the owner: the rule does not apply to you." : ""}
+                {canManage ? copy.trackVote.ownerRuleNote : ""}
               </Text>
             ) : null}
 
@@ -112,13 +111,15 @@ export default function TrackVoteScreen() {
               />
             ) : (
               <Card>
-                <Text tone="secondary">Nothing is playing.</Text>
+                <Text tone="secondary">{copy.trackVote.nothingPlaying}</Text>
               </Card>
             )}
 
             {canManage ? (
               <Button
-                title={queue.playing ? "Next track" : "Start playing"}
+                title={
+                  queue.playing ? copy.trackVote.nextTrack : copy.trackVote.startPlaying
+                }
                 fullWidth
                 loading={queue.advancing}
                 disabled={!queue.playing && upNext.length === 0}
@@ -131,7 +132,7 @@ export default function TrackVoteScreen() {
               event.voteLicense.type === "invited_only") ? (
               // Invitations matter only when they change something: who sees it, or who votes.
               <Button
-                title="Invite people"
+                title={copy.common.invitePeople}
                 variant="secondary"
                 fullWidth
                 onPress={() => router.push(`/invitations/event/${event.id}`)}
@@ -140,14 +141,14 @@ export default function TrackVoteScreen() {
             {canAct ? (
               // Secondary: the screen's one Ember button is the owner's "Next track".
               <Button
-                title="Suggest a track"
+                title={copy.trackVote.suggest}
                 variant="secondary"
                 fullWidth
                 onPress={() => setSuggesting(true)}
               />
             ) : (
               <Text variant="caption" tone="secondary">
-                You can follow this event, but not vote in it.
+                {copy.trackVote.followOnly}
               </Text>
             )}
 
@@ -162,14 +163,18 @@ export default function TrackVoteScreen() {
               </Text>
             ) : null}
 
-            <Text variant="h3">Up next</Text>
+            <Text variant="h3">{copy.trackVote.upNext}</Text>
           </View>
         }
-        ListEmptyComponent={<Text tone="secondary">No tracks in the queue yet.</Text>}
+        ListEmptyComponent={
+          <Text tone="secondary">
+            {canAct ? copy.trackVote.emptyQueue : copy.trackVote.emptyQueueFollowOnly}
+          </Text>
+        }
       />
       <TrackSearchSheet
-        title="Suggest a track"
-        actionLabel="Add"
+        title={copy.trackVote.suggest}
+        actionLabel={copy.trackVote.suggestAction}
         searchErrorMessage={trackVoteErrorMessage}
         visible={suggesting}
         onClose={() => setSuggesting(false)}

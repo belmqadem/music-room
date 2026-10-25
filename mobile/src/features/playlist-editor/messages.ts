@@ -1,22 +1,17 @@
 import type { EditLicense, Playlist } from "@music-room/shared";
 import { isRequestError } from "@/api/api-error";
 import { MESSAGES } from "@/auth/forms/error-messages";
+import { copy } from "@/copy";
 
 // What to tell the user when a Playlist Editor call fails, from the stable code (docs/api-contract.md,
 // "Playlists"), and how a playlist's modes read.
 
 export const PLAYLIST_MESSAGES = {
-  notFound: "This playlist no longer exists, or you can no longer see it.",
-  notInvited: "Only invited people can edit this playlist.",
-  // Someone else moved or removed the track it was placed after: the list is read again.
-  anchorGone: "The playlist changed meanwhile. Here it is again; try once more.",
-  entryGone: "That track was just removed by someone else.",
-  full: "This playlist is full (500 tracks).",
-  catalogMissing: "The catalog no longer has this track.",
-  catalogDown: "The music catalog can't be reached right now. Try again in a moment.",
-  ownerOnly: "Only the playlist's owner can do that.",
-  unknown: "Something went wrong. Try again.",
-} as const;
+  ...copy.playlistEditor.errors,
+  catalogMissing: copy.errors.catalogMissing,
+  catalogDown: copy.errors.catalogDown,
+  unknown: copy.errors.unknown,
+};
 
 export function playlistErrorMessage(error: unknown): string {
   if (!isRequestError(error)) return PLAYLIST_MESSAGES.unknown;
@@ -62,12 +57,12 @@ export function shouldReload(error: unknown): boolean {
 }
 
 export function editLicenseLabel(license: EditLicense): string {
-  return license.type === "everyone" ? "Everyone can edit" : "Invited people edit";
+  return copy.playlists.editRule[license.type];
 }
 
 export function playlistTags(playlist: Playlist): string[] {
   const tags: string[] = [];
-  if (playlist.myPermissions.canManage) tags.push("Yours");
-  if (playlist.visibility === "private") tags.push("Private");
+  if (playlist.myPermissions.canManage) tags.push(copy.common.yours);
+  if (playlist.visibility === "private") tags.push(copy.common.private);
   return tags;
 }

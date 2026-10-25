@@ -618,6 +618,22 @@ Each decision must be defensible in detail at the defense. Copy the template for
 - Alternatives: the options above.
 - Consequences: to switch servers, sign out first. Plain `http` is accepted (the defense network); a production build should require `https`.
 
+### ADR-038: One copy file and one voice for the app; Track Vote events are "rooms" in the UI
+
+- Status: accepted
+- Date: 2026-10-25
+- Deciders: belmqadem, kaoutharrr to confirm in review
+- Context: the app's words were spread over every screen, in a neutral, formal tone. The audience is young people, and the same action was sometimes named two ways ("Create an event" on the list, "Create event" on the form). The subject names the modes public/private (who can see) and open/restricted (who can act).
+- Options considered:
+  - **Where the words live**: inline in each screen (as before); per-feature message files only; **one typed file, `mobile/src/copy.ts`** (chosen: one place to review the voice, and a second language is one more object of the same shape). No i18n library yet: nothing needs it.
+  - **What an event is called in the UI**: keep "event" (matches the code, the API and the subject); **"room"** (chosen by the team, for the tone); both events and playlists as rooms (refused: ADR-026 keeps them separate).
+  - **Who can see it**: **Public / Private** (chosen: the subject's words) or Open / Invite only (refused: "open" is the subject's word for who can act, so the two graded modes would read alike).
+- Decision:
+  - Every user-facing string is in `copy.ts`, grouped by screen or feature, with functions for text with values. The `messages.ts` files keep mapping backend error codes to text, and take the text from `copy`. The voice and vocabulary are in CLAUDE.md, "Copy and tone (mobile)", and the PR template asks about them.
+  - In the UI a Track Vote event is a "room"; the routes, the code, the API and the docs keep "event". Who can vote in a room: "Everyone in the room", "Invited people only", "At the venue". Who can edit a playlist: "Everyone who can see it", "Invited people only".
+  - Permission, privacy and error text stays literal: the tone pass changed wording, never meaning.
+- Consequences: the UI says "room" where the code says event, so the defense has to explain that one mapping. Badges are uppercase by their style token (DESIGN.md, `badge` 700 uppercase), so "Yours" still shows as YOURS: a design decision, not copy. Tests that check exact wording were updated with it.
+
 ## Still to decide (record each as an ADR)
 
 TODO:

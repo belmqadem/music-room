@@ -10,6 +10,7 @@ import { colors } from "@/theme";
 import type { InvitableResource } from "./invitations-api";
 import { invitationErrorMessage } from "./messages";
 import { useInvitations } from "./use-invitations";
+import { copy } from "@/copy";
 
 const isResource = (value: unknown): value is InvitableResource =>
   value === "event" || value === "playlist";
@@ -21,7 +22,7 @@ export default function InvitationsScreen() {
   if (!isResource(resource) || !id) {
     return (
       <Screen>
-        <Text tone="secondary">This page does not exist.</Text>
+        <Text tone="secondary">{copy.common.notFoundPage}</Text>
       </Screen>
     );
   }
@@ -39,11 +40,11 @@ function Invitations({ resource, id }: { resource: InvitableResource; id: string
 
   return (
     <Screen scroll>
-      <Stack.Screen options={{ title: "Invite people" }} />
+      <Stack.Screen options={{ title: copy.invitations.title }} />
       <View className="gap-6">
         <Input
-          label="Find people"
-          placeholder="Name (3 letters or more)"
+          label={copy.invitations.findLabel}
+          placeholder={copy.invitations.findPlaceholder}
           value={text}
           onChangeText={(value) => {
             setText(value);
@@ -60,7 +61,11 @@ function Invitations({ resource, id }: { resource: InvitableResource; id: string
             <Text tone="error" accessibilityRole="alert">
               {invitationErrorMessage(state.error)}
             </Text>
-            <Button title="Try again" variant="secondary" onPress={people.retry} />
+            <Button
+              title={copy.common.tryAgain}
+              variant="secondary"
+              onPress={people.retry}
+            />
           </View>
         ) : state.status === "done" ? (
           <View className="gap-3">
@@ -72,15 +77,15 @@ function Invitations({ resource, id }: { resource: InvitableResource; id: string
               state.results.map((user) => (
                 <PersonRow key={user.id} user={user}>
                   {invitations.invited.has(user.id) ? (
-                    <Badge label="Invited" />
+                    <Badge label={copy.invitations.invited} />
                   ) : (
                     <Button
-                      title="Invite"
+                      title={copy.invitations.invite}
                       variant="secondary"
                       loading={invitations.busyUserId === user.id}
                       disabled={invitations.busyUserId !== null}
                       onPress={() => void invitations.invite(user)}
-                      accessibilityLabel={`Invite ${user.displayName}`}
+                      accessibilityLabel={copy.invitations.inviteName(user.displayName)}
                     />
                   )}
                 </PersonRow>
@@ -96,7 +101,9 @@ function Invitations({ resource, id }: { resource: InvitableResource; id: string
         ) : null}
 
         <View className="gap-3">
-          <Text variant="h3">Invited ({invitations.invitations.length})</Text>
+          <Text variant="h3">
+            {copy.invitations.invitedCount(invitations.invitations.length)}
+          </Text>
           {invitations.loading ? (
             <ActivityIndicator color={colors.contentSecondary} />
           ) : invitations.loadError ? (
@@ -104,24 +111,24 @@ function Invitations({ resource, id }: { resource: InvitableResource; id: string
               {invitations.loadError}
             </Text>
           ) : invitations.invitations.length === 0 ? (
-            <Text tone="secondary">Nobody yet. Find people above to invite them.</Text>
+            <Text tone="secondary">{copy.invitations.empty}</Text>
           ) : (
             invitations.invitations.map(({ user }) => (
               <PersonRow key={user.id} user={user}>
                 <Button
-                  title="Remove"
+                  title={copy.invitations.remove}
                   variant="ghost"
                   loading={invitations.busyUserId === user.id}
                   disabled={invitations.busyUserId !== null}
                   onPress={() => void invitations.remove(user.id)}
-                  accessibilityLabel={`Remove ${user.displayName}'s invitation`}
+                  accessibilityLabel={copy.invitations.removeName(user.displayName)}
                 />
               </PersonRow>
             ))
           )}
           {invitations.hasMore ? (
             <Button
-              title="Show more"
+              title={copy.common.showMore}
               variant="ghost"
               onPress={() => void invitations.loadMore()}
             />

@@ -77,6 +77,47 @@ Before building or editing any screen or component, read DESIGN.md and
 design-tokens.json. Use the theme generated from those tokens; never hardcode
 colors, fonts, sizes or radii. If a needed value isn't a token, propose one.
 
+## Copy and tone (mobile)
+
+All user-facing text lives in one file, `mobile/src/copy.ts`, grouped by screen or feature, with
+functions for text that takes values (`copy.tracks.votes(n)`). Screens and components import
+`copy`; never write a user-facing string inline. Error codes from the backend are mapped to copy
+on the mobile side (the `messages.ts` files); the backend's own messages are never shown.
+
+**The voice.** The audience is young people: casual and relatable, like a friend talking, never a
+corporate tool. Clarity always wins: jokes live in headlines and empty states; buttons, errors,
+and permission or privacy text say exactly what happens.
+
+- Short sentences, sentence case. No ALL CAPS in the words themselves, no long paragraphs.
+- Talk to one person ("you"), never "users".
+- Active voice: "You're in.", not "You have successfully joined."
+- Buttons say what they do ("Create room", "Send code"), never "Submit" or "OK".
+- An action keeps one name through its whole flow: "Add track" on the button, the sheet and any
+  confirmation ("Track added").
+- Errors are plain and specific, never apologetic or jokey: what went wrong, how to fix it.
+- Light humor only in empty states and success moments, sparingly. No slang that dates quickly;
+  "vibe" and "queue" are fine.
+- No emoji unless the design already uses them.
+
+**Vocabulary** (always these words, never a synonym):
+
+- A Track Vote event is a **room** (the code and the API keep "event", ADR-038). The shared list
+  is the **playlist**.
+- Who can see it: **Public** / **Private** (the subject's words; "open" is not used for this).
+- Who can vote in a room: **Everyone in the room**, **Invited people only**, **At the venue**.
+  Who can edit a playlist: **Everyone who can see it**, **Invited people only**.
+- The vote queue is **Up next** / **the queue**; voting is always **vote**. Adding is **Add track**
+  (playlist) or **Suggest a track** (room).
+- Profile tiers, when they get a screen: **Public**, **Friends only**, **Private**, **Music taste**.
+
+**Rules for new text:**
+
+- Any new screen, toast, error, empty state or notification follows this voice and vocabulary.
+- Reuse the existing wording for the same action rather than inventing a new name for it.
+- Permission, privacy and error text stays literal and precise: never make "Private" or
+  "Invited people only" sound looser than the server's rule.
+- A French or Arabic version would be another object of the same shape as `copy` (`Copy`).
+
 ## What "done" looks like for the mandatory part
 
 Both Track Vote and Playlist Editor fully working, including their

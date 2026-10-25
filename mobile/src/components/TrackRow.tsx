@@ -9,6 +9,7 @@ import {
   TRACK_TEXT_CLASS,
   voteLook,
 } from "./track-row-styles";
+import { copy } from "@/copy";
 
 export interface TrackRowProps {
   track: Track;
@@ -33,7 +34,7 @@ export function TrackRow({
 }: TrackRowProps) {
   const disabled = !onToggleVote || busy;
   const look = voteLook(votedByMe, !onToggleVote);
-  const votes = `${voteCount} ${voteCount === 1 ? "vote" : "votes"}`;
+  const votes = copy.tracks.votes(voteCount);
 
   return (
     <View className={TRACK_ROW_CLASS}>
@@ -55,12 +56,14 @@ export function TrackRow({
         </Text>
       </View>
       {status === "playing" ? (
-        <Badge label="Playing" tone="accent" />
+        <Badge label={copy.tracks.playing} tone="accent" />
       ) : (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={
-            votedByMe ? `Remove your vote for ${track.title}` : `Vote for ${track.title}`
+            votedByMe
+              ? copy.tracks.removeVote(track.title)
+              : copy.tracks.voteFor(track.title)
           }
           accessibilityState={{ selected: votedByMe, disabled, busy }}
           disabled={disabled}
@@ -73,7 +76,7 @@ export function TrackRow({
             />
           ) : (
             <Text variant="h3" tone={look.labelTone}>
-              {votedByMe ? "Voted" : "Vote"}
+              {votedByMe ? copy.tracks.voted : copy.tracks.vote}
             </Text>
           )}
         </Pressable>

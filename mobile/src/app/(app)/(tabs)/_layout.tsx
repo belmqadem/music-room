@@ -2,6 +2,7 @@ import { SymbolView, type SymbolViewProps } from "expo-symbols";
 import { Tabs } from "expo-router";
 import type { ColorValue } from "react-native";
 import { colors, typography } from "@/theme";
+import { copy } from "@/copy";
 
 // The bar is a surface tier with a hairline on top. The active tab (icon and label) reads as
 // primary text and the others as tertiary, the token for inactive icons. Icons are SF Symbols on
@@ -22,14 +23,14 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="events"
         options={{
-          title: "Events",
+          title: copy.tabs.rooms,
           tabBarIcon: tabIcon({ ios: "calendar", android: "event", web: "event" }),
         }}
       />
       <Tabs.Screen
         name="playlists"
         options={{
-          title: "Playlists",
+          title: copy.tabs.playlists,
           tabBarIcon: tabIcon({
             ios: "music.note.list",
             android: "queue_music",
@@ -40,7 +41,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: "Profile",
+          title: copy.tabs.profile,
           tabBarIcon: tabIcon({
             ios: "person.crop.circle",
             android: "account_circle",

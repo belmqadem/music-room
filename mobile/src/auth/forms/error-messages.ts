@@ -1,5 +1,6 @@
 import { isRequestError } from "@/api/api-error";
 import { SocialSignInError } from "@/auth/social/social-config";
+import { copy } from "@/copy";
 
 // What the user reads when an auth call fails. The backend's codes are stable (docs/api-contract.md,
 // "Errors"); the words are ours, so a screen never shows a raw server message it did not expect.
@@ -23,16 +24,11 @@ const FIELDS: readonly FieldName[] = [
 ];
 
 export const MESSAGES = {
-  network: "Can't reach the server. Check your connection and the server address.",
-  server: "Something went wrong on our side. Try again in a moment.",
-  rateLimited: "Too many attempts. Wait a few minutes, then try again.",
-  wrongCredentials: "Email or password is incorrect.",
-  notVerified:
-    "Confirm your email first: enter the code we sent you, or ask for a new one.",
-  emailTaken: "An account already uses this email. Sign in instead.",
-  wrongCode: "That code is wrong or has expired. Ask for a new one.",
-  checkFields: "Check the highlighted fields.",
-} as const;
+  network: copy.errors.network,
+  server: copy.errors.server,
+  rateLimited: copy.errors.rateLimited,
+  ...copy.auth.errors,
+};
 
 /** The client-side checks of a form, keeping only the fields that failed. */
 export function fieldErrors(
@@ -95,18 +91,17 @@ export function socialErrorMessage(
 ): string {
   if (error instanceof SocialSignInError) {
     return error.reason === "unavailable"
-      ? `${provider} sign-in isn't set up in this version of the app. Use your email instead.`
-      : `${provider} sign-in didn't work. Try again.`;
+      ? copy.auth.social.notSetUp(provider)
+      : copy.auth.social.failed(provider);
   }
   if (isRequestError(error)) {
     switch (error.code) {
       case "INVALID_PROVIDER_CREDENTIAL":
-        return `${provider} didn't confirm your account. Try again.`;
+        return copy.auth.social.notConfirmed(provider);
       case "PROVIDER_UNAVAILABLE":
-        return `${provider} sign-in isn't available right now. Try again later, or use your email.`;
+        return copy.auth.social.unavailable(provider);
       case "EMAIL_TAKEN":
-        // No automatic linking by email (ADR-007): the owner signs in, then links the provider.
-        return `An account already uses this email. Sign in with your password, then link ${provider} from your profile.`;
+        return copy.auth.social.emailTaken(provider);
     }
   }
   return formErrorsFrom(error, "signIn").form ?? MESSAGES.server;

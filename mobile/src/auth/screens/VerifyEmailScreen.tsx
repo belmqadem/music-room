@@ -13,6 +13,7 @@ import { useSecondsUntilResend } from "@/auth/forms/use-seconds-left";
 import { codeError, emailError, normalizeEmail } from "@/auth/forms/validation";
 import { Button, Input, Screen } from "@/components";
 import { FormMessage, ScreenTitle } from "./parts";
+import { copy } from "@/copy";
 
 const NO_ERRORS: FormErrors = { form: null, fields: {} };
 
@@ -54,7 +55,7 @@ export default function VerifyEmailScreen() {
       handOff({
         email: normalizeEmail(email),
         codeSentAt: null,
-        notice: "Email confirmed. Sign in to continue.",
+        notice: copy.auth.verifyEmail.confirmed,
       });
       router.replace("/sign-in");
     } catch (error) {
@@ -79,7 +80,7 @@ export default function VerifyEmailScreen() {
       setSentAt(now);
       handOff({ email: normalizeEmail(email), codeSentAt: now });
       // The backend answers the same whether or not the address has an account, and so do we.
-      setInfo("If this email needs confirming, a new code is on its way.");
+      setInfo(copy.auth.verifyEmail.resent);
     } catch (error) {
       setErrors(formErrorsFrom(error, "resend"));
     } finally {
@@ -91,21 +92,21 @@ export default function VerifyEmailScreen() {
     <Screen scroll>
       <View className="gap-6">
         <ScreenTitle
-          title="Check your email"
+          title={copy.auth.verifyEmail.title}
           subtitle={
             askEmail
-              ? "Enter your email and the 6-digit code we sent to it."
-              : `We sent a 6-digit code to ${normalizeEmail(email)}. It expires after 10 minutes.`
+              ? copy.auth.verifyEmail.subtitleAskEmail
+              : copy.auth.verifyEmail.subtitleSent(normalizeEmail(email))
           }
         />
         <View className="gap-4">
           {askEmail ? (
             <Input
-              label="Email"
+              label={copy.common.emailLabel}
               value={email}
               onChangeText={edit("email", setEmail)}
               error={errors.fields.email}
-              placeholder="name@example.com"
+              placeholder={copy.common.emailPlaceholder}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
@@ -114,11 +115,11 @@ export default function VerifyEmailScreen() {
             />
           ) : null}
           <Input
-            label="Code"
+            label={copy.common.codeLabel}
             value={code}
             onChangeText={edit("code", (value) => setCode(value.replace(/\D/g, "")))}
             error={errors.fields.code}
-            placeholder="123456"
+            placeholder={copy.common.codePlaceholder}
             keyboardType="number-pad"
             maxLength={6}
             autoComplete="one-time-code"
@@ -129,11 +130,18 @@ export default function VerifyEmailScreen() {
         </View>
         {errors.form ? <FormMessage tone="error">{errors.form}</FormMessage> : null}
         {info && !errors.form ? <FormMessage tone="secondary">{info}</FormMessage> : null}
-        <Button title="Confirm email" fullWidth loading={submitting} onPress={submit} />
+        <Button
+          title={copy.auth.verifyEmail.submit}
+          fullWidth
+          loading={submitting}
+          onPress={submit}
+        />
         <View className="gap-1">
           <Button
             title={
-              secondsLeft > 0 ? `Send a new code in ${secondsLeft} s` : "Send a new code"
+              secondsLeft > 0
+                ? copy.auth.code.resendIn(secondsLeft)
+                : copy.auth.code.resend
             }
             variant="ghost"
             fullWidth
@@ -143,7 +151,7 @@ export default function VerifyEmailScreen() {
           />
           {askEmail ? null : (
             <Button
-              title="Use a different email"
+              title={copy.auth.code.differentEmail}
               variant="ghost"
               fullWidth
               onPress={() => setAskEmail(true)}

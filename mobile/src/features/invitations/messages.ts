@@ -1,16 +1,13 @@
 import { isRequestError } from "@/api/api-error";
 import { MESSAGES } from "@/auth/forms/error-messages";
+import { copy } from "@/copy";
 
 // What to tell the owner when an invitation call or the people search fails, from the stable code.
 
 export const INVITATION_MESSAGES = {
-  ownerOnly: "Only the owner can manage invitations.",
-  gone: "This no longer exists, or you can no longer see it.",
-  personGone: "This person's account no longer exists.",
-  cannotInvite:
-    "You can't invite this person (for example, yourself: the owner always has access).",
-  unknown: "Something went wrong. Try again.",
-} as const;
+  ...copy.invitations.errors,
+  unknown: copy.errors.unknown,
+};
 
 export function invitationErrorMessage(error: unknown): string {
   if (!isRequestError(error)) return INVITATION_MESSAGES.unknown;

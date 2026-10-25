@@ -8,6 +8,7 @@ import {
   TRACK_ROW_CLASS,
   TRACK_TEXT_CLASS,
 } from "./track-row-styles";
+import { copy } from "@/copy";
 
 export interface PlaylistRowProps {
   track: Track;
@@ -53,9 +54,21 @@ export function PlaylistRow({
         <ActivityIndicator color={colors.contentSecondary} />
       ) : editable ? (
         <View className="flex-row gap-2">
-          <IconButton glyph="↑" label={`Move ${track.title} up`} onPress={onMoveUp} />
-          <IconButton glyph="↓" label={`Move ${track.title} down`} onPress={onMoveDown} />
-          <IconButton glyph="✕" label={`Remove ${track.title}`} onPress={onRemove} />
+          <IconButton
+            glyph="↑"
+            label={copy.tracks.moveUp(track.title)}
+            onPress={onMoveUp}
+          />
+          <IconButton
+            glyph="↓"
+            label={copy.tracks.moveDown(track.title)}
+            onPress={onMoveDown}
+          />
+          <IconButton
+            glyph="✕"
+            label={copy.tracks.remove(track.title)}
+            onPress={onRemove}
+          />
         </View>
       ) : null}
     </View>

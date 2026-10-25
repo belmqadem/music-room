@@ -14,6 +14,7 @@ import {
   normalizeBackendUrl,
   SERVER_MESSAGES,
 } from "./server-address";
+import { copy } from "@/copy";
 
 type Notice = { tone: "error" | "success" | "secondary"; text: string };
 
@@ -82,26 +83,22 @@ export function ServerAddressForm({ editable }: { editable: boolean }) {
   async function restoreDefault(): Promise<void> {
     await switchTo(defaultBackendUrl(), resetBackendUrl, {
       tone: "secondary",
-      text: "Back to this build's default server.",
+      text: copy.settings.backToDefault,
     });
   }
 
   return (
     <View className="gap-4">
       <Input
-        label="Server address"
-        placeholder="http://192.168.1.20:3000"
+        label={copy.settings.addressLabel}
+        placeholder={copy.settings.addressPlaceholder}
         value={address}
         onChangeText={(value) => {
           setAddress(value);
           setNotice(null);
         }}
         editable={editable}
-        helper={
-          editable
-            ? "The computer running the Music Room backend, as http://address:port."
-            : "Sign out to change it: your session belongs to this server."
-        }
+        helper={editable ? copy.settings.addressHelp : copy.settings.addressReadOnly}
         keyboardType="url"
         autoCapitalize="none"
         autoCorrect={false}
@@ -116,7 +113,7 @@ export function ServerAddressForm({ editable }: { editable: boolean }) {
         </Text>
       ) : null}
       <Button
-        title="Check connection"
+        title={copy.settings.check}
         variant="secondary"
         fullWidth
         loading={checking}
@@ -124,9 +121,9 @@ export function ServerAddressForm({ editable }: { editable: boolean }) {
       />
       {editable ? (
         <>
-          <Button title="Save" fullWidth onPress={() => void save()} />
+          <Button title={copy.settings.save} fullWidth onPress={() => void save()} />
           <Button
-            title="Use the default"
+            title={copy.settings.useDefault}
             variant="ghost"
             fullWidth
             onPress={() => void restoreDefault()}

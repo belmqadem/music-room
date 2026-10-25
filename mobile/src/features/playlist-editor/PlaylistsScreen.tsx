@@ -11,6 +11,7 @@ import { Badge, Button, Card, Text } from "@/components";
 import { colors } from "@/theme";
 import { editLicenseLabel, playlistTags } from "./messages";
 import { usePlaylists } from "./use-playlists";
+import { copy } from "@/copy";
 
 // Playlists tab: public playlists, mine, and private ones I am invited to (the server decides which).
 export default function PlaylistsScreen() {
@@ -42,7 +43,7 @@ export default function PlaylistsScreen() {
       ListHeaderComponent={
         <View className="gap-3 pb-1">
           <Button
-            title="Create a playlist"
+            title={copy.playlists.create}
             fullWidth
             onPress={() => router.push("/create-playlist")}
           />
@@ -54,9 +55,7 @@ export default function PlaylistsScreen() {
         </View>
       }
       ListEmptyComponent={
-        error ? null : (
-          <Text tone="secondary">No playlists yet. Pull down to check again.</Text>
-        )
+        error ? null : <Text tone="secondary">{copy.playlists.empty}</Text>
       }
     />
   );
@@ -67,7 +66,7 @@ function PlaylistListRow({ playlist }: { playlist: Playlist }) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Open ${playlist.name}`}
+      accessibilityLabel={copy.playlists.open(playlist.name)}
       onPress={() => router.push(`/playlist/${playlist.id}`)}
     >
       <Card className="gap-2">
