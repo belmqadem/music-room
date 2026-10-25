@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { View } from "react-native";
+import { auth } from "@/auth";
 import { Button, Input, Text } from "@/components";
 import {
   defaultBackendUrl,
@@ -7,7 +8,12 @@ import {
   resetBackendUrl,
   setBackendUrl,
 } from "./backend-url";
-import { checkServer, normalizeBackendUrl, SERVER_MESSAGES } from "./server-address";
+import {
+  changeServerAddress,
+  checkServer,
+  normalizeBackendUrl,
+  SERVER_MESSAGES,
+} from "./server-address";
 
 type Notice = { tone: "error" | "success" | "secondary"; text: string };
 
@@ -48,34 +54,36 @@ export function ServerAddressForm({ editable }: { editable: boolean }) {
     });
   }
 
-  async function save(): Promise<void> {
-    const target = validAddress();
-    if (!target) return;
+  /** Forgets the old server's session, then stores the new address: or changes nothing. */
+  async function switchTo(next: string, store: () => Promise<void>, done: Notice) {
     try {
-      await setBackendUrl(target);
-      setAddress(target);
-      setNotice({ tone: "success", text: SERVER_MESSAGES.saved });
-    } catch (error) {
-      console.warn("Could not save the server address:", error);
-      setNotice({
-        tone: "error",
-        text: "Could not save the address on this phone. Try again.",
+      await changeServerAddress(next, {
+        current: getBackendUrl,
+        forgetStoredSession: auth.forgetStoredSession,
+        store,
       });
+      setAddress(next);
+      setNotice(done);
+    } catch (error) {
+      console.warn("Could not change the server address:", error);
+      setNotice({ tone: "error", text: SERVER_MESSAGES.notSaved });
     }
   }
 
+  async function save(): Promise<void> {
+    const target = validAddress();
+    if (!target) return;
+    await switchTo(target, () => setBackendUrl(target), {
+      tone: "success",
+      text: SERVER_MESSAGES.saved,
+    });
+  }
+
   async function restoreDefault(): Promise<void> {
-    try {
-      await resetBackendUrl();
-      setAddress(defaultBackendUrl());
-      setNotice({ tone: "secondary", text: "Back to this build's default server." });
-    } catch (error) {
-      console.warn("Could not reset the server address:", error);
-      setNotice({
-        tone: "error",
-        text: "Could not reset the address on this phone. Try again.",
-      });
-    }
+    await switchTo(defaultBackendUrl(), resetBackendUrl, {
+      tone: "secondary",
+      text: "Back to this build's default server.",
+    });
   }
 
   return (

@@ -560,6 +560,85 @@ describe("signing out", () => {
   });
 });
 
+describe("before the server address changes (forgetStoredSession)", () => {
+  it("deletes a token kept from an offline start, so it is never sent to the new server", async () => {
+    const { auth, backend, storage } = setup({ storedRefreshToken: "old-server-token" });
+    backend.on("POST /auth/refresh", networkDown());
+    await auth.restore();
+    expect(storage.value()).toBe("old-server-token");
+
+    await auth.forgetStoredSession();
+
+    expect(storage.value()).toBeNull();
+    expect(auth.getState()).toEqual({ status: "signedOut", user: null });
+    // The next launch has nothing to send anywhere.
+    backend.requests.length = 0;
+    await auth.restore();
+    expect(backend.requests).toHaveLength(0);
+  });
+
+  it("is refused while signed in, and the session is left as it was", async () => {
+    const { auth, backend, storage } = setup({ storedRefreshToken: "stored" });
+    backend.on("POST /auth/refresh", ok(session(1)));
+    await auth.restore();
+
+    await expect(auth.forgetStoredSession()).rejects.toThrow("Sign out before");
+
+    expect(auth.getState().status).toBe("signedIn");
+    expect(storage.value()).toBe("refresh-1");
+    expect(auth.getAccessToken()).toBe("access-1");
+  });
+
+  it("waits for a restore still running: one that signs in makes it refuse", async () => {
+    const { auth, backend, storage } = setup({ storedRefreshToken: "stored" });
+    let answer: (reply: ReturnType<typeof ok>) => void = () => undefined;
+    backend.on("POST /auth/refresh", () => new Promise((resolve) => (answer = resolve)));
+    const restoring = auth.restore();
+
+    const forgetting = auth.forgetStoredSession();
+    await vi.waitFor(() => expect(backend.requests).toHaveLength(1));
+    answer(ok(session(1)));
+    await restoring;
+
+    await expect(forgetting).rejects.toThrow("Sign out before");
+    expect(storage.value()).toBe("refresh-1");
+  });
+
+  it("waits for a restore still running: one that fails offline is then forgotten", async () => {
+    const { auth, backend, storage } = setup({ storedRefreshToken: "stored" });
+    let answer: (reply: ReturnType<typeof networkDown>) => void = () => undefined;
+    backend.on("POST /auth/refresh", () => new Promise((resolve) => (answer = resolve)));
+    const restoring = auth.restore();
+
+    const forgetting = auth.forgetStoredSession();
+    await vi.waitFor(() => expect(backend.requests).toHaveLength(1));
+    answer(networkDown());
+    await restoring;
+    await forgetting;
+
+    expect(storage.value()).toBeNull();
+  });
+
+  it("when the device storage cannot delete the token: the error is raised, not hidden", async () => {
+    const { auth, backend, storage } = setup({ storedRefreshToken: "stored" });
+    backend.on("POST /auth/refresh", networkDown());
+    await auth.restore();
+    storage.flags.failClear = true;
+
+    await expect(auth.forgetStoredSession()).rejects.toThrow("storage clear failed");
+  });
+
+  it("with nothing stored: nothing to do, and no request", async () => {
+    const { auth, backend, storage } = setup();
+    await auth.restore();
+
+    await auth.forgetStoredSession();
+
+    expect(storage.value()).toBeNull();
+    expect(backend.requests).toHaveLength(0);
+  });
+});
+
 describe("observing the state", () => {
   it("tells listeners about each change, and stops after unsubscribe", async () => {
     const { auth, backend } = setup({ storedRefreshToken: "t" });

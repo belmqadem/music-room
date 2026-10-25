@@ -252,6 +252,20 @@ export function createAuthController(deps: AuthControllerDeps) {
     return { serverRevoked };
   }
 
+  /**
+   * Before the server address changes (ADR-037). A stored refresh token belongs to the server that
+   * issued it: kept, it would be sent to the new address at the next launch. It can be there while
+   * signed out (offline at start keeps it, see restore). A restore still running is awaited
+   * first, so it cannot sign in from the old server afterwards. Refused while signed in.
+   */
+  async function forgetStoredSession(): Promise<void> {
+    if (restoring) await restoring;
+    if (state.status === "signedIn") {
+      throw new Error("Sign out before changing the server address.");
+    }
+    await clearSession();
+  }
+
   /** Reloads the signed-in user (for example after linking a provider). */
   async function refreshUser(): Promise<User> {
     const user = await request<User>("GET", "/users/me");
@@ -291,6 +305,7 @@ export function createAuthController(deps: AuthControllerDeps) {
     signIn,
     signInWithProvider,
     signOut,
+    forgetStoredSession,
     refreshUser,
     register,
     verifyEmail,

@@ -150,7 +150,9 @@ request is checked by the server, and an app screen opened without a session wou
 - No third-party library is committed; dependencies are installed from the lock files.
 - **The app's server address** can be changed only while signed out (ADR-037): a session's refresh token belongs to one
   server, and changing the address while signed in would send that token to another server at the next refresh. The
-  address must be `http(s)://`; "Check connection" only reads `/health`. Plain `http` is accepted for the local network
+  address must be `http(s)://`; "Check connection" only reads `/health`. A token can still be stored while signed out (the
+  server was unreachable at launch), so saving a different address deletes it first, and does not change the address if
+  that fails. Plain `http` is accepted for the local network
   of the defense; a production build should require `https` (open item).
 
 ## Logging and privacy
