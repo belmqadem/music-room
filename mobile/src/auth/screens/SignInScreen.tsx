@@ -14,6 +14,7 @@ import { emailError, normalizeEmail, signInPasswordError } from "@/auth/forms/va
 import { Button, Input, Screen } from "@/components";
 import { FormMessage, ScreenTitle } from "./parts";
 import { SocialSignIn } from "./SocialSignIn";
+import { copy } from "@/copy";
 
 const NO_ERRORS: FormErrors = { form: null, fields: {} };
 
@@ -67,17 +68,17 @@ export default function SignInScreen() {
     <Screen scroll>
       <View className="gap-6">
         <ScreenTitle
-          title="Welcome back"
-          subtitle="Sign in to vote and edit playlists with the room."
+          title={copy.auth.signIn.title}
+          subtitle={copy.auth.signIn.subtitle}
         />
         {notice ? <FormMessage tone="success">{notice}</FormMessage> : null}
         <View className="gap-4">
           <Input
-            label="Email"
+            label={copy.common.emailLabel}
             value={email}
             onChangeText={edit("email", setEmail)}
             error={errors.fields.email}
-            placeholder="name@example.com"
+            placeholder={copy.common.emailPlaceholder}
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
@@ -89,7 +90,7 @@ export default function SignInScreen() {
           />
           <Input
             ref={passwordRef}
-            label="Password"
+            label={copy.auth.signIn.passwordLabel}
             value={password}
             onChangeText={edit("password", setPassword)}
             error={errors.fields.password}
@@ -103,11 +104,16 @@ export default function SignInScreen() {
           />
         </View>
         {errors.form ? <FormMessage tone="error">{errors.form}</FormMessage> : null}
-        <Button title="Sign in" fullWidth loading={submitting} onPress={submit} />
+        <Button
+          title={copy.auth.signIn.submit}
+          fullWidth
+          loading={submitting}
+          onPress={submit}
+        />
         <SocialSignIn />
         <View className="gap-1">
           <Button
-            title="Forgot your password?"
+            title={copy.auth.signIn.forgotPassword}
             variant="ghost"
             fullWidth
             onPress={() => {
@@ -116,7 +122,7 @@ export default function SignInScreen() {
             }}
           />
           <Button
-            title="Create an account"
+            title={copy.auth.signIn.createAccount}
             variant="ghost"
             fullWidth
             onPress={() => router.replace("/sign-up")}

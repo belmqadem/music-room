@@ -1,32 +1,32 @@
 import { router } from "expo-router";
 import { View } from "react-native";
 import { Button, Screen, Text } from "@/components";
+import { copy } from "@/copy";
 
 // The first screen when signed out: what the app is, and the two ways in. One primary action.
 export default function WelcomeScreen() {
   return (
     <Screen scroll topInset>
       <View className="flex-1 justify-center gap-4 py-12">
-        <Text variant="hero">Shape the room’s music, together.</Text>
+        <Text variant="hero">{copy.welcome.headline}</Text>
         <Text variant="bodyLarge" tone="secondary">
-          Vote on what plays next and edit shared playlists live, with everyone in the
-          room.
+          {copy.welcome.intro}
         </Text>
       </View>
       <View className="gap-3">
         <Button
-          title="Create an account"
+          title={copy.welcome.createAccount}
           fullWidth
           onPress={() => router.push("/sign-up")}
         />
         <Button
-          title="Sign in"
+          title={copy.welcome.signIn}
           variant="secondary"
           fullWidth
           onPress={() => router.push("/sign-in")}
         />
         <Button
-          title="Server address"
+          title={copy.welcome.serverAddress}
           variant="ghost"
           fullWidth
           onPress={() => router.push("/server-address")}

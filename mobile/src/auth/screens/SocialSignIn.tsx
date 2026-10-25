@@ -13,6 +13,7 @@ import { router } from "expo-router";
 import { useState } from "react";
 import { Image, View } from "react-native";
 import { FormMessage } from "./parts";
+import { copy } from "@/copy";
 
 interface Provider {
   id: OAuthProvider;
@@ -89,7 +90,7 @@ export function SocialSignIn() {
   return (
     <View className="gap-3">
       <Text tone="secondary" className="text-center">
-        or
+        {copy.common.or}
       </Text>
       <View className="flex flex-row gap-3 justify-center items-center">
         {/* Each button gets an equal share of the row: flex-1 here, not in Button, so other
@@ -99,7 +100,7 @@ export function SocialSignIn() {
             <Button
               title={provider.name}
               icon={<ProviderLogo provider={provider.id} />}
-              accessibilityLabel={`Continue with ${provider.name}`}
+              accessibilityLabel={copy.auth.social.continueWith(provider.name)}
               variant="secondary"
               fullWidth
               loading={busy === provider.id}

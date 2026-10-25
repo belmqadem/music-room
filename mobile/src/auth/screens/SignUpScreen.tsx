@@ -19,6 +19,7 @@ import {
 import { Button, Input, Screen } from "@/components";
 import { FormMessage, ScreenTitle } from "./parts";
 import { SocialSignIn } from "./SocialSignIn";
+import { copy } from "@/copy";
 
 const NO_ERRORS: FormErrors = { form: null, fields: {} };
 
@@ -72,16 +73,16 @@ export default function SignUpScreen() {
     <Screen scroll>
       <View className="gap-6">
         <ScreenTitle
-          title="Create your account"
-          subtitle="We'll email you a 6-digit code to confirm it's you."
+          title={copy.auth.signUp.title}
+          subtitle={copy.auth.signUp.subtitle}
         />
         <View className="gap-4">
           <Input
-            label="Display name"
+            label={copy.auth.signUp.displayNameLabel}
             value={displayName}
             onChangeText={edit("displayName", setDisplayName)}
             error={errors.fields.displayName}
-            helper="Shown to the people in your rooms."
+            helper={copy.auth.signUp.displayNameHelper}
             maxLength={50}
             autoComplete="nickname"
             textContentType="nickname"
@@ -91,11 +92,11 @@ export default function SignUpScreen() {
           />
           <Input
             ref={emailRef}
-            label="Email"
+            label={copy.common.emailLabel}
             value={email}
             onChangeText={edit("email", setEmail)}
             error={errors.fields.email}
-            placeholder="name@example.com"
+            placeholder={copy.common.emailPlaceholder}
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
@@ -107,7 +108,7 @@ export default function SignUpScreen() {
           />
           <Input
             ref={passwordRef}
-            label="Password"
+            label={copy.auth.signUp.passwordLabel}
             value={password}
             onChangeText={edit("password", setPassword)}
             error={errors.fields.password}
@@ -122,10 +123,15 @@ export default function SignUpScreen() {
           />
         </View>
         {errors.form ? <FormMessage tone="error">{errors.form}</FormMessage> : null}
-        <Button title="Create account" fullWidth loading={submitting} onPress={submit} />
+        <Button
+          title={copy.auth.signUp.submit}
+          fullWidth
+          loading={submitting}
+          onPress={submit}
+        />
         <SocialSignIn />
         <Button
-          title="I already have an account"
+          title={copy.auth.signUp.haveAccount}
           variant="ghost"
           fullWidth
           onPress={() => router.replace("/sign-in")}
