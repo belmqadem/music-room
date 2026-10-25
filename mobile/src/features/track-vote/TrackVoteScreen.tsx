@@ -49,6 +49,7 @@ export default function TrackVoteScreen() {
         <Button
           title="Back to events"
           variant="secondary"
+          fullWidth
           onPress={() => router.back()}
         />
       </Centered>

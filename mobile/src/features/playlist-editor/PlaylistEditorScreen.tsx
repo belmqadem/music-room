@@ -47,6 +47,7 @@ export default function PlaylistEditorScreen() {
         <Button
           title="Back to playlists"
           variant="secondary"
+          fullWidth
           onPress={() => router.back()}
         />
       </Centered>
