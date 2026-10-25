@@ -91,7 +91,7 @@ export default function TrackVoteScreen() {
             <View className="flex-row items-center justify-between gap-3">
               <Text variant="caption" tone="secondary" className="flex-1">
                 {voteLicenseLabel(event.voteLicense)}
-                {event.visibility === "private" ? copy.trackVote.privateSuffix : ""}
+                {event.visibility === "private" ? copy.common.privateSuffix : ""}
               </Text>
               <LiveBadge />
             </View>

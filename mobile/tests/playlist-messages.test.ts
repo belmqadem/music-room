@@ -58,7 +58,7 @@ describe("when the list on screen is out of date", () => {
 describe("how a playlist's modes read", () => {
   it("names who may edit", () => {
     expect(editLicenseLabel({ type: "everyone" })).toBe("Everyone can edit");
-    expect(editLicenseLabel({ type: "invited_only" })).toBe("Invited people edit");
+    expect(editLicenseLabel({ type: "invited_only" })).toBe("Only invited people can edit");
   });
 
   it("tags my own playlists and private ones", () => {

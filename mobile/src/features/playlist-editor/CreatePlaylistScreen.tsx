@@ -9,24 +9,19 @@ import {
 } from "./create-playlist-form";
 import { playlistErrorMessage } from "./messages";
 import { playlistApi } from "./playlist-api";
+import { copy } from "@/copy";
 
 const VISIBILITY = [
-  { value: "public", label: "Public" },
-  { value: "private", label: "Private" },
+  { value: "public", label: copy.common.public },
+  { value: "private", label: copy.common.private },
 ] as const;
 const EDIT_MODES = [
-  { value: "everyone", label: "Everyone" },
-  { value: "invited_only", label: "Invited people" },
+  { value: "everyone", label: copy.createPlaylist.editChoices.everyone },
+  { value: "invited_only", label: copy.createPlaylist.editChoices.invited_only },
 ] as const;
 
-const VISIBILITY_HELP = {
-  public: "Listed for everyone.",
-  private: "Only you and the people you invite can find it.",
-} as const;
-const EDIT_HELP = {
-  everyone: "Anyone who can see the playlist can add, move and remove tracks.",
-  invited_only: "Everyone who can see it listens along; only invited people edit.",
-} as const;
+const VISIBILITY_HELP = copy.createPlaylist.visibilityHelp;
+const EDIT_HELP = copy.createPlaylist.editHelp;
 
 // Create a playlist (docs/api-contract.md, "Playlists"): name, who can see it, who may edit. The
 // form checks the name before sending; the server checks everything again.
@@ -59,11 +54,11 @@ export default function CreatePlaylistScreen() {
 
   return (
     <Screen scroll>
-      <Stack.Screen options={{ title: "Create a playlist" }} />
+      <Stack.Screen options={{ title: copy.createPlaylist.title }} />
       <View className="gap-6">
         <Input
-          label="Name"
-          placeholder="Road trip"
+          label={copy.createPlaylist.nameLabel}
+          placeholder={copy.createPlaylist.namePlaceholder}
           value={draft.name}
           onChangeText={(name) => change({ name })}
           error={nameError}
@@ -71,14 +66,14 @@ export default function CreatePlaylistScreen() {
           returnKeyType="done"
         />
         <ChoiceGroup
-          label="Who can see it"
+          label={copy.createPlaylist.visibilityLabel}
           options={VISIBILITY}
           value={draft.visibility}
           onChange={(visibility) => change({ visibility })}
           helper={VISIBILITY_HELP[draft.visibility]}
         />
         <ChoiceGroup
-          label="Who can edit"
+          label={copy.createPlaylist.editLabel}
           options={EDIT_MODES}
           value={draft.editMode}
           onChange={(editMode) => change({ editMode })}
@@ -90,7 +85,7 @@ export default function CreatePlaylistScreen() {
           </Text>
         ) : null}
         <Button
-          title="Create playlist"
+          title={copy.createPlaylist.submit}
           fullWidth
           loading={creating}
           onPress={() => void create()}

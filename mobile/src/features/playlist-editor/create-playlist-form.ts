@@ -1,4 +1,5 @@
 import type { CreatePlaylistRequest, EditLicense, Visibility } from "@music-room/shared";
+import { copy } from "@/copy";
 
 // The create-playlist form (docs/api-contract.md, "Playlists"): name, who can see it, who may edit.
 // The checks mirror the backend's (playlist-editor/schema.ts); a test proves both agree.
@@ -18,9 +19,9 @@ export const EMPTY_PLAYLIST_DRAFT: CreatePlaylistDraft = {
 };
 
 export const PLAYLIST_DRAFT_MESSAGES = {
-  nameMissing: "Give the playlist a name.",
-  nameTooLong: `Keep the name under ${NAME_MAX_LENGTH + 1} characters.`,
-} as const;
+  nameMissing: copy.createPlaylist.errors.nameMissing,
+  nameTooLong: copy.createPlaylist.errors.nameTooLong(NAME_MAX_LENGTH),
+};
 
 export type PlaylistDraftResult =
   { ok: true; request: CreatePlaylistRequest } | { ok: false; nameError: string };

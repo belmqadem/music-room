@@ -16,6 +16,7 @@ export const copy = {
     invitePeople: "Invite people",
     public: "Public",
     private: "Private",
+    privateSuffix: " · Private",
     yours: "Yours",
     emailLabel: "Email",
     emailPlaceholder: "name@example.com",
@@ -206,7 +207,6 @@ export const copy = {
     accessLost:
       "You can't see this room anymore: it was deleted, made private, or you were removed.",
     backToRooms: "Back to rooms",
-    privateSuffix: " · Private",
     ownerRuleNote: " You own this room, so the rule doesn't apply to you.",
     nothingPlaying: "Nothing's playing.",
     startPlaying: "Start playing",
@@ -286,6 +286,8 @@ export const copy = {
     addTrack: "Add track",
     addAction: "Add",
     empty: "This playlist is empty. Add the first track.",
+    emptyListenOnly: "This playlist is empty.",
+    listenOnly: "You can listen along, but you can't edit this playlist.",
     errors: {
       notFound: "This playlist is gone, or you can't see it anymore.",
       notInvited: "Editing is limited in this playlist. Only invited people can edit.",
