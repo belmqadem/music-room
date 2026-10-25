@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   draftFromProfile,
   genresFrom,
+  PROFILE_SECTIONS,
   type ProfileDraft,
   profileUpdateFrom,
+  sectionFrom,
   todayUtc,
 } from "@/features/profile/profile-form";
 import { updateProfileSchema } from "../../backend/src/modules/profiles/schema";
@@ -66,6 +68,32 @@ describe("filling the form from the server's profile", () => {
     };
 
     expect(draftFromProfile(profile)).toEqual(EMPTY);
+  });
+});
+
+describe("the sections each edit button opens", () => {
+  it("together hold every field of the form, each in exactly one section", () => {
+    const fields = Object.values(PROFILE_SECTIONS).flat();
+    expect([...fields].sort()).toEqual(Object.keys(EMPTY).sort());
+  });
+
+  it("About is full name, city, phone and birth date", () => {
+    expect(PROFILE_SECTIONS.about).toEqual(["fullName", "city", "phone", "birthDate"]);
+  });
+
+  it.each(["bio", "about", "music"] as const)("the route can name %j", (section) => {
+    expect(sectionFrom(section)).toBe(section);
+  });
+
+  it.each([
+    ["no section", undefined],
+    ["an unknown one", "private"],
+    ["a different case", "Bio"],
+    ["a name from the object's prototype", "toString"],
+    ["the parameter given twice", ["bio", "about"]],
+    ["an empty one", ""],
+  ])("%s is none: the whole form", (_case, param) => {
+    expect(sectionFrom(param)).toBeNull();
   });
 });
 

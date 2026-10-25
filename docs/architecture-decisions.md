@@ -665,6 +665,24 @@ Each decision must be defensible in detail at the defense. Copy the template for
   - The profile tab: initials in a round avatar, the name in the display font and the email, then Edit profile (the screen's one Ember button). Each block under a heading with its icon (globe, people, note, lock) and who sees it; short values on the right of their label, the bio under it, genres as lowercase pills. Settings and Sign out as rows (Sign out in the error color, no chevron: it does not open a screen).
   - `Icon` wraps `expo-symbols` with one list of names (SF Symbols on iOS, Material Symbols on Android and web); icons are decorative, the text next to them carries the meaning.
 - Consequences: a new screen gets its header by being in one of the stacks. Tab screens start right under the status bar with their main action (Create room, Create playlist, the profile's avatar).
+- Partly superseded by ADR-041: the profile's sections and edit buttons, and where Create room and Create playlist sit.
+
+### ADR-041: Profile sections named by what they hold, each with its own edit; create buttons at the bottom
+
+- Status: accepted
+- Date: 2026-10-25
+- Deciders: kaoutharrr, belmqadem to confirm in review
+- Context: on the profile, the blocks were headed by who can see them (Public, Friends only, Private) with a line of explanation each, which read as settings rather than a profile; one Edit profile button opened every field at once. On Rooms and Playlists, the create button sat at the top of the list, out of thumb reach on a tall phone.
+- Options considered:
+  - **Section names**: the visibility tiers (exact, but about rules, not you); or **what the section holds** (chosen), with the tiers kept where you decide what to share.
+  - **Editing**: one form for everything; or **one edit button per section** opening only that section's fields (chosen: shorter forms, and the button sits next to what it changes).
+  - **Create button**: at the top of the list; at the end of the list (out of sight once the list grows); or **pinned at the bottom, above the tab bar** (chosen).
+- Decision:
+  - Your profile: **My bio**, **About me** (full name, city, phone, birth date: the friends-only and private blocks together) and **My taste in music**; on someone else's profile (to come) **Bio**, **About**, **Music taste**, chosen by whether the profile is editable. The "who can see this" lines are gone from the profile.
+  - Each section has a round pencil button (outlined, not Ember: DESIGN.md allows one Ember element per screen, and three pencils would break that; an Ember version was tried and dropped). It opens Edit profile with `?section=bio|about|music`; `PROFILE_SECTIONS` in `profile-form.ts` maps each section to its fields, and a missing or unknown section shows the whole form. Edit profile keeps the tiers (Public, Friends only, Private, Music taste) and the exact line about who sees each group: that is where you choose what to share.
+  - Saving still sends only what changed. An error on a field of another section (not possible while the server checks the same rules) is shown with the field's name rather than blocking the save silently.
+  - Create room and Create playlist: pinned under their list, above the tab bar, and shown while the list loads.
+- Consequences: the server and its visibility rules are unchanged; only the names on the profile changed. Part 2 (other people's profiles) reuses `ProfileBlocks` without `onEdit`.
 
 ## Still to decide (record each as an ADR)
 

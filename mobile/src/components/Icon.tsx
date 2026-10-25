@@ -10,10 +10,10 @@ import { colors, typography, type TypographyVariant } from "@/theme/tokens.gener
 export const ICONS = {
   back: { ios: "chevron.left", android: "arrow_back", web: "arrow_back" },
   chevronRight: { ios: "chevron.right", android: "chevron_right", web: "chevron_right" },
-  public: { ios: "globe", android: "public", web: "public" },
-  friends: { ios: "person.2", android: "group", web: "group" },
+  bio: { ios: "text.quote", android: "format_quote", web: "format_quote" },
+  about: { ios: "person", android: "person", web: "person" },
   music: { ios: "music.note", android: "music_note", web: "music_note" },
-  private: { ios: "lock", android: "lock", web: "lock" },
+  edit: { ios: "pencil", android: "edit", web: "edit" },
   settings: { ios: "gearshape", android: "settings", web: "settings" },
   signOut: {
     ios: "rectangle.portrait.and.arrow.right",

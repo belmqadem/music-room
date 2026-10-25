@@ -12,7 +12,8 @@ import { ProfileBlocks } from "./ProfileBlocks";
 import { profileApi } from "./profile-api";
 
 // Your profile (docs/api-contract.md, "Profiles"; ADR-024, ADR-039): who you are at the top (initials,
-// name, email, Edit profile), then the four blocks as the server has them, then the account rows.
+// name, email), then the blocks as the server has them, each section with its own edit button, then
+// the account rows.
 // Read again each time the tab shows, so an edit appears on return.
 export default function ProfileScreen() {
   const state = useAuth();
@@ -75,16 +76,15 @@ export default function ProfileScreen() {
             </Text>
             {user.email ? <Text tone="secondary">{user.email}</Text> : null}
           </View>
-          <Button
-            title={copy.profile.edit}
-            fullWidth
-            disabled={!profile}
-            onPress={() => router.push("/edit-profile")}
-          />
         </View>
 
         {profile ? (
-          <ProfileBlocks profile={profile} />
+          <ProfileBlocks
+            profile={profile}
+            onEdit={(section) =>
+              router.push({ pathname: "/edit-profile", params: { section } })
+            }
+          />
         ) : loadError ? (
           <View className="gap-3">
             <Text tone="error" accessibilityRole="alert">
