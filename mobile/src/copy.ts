@@ -346,10 +346,14 @@ export const copy = {
     signOut: "Sign out",
     signOutFailed: "Couldn't sign out. Try again.",
     notSignedIn: "Not signed in.",
-    edit: "Edit profile",
     notSet: "Not set",
     noGenres: "No genres yet",
-    /** One card per block; `audience` says exactly who the server shows it to (ADR-024). */
+    /** The profile's sections, named after what they hold: in your words on your own profile. */
+    headings: {
+      mine: { bio: "My bio", about: "About me", music: "My taste in music" },
+      theirs: { bio: "Bio", about: "About", music: "Music taste" },
+    },
+    /** Edit profile's groups, one per block: `audience` says exactly who the server shows it to (ADR-024). */
     blocks: {
       public: { title: "Public", audience: "Anyone signed in can see this." },
       friends: {
@@ -375,6 +379,8 @@ export const copy = {
 
   editProfile: {
     title: "Edit profile",
+    /** One per section of the profile: the edit button's label and the screen it opens. */
+    titles: { bio: "Edit bio", about: "Edit your info", music: "Edit music taste" },
     bioPlaceholder: "A line about you and your music",
     fullNamePlaceholder: "Ada Lovelace",
     cityPlaceholder: "Paris",
@@ -382,7 +388,7 @@ export const copy = {
     genresHelper: "Separate them with commas. Up to 10.",
     phonePlaceholder: "+33 6 12 34 56 78",
     birthDatePlaceholder: "YYYY-MM-DD",
-    save: "Save profile",
+    save: "Save changes",
     errors: {
       tooLong: (max: number) => `Keep it to ${max} characters max.`,
       phone: "Enter a phone number: digits, spaces and + ( ) . - only.",

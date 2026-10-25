@@ -108,7 +108,10 @@ and permission or privacy text say exactly what happens.
   Who can edit a playlist: **Everyone who can see it**, **Invited people only**.
 - The vote queue is **Up next** / **the queue**; voting is always **vote**. Adding is **Add track**
   (playlist) or **Suggest a track** (room).
-- Profile tiers, when they get a screen: **Public**, **Friends only**, **Private**, **Music taste**.
+- Profile tiers, where you choose who sees what (Edit profile): **Public**, **Friends only**,
+  **Private**, **Music taste**. The profile itself names its sections by what they hold: **My bio**,
+  **About me** (full name, city, phone, birth date), **My taste in music** on your own profile;
+  **Bio**, **About**, **Music taste** on someone else's.
 
 **Rules for new text:**
 

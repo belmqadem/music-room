@@ -26,6 +26,23 @@ export interface ProfileDraft {
 
 export type ProfileField = keyof ProfileDraft;
 
+/** The profile's sections (Bio, About, Music taste) and the fields each one's edit button opens. */
+export const PROFILE_SECTIONS = {
+  bio: ["bio"],
+  about: ["fullName", "city", "phone", "birthDate"],
+  music: ["genres"],
+} as const satisfies Record<string, readonly ProfileField[]>;
+
+export type ProfileSection = keyof typeof PROFILE_SECTIONS;
+
+/** The section named in the route; null when there is none, or it is unknown or repeated. */
+export function sectionFrom(param: string | string[] | undefined): ProfileSection | null {
+  return typeof param === "string" &&
+    Object.prototype.hasOwnProperty.call(PROFILE_SECTIONS, param)
+    ? (param as ProfileSection)
+    : null;
+}
+
 export type ProfileDraftResult =
   | { ok: true; request: UpdateProfileRequest }
   | { ok: false; errors: Partial<Record<ProfileField, string>> };
