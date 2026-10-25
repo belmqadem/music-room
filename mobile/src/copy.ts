@@ -345,6 +345,54 @@ export const copy = {
     signOut: "Sign out",
     signOutFailed: "Couldn't sign out. Try again.",
     notSignedIn: "Not signed in.",
+    edit: "Edit profile",
+    notSet: "Not set",
+    noGenres: "No genres yet",
+    /** One card per block; `audience` says exactly who the server shows it to (ADR-024). */
+    blocks: {
+      public: { title: "Public", audience: "Anyone signed in can see this." },
+      friends: {
+        title: "Friends only",
+        audience: "Only you and your friends can see this.",
+      },
+      music: {
+        title: "Music taste",
+        audience: "Only you and your friends can see this.",
+      },
+      private: { title: "Private", audience: "Only you can see this." },
+    },
+    fields: {
+      bio: "Bio",
+      fullName: "Full name",
+      city: "City",
+      genres: "Genres",
+      phone: "Phone",
+      birthDate: "Birth date",
+    },
+    loadFailed: "Couldn't load your profile.",
+  },
+
+  editProfile: {
+    title: "Edit profile",
+    bioPlaceholder: "A line about you and your music",
+    fullNamePlaceholder: "Ada Lovelace",
+    cityPlaceholder: "Paris",
+    genresPlaceholder: "techno, jazz, r&b",
+    genresHelper: "Separate them with commas. Up to 10.",
+    phonePlaceholder: "+33 6 12 34 56 78",
+    birthDatePlaceholder: "YYYY-MM-DD",
+    save: "Save profile",
+    errors: {
+      tooLong: (max: number) => `Keep it to ${max} characters max.`,
+      phone: "Enter a phone number: digits, spaces and + ( ) . - only.",
+      birthDateShape: "Enter a real date as YYYY-MM-DD, like 2001-09-14.",
+      birthDateTooOld: "Enter a year from 1900 on.",
+      birthDateFuture: "Your birth date can't be in the future.",
+      tooManyGenres: (max: number) => `Keep it to ${max} genres max.`,
+      genreTooLong: (max: number) => `Keep each genre to ${max} characters max.`,
+      genreShape: "Start each genre with a letter or digit, and skip special characters.",
+      rejected: "The server didn't accept one of the fields. Check them and try again.",
+    },
   },
 
   settings: {
