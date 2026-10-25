@@ -634,6 +634,23 @@ Each decision must be defensible in detail at the defense. Copy the template for
   - Permission, privacy and error text stays literal: the tone pass changed wording, never meaning.
 - Consequences: the UI says "room" where the code says event, so the defense has to explain that one mapping. Badges are uppercase by their style token (DESIGN.md, `badge` 700 uppercase), so "Yours" still shows as YOURS: a design decision, not copy. Tests that check exact wording were updated with it.
 
+### ADR-039: Your profile in the app: the four blocks with who sees each, edited on a separate screen
+
+- Status: accepted
+- Date: 2026-10-25
+- Deciders: kaoutharrr, belmqadem to confirm in review
+- Context: the Profile tab showed only the name, the email and Sign out. The backend has the four profile blocks with a fixed audience each (ADR-024). This is the first of three parts: your profile; then other people's profiles and friends; then linked accounts.
+- Options considered:
+  - **Editing**: each block edited and saved in place; or **one edit screen with one Save** (chosen: one form, one request, the same pattern as Create room and Create playlist, fewer states to get wrong).
+  - **What Save sends**: the whole form; or **only the fields that changed** (chosen: a field you did not touch is never overwritten, for example by a second device that changed it meanwhile).
+  - **Genres**: a tag editor; or **one comma-separated field** (chosen: no new component; the tags are shown as badges on the profile).
+  - **Birth date**: a date picker (a native dependency and a rebuild); or **typed as YYYY-MM-DD** (chosen, as the presets for events avoided a picker).
+- Decision:
+  - The Profile tab reads `GET /users/me/profile` each time it shows (so an edit appears on return) and shows only the blocks the server sent (`ProfileBlocks`, reused for other people's profiles later). Each block says who sees it, literally: "Anyone signed in", "Only you and your friends", "Only you".
+  - "Edit profile" opens a form filled from a fresh read. `profile-form.ts` (pure) checks what the backend checks (lengths, phone shape, a real date between 1900 and today in UTC, at most 10 genres of 30 characters, the genre characters) and builds the `PATCH` with only what changed: trimmed, a blank field as `null` (clears it). Phone and birth date must be `null`, not `""`, which the backend refuses. Genres are lowercased and deduplicated before counting, as the backend does. Nothing changed: nothing is sent.
+  - A test runs the requests the form builds, and the values it refuses, through the backend's own `updateProfileSchema`.
+- Consequences: the display name is not editable (the contract has no endpoint for it). A `400` after the form's own checks means the two disagree; the app says a field was refused rather than guessing which.
+
 ## Still to decide (record each as an ADR)
 
 TODO:
