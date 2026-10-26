@@ -195,7 +195,7 @@ says who asked first.
 - Sending requests is rate limited (**Proposed**): 30 per hour per IP, so nobody can be flooded with them.
 - Not included yet: blocking, and real-time notification of a new request (the app polls the list).
 
-## Profiles (Decided: ADR-024)
+## Profiles (Decided: ADR-024, ADR-042)
 
 A profile has four **blocks**. The server decides who sees each one; the user does not choose.
 
@@ -206,9 +206,14 @@ A profile has four **blocks**. The server decides who sees each one; the user do
 | `musicPreferences` | `genres` (≤ 10 tags, each ≤ 30 characters) | accepted friends and the owner |
 | `privateInfo`      | `phone` (≤ 30), `birthDate` (`YYYY-MM-DD`) | the owner only                 |
 
-`Profile` is `{ userId, displayName, publicInfo, friendsInfo?, musicPreferences?, privateInfo? }`. **A block the caller
-may not see is omitted**, not empty or null. A pending friend request is not friendship. Fields the owner never
-filled in are `null` (`genres`: `[]`).
+`Profile` is `{ userId, displayName, publicInfo, friendsInfo?, musicPreferences?, privateInfo?, friendship }`. **A block
+the caller may not see is omitted**, not empty or null. A pending friend request is not friendship. Fields the owner
+never filled in are `null` (`genres`: `[]`).
+
+`friendship` (ADR-042) is where the caller stands with the owner: `{ id, status, direction }` of the pending request or
+the friendship between the two, from the caller's side (as in `Friendship`), or `null` when there is none. It is always
+`null` on your own profile (also in the PATCH answer). `id` is what accept, decline and cancel take; unfriending takes
+the owner's `userId`. Only the two people concerned ever see it, so it reveals nothing to anyone else.
 
 | Method | Path                      | Auth   | Purpose                                          | Success             | Errors                    |
 | ------ | ------------------------- | ------ | ------------------------------------------------ | ------------------- | ------------------------- |
@@ -474,3 +479,4 @@ ANCHOR_NOT_FOUND`. Moving an entry after itself, or to the place it already has,
 | 2026-10-15 | Profiles: `GET/PATCH /users/me/profile`, `GET /users/{userId}/profile`; types `Profile`, `PublicInfo`, `FriendsInfo`, `PrivateInfo`, `MusicPreferences`, `UpdateProfileRequest`; no new error codes; additive                                                                                              | belmqadem | pending     |
 | 2026-10-16 | Provider link and unlink need proof of ownership: `POST /users/me/providers/{provider}` body is now `{ credential, reauth }`, `DELETE` takes `{ reauth }`; new type `Reauth`, `LinkProviderRequest`, `UnlinkProviderRequest`, error code `REAUTH_FAILED` (403). **Breaking** for the link and unlink calls | belmqadem | pending     |
 | 2026-10-19 | Facebook `credential` may also be a Limited Login token (JWT, iOS without tracking permission); same body and error codes; additive (ADR-032)                                                                                                                                                              | belmqadem | pending     |
+| 2026-10-26 | Profiles: `Profile.friendship` (`ProfileFriendship`: `{ id, status, direction }` or `null`), where the caller stands with the owner; always present, `null` on your own profile; additive for readers (ADR-042)                                                                                            | belmqadem | pending     |
