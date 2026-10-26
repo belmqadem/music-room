@@ -746,6 +746,28 @@ Each decision must be defensible in detail at the defense. Copy the template for
 - Consequences: `PROVIDERS` and `ProviderLogo` are shared by sign-in and Settings. The sign-in error for an email already taken now points to Settings.
 - Tested: 25 tests (login method count, when Unlink is offered, which proofs, each call's method, path and body, every error message). On the Android emulator as Bob (a password account): the section, the confirm step, and cancelling Google's account picker (nothing linked). Linking a real Google or Facebook account was not done in this run: that is a sign-in with a real account, done by a person.
 
+### ADR-046: Unique display names, chosen after sign-up and required everywhere
+
+- Status: accepted
+- Date: 2026-10-27
+- Deciders: belmqadem (kaoutharrr to confirm in review: contract change)
+- Context: display names were free text (1 to 50 characters) and not unique, so two "Ada"s looked alike in search and finding a friend meant telling them apart by the start of their id. The team wanted a unique name people find each other by, chosen by every account, whatever way it signed up.
+- Options considered:
+  - **What is unique**: a new `username` next to a free display name (like Instagram); or **the display name itself** (chosen by the team: one name, the real name stays in the profile's About).
+  - **Rules**: free text unique ignoring case (look-alike Unicode letters can impersonate); or **handle rules** (chosen): 3 to 20 of `a-z`, `0-9`, `.` and `_`, starting with a letter, stored lowercase so "Ada", "ada" and "Ada " are one name.
+  - **When**: in the register form (Google and Facebook would still need a separate step); or **after the first sign-in, for every way in** (chosen), and for existing accounts at their next sign-in.
+  - **Enforcement**: only the app routes to the step; a database read on every request; or **a signed claim in the access token** (chosen): `dns: true` once the name is set. It costs nothing per request (the token is verified anyway) and covers the Socket.io handshake too. The app refreshes right after choosing to get a token with the claim. A token without the claim (older ones) counts as "not chosen", the safe default.
+  - **Accounts without a name**: `display_name` NULL (every `UserSummary` would need a nullable name) or **a temporary name** `user_` + 12 hex digits of the id (chosen), with `display_name_set` false: lists keep working, search never shows it, and chosen names may not start with `user_`, so only two new accounts could collide (48 random bits; the unique index refuses it and OAuth sign-up retries).
+- Decision:
+  - `users.display_name_set` and a unique index on `lower(display_name)`. The rules are checked by the API (Zod), not by a database CHECK, so tests and old rows can hold other names; the API is the only way to choose one.
+  - Register takes `{ email, password }` only. `PUT /users/me/display-name` chooses or changes the name: `409 DISPLAY_NAME_TAKEN` from the unique index (no "check then write": two people choosing one name at once cannot both get it, tested with 8 at once).
+  - Until it is chosen, every bearer route and the live handshake answer `403 DISPLAY_NAME_REQUIRED`, except reading `/users/me`, choosing the name and signing out (a second authenticate with `allowWithoutDisplayName`).
+  - The migration gives every existing account a temporary name; its old free-text name is not kept (it may break the rules or collide), and the down migration cannot restore it.
+  - App: sign-up asks only email and password; a third route group, `(onboarding)`, holds "Pick your username" and is the only one open to a signed-in account without a name (no back, Sign out only). Settings has a Username row to change it. The app calls it **username**; the code and API keep `displayName`.
+- Security: the claim is signed with the access-token secret, so a client cannot skip the step; the server answers 403 whatever the app shows. The name is the only thing the endpoint can change, and only for the caller (no user id in the path; unknown fields are 400).
+- Consequences: one more step for every account once. Names can change, so anything that must stay stable (friends, invitations, owners) keeps using the id, as it already did. People search now finds one person per name.
+- Tested: backend unit (rules, the claim, the middleware, the handshake) and integration (every state, case, simultaneous choice, change and freeing, search, OAuth sign-up); eight mutations of these rules each fail a test. App: the rules against the backend's own schema, save then refresh, the messages; on the Android emulator against a test database, sign-up, the step (rules, a taken name in other capitals, Back), the app opening, and a change from Settings.
+
 ## Still to decide (record each as an ADR)
 
 TODO:

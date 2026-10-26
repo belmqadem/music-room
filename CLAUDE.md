@@ -115,6 +115,8 @@ and permission or privacy text say exactly what happens.
 - Friends: **Add friend**, **Cancel request**, **Accept** / **Decline**, **Unfriend**.
 - Sign-in methods (Settings): **Link** / **Unlink**, **Linked** / **Not linked**; the proof step is
   **Confirm it's you**.
+- The unique name people find you by is the **username** (the code and the API say `displayName`,
+  ADR-046): **Pick your username** after sign-up, **Change username** in Settings.
 
 **Rules for new text:**
 
