@@ -23,6 +23,7 @@ export type {
   FriendsInfo,
   PrivateInfo,
   MusicPreferences,
+  ProfileFriendship,
   UpdateProfileRequest,
 } from "./profile";
 export type { Visibility } from "./visibility";
