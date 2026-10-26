@@ -55,6 +55,7 @@ describe("filling the form from the server's profile", () => {
       friendsInfo: { fullName: "Ada Lovelace", city: "Paris" },
       musicPreferences: { genres: ["techno", "jazz"] },
       privateInfo: { phone: "+33 6 12 34 56 78", birthDate: "2001-09-14" },
+      friendship: null,
     };
 
     expect(draftFromProfile(profile)).toEqual(FILLED);
@@ -65,6 +66,7 @@ describe("filling the form from the server's profile", () => {
       userId: "u1",
       displayName: "Ada",
       publicInfo: { bio: null },
+      friendship: null,
     };
 
     expect(draftFromProfile(profile)).toEqual(EMPTY);

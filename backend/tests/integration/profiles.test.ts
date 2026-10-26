@@ -95,6 +95,7 @@ describe.skipIf(!databaseUrl)("profiles", () => {
         friendsInfo: { fullName: "Ana Smith", city: "Lyon" },
         musicPreferences: { genres: ["rock", "jazz"] },
         privateInfo: { phone: "+33 6 11 22 33 44", birthDate: "1990-05-17" },
+        friendship: null,
       });
     });
 
@@ -120,6 +121,11 @@ describe.skipIf(!databaseUrl)("profiles", () => {
           publicInfo: { bio: "I like bass" },
           friendsInfo: { fullName: "Ana Smith", city: "Lyon" },
           musicPreferences: { genres: ["rock", "jazz"] },
+          friendship: {
+            id: expect.any(String),
+            status: "accepted",
+            direction: requester === "owner" ? "incoming" : "outgoing",
+          },
         });
         // The full values, not fragments: a random user id in the same JSON can contain "1990".
         expect(JSON.stringify(res.body)).not.toContain("+33 6 11 22 33 44");
@@ -136,6 +142,7 @@ describe.skipIf(!databaseUrl)("profiles", () => {
         userId: owner.id,
         displayName: owner.name,
         publicInfo: { bio: "I like bass" },
+        friendship: null,
       });
       const text = JSON.stringify(res.body);
       for (const hidden of [
@@ -159,6 +166,7 @@ describe.skipIf(!databaseUrl)("profiles", () => {
         const res = await getOf(caller, owner.id);
         expect(Object.keys(res.body).sort()).toEqual([
           "displayName",
+          "friendship",
           "publicInfo",
           "userId",
         ]);
@@ -180,7 +188,11 @@ describe.skipIf(!databaseUrl)("profiles", () => {
       const friend = await makeUser("friend");
       await befriend(owner, friend);
       expect((await getOf(friend, owner.id)).body.friendsInfo).toBeDefined();
-      await pool.query("DELETE FROM friendships");
+      // Only this pair: other test files use the same database at the same time.
+      await pool.query(
+        "DELETE FROM friendships WHERE requester_id = $1 AND addressee_id = $2",
+        [owner.id, friend.id],
+      );
       expect((await getOf(friend, owner.id)).body.friendsInfo).toBeUndefined();
     });
 
@@ -195,14 +207,74 @@ describe.skipIf(!databaseUrl)("profiles", () => {
         friendsInfo: { fullName: null, city: null },
         musicPreferences: { genres: [] },
         privateInfo: { phone: null, birthDate: null },
+        friendship: null,
       });
       const stranger = await makeUser("stranger");
       expect((await getOf(stranger, blank.id)).body).toEqual({
         userId: blank.id,
         displayName: blank.name,
         publicInfo: { bio: null },
+        friendship: null,
       });
       expect((await getOf(friend, blank.id)).body.privateInfo).toBeUndefined();
+    });
+  });
+
+  describe("where the caller stands with the owner (ADR-042)", () => {
+    const pairId = async (a: TestUser, b: TestUser) =>
+      (
+        await pool.query(
+          `SELECT id FROM friendships
+           WHERE (requester_id = $1 AND addressee_id = $2)
+              OR (requester_id = $2 AND addressee_id = $1)`,
+          [a.id, b.id],
+        )
+      ).rows[0].id as string;
+
+    it("a request you sent is pending and outgoing, with the request's id", async () => {
+      const owner = await makeUser("owner");
+      const asker = await makeUser("asker");
+      await befriend(asker, owner, "pending");
+      expect((await getOf(asker, owner.id)).body.friendship).toEqual({
+        id: await pairId(asker, owner),
+        status: "pending",
+        direction: "outgoing",
+      });
+    });
+
+    it("a request you received is pending and incoming, with the same id", async () => {
+      const owner = await makeUser("owner");
+      const asker = await makeUser("asker");
+      await befriend(owner, asker, "pending");
+      expect((await getOf(asker, owner.id)).body.friendship).toEqual({
+        id: await pairId(asker, owner),
+        status: "pending",
+        direction: "incoming",
+      });
+    });
+
+    it("someone else's request or friendship never shows on your view", async () => {
+      const owner = await makeUser("owner");
+      const friend = await makeUser("friend");
+      const other = await makeUser("other");
+      await befriend(owner, friend);
+      await befriend(other, friend, "pending");
+      expect((await getOf(other, owner.id)).body.friendship).toBeNull();
+    });
+
+    it("follows the row: gone after unfriending, null on your own profile and after PATCH", async () => {
+      const owner = await makeUser("owner");
+      const friend = await makeUser("friend");
+      await befriend(owner, friend);
+      expect((await getOf(friend, owner.id)).body.friendship.status).toBe("accepted");
+      await pool.query("DELETE FROM friendships WHERE id = $1", [
+        await pairId(owner, friend),
+      ]);
+      expect((await getOf(friend, owner.id)).body.friendship).toBeNull();
+      expect((await getOf(owner, owner.id)).body.friendship).toBeNull();
+      expect(
+        (await patch(owner, { publicInfo: { bio: "hi" } })).body.friendship,
+      ).toBeNull();
     });
   });
 

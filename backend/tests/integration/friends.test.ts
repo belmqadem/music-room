@@ -6,7 +6,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../../src/app.js";
 import { createPostgresPool } from "../../src/db/postgres.js";
 import { signAccessToken } from "../../src/modules/auth/access-token.js";
-import { areFriends } from "../../src/modules/friends/repository.js";
+import { findPair } from "../../src/modules/friends/repository.js";
 
 // Friends (ADR-023) against a real, migrated Postgres (set TEST_DATABASE_URL). Rules under test:
 // a request is accepted only by its addressee; one row per pair whichever way it was asked;
@@ -16,6 +16,10 @@ const databaseUrl = process.env.TEST_DATABASE_URL;
 const SECRET = "s".repeat(32);
 // Every test user's name starts with this, so cleanup never touches other data.
 const RUN = `friends${Math.random().toString(36).slice(2, 8)}`;
+
+/** What the profile code uses to decide friends-only access: only an accepted row counts. */
+const areFriends = async (pool: pg.Pool, a: string, b: string) =>
+  (await findPair(pool, a, b))?.status === "accepted";
 
 interface TestUser {
   id: string;

@@ -91,20 +91,23 @@ export async function findPairForUpdate(
   return rows[0] ? toRecord(rows[0]) : null;
 }
 
-/** Whether two users are friends (accepted). The profile code asks this before showing friends-only data. */
-export async function areFriends(
+/**
+ * The request or friendship between two users, whoever asked first, or null. Not locked: the
+ * profile code reads it to decide what to show (only `accepted` is friendship) and to say where
+ * the caller stands.
+ */
+export async function findPair(
   db: Queryable,
   userA: string,
   userB: string,
-): Promise<boolean> {
-  const { rowCount } = await db.query(
-    `SELECT 1 FROM friendships
-     WHERE status = 'accepted'
-       AND LEAST(requester_id, addressee_id) = LEAST($1::uuid, $2::uuid)
+): Promise<FriendshipRecord | null> {
+  const { rows } = await db.query<FriendshipRow>(
+    `SELECT ${COLUMNS} FROM friendships
+     WHERE LEAST(requester_id, addressee_id) = LEAST($1::uuid, $2::uuid)
        AND GREATEST(requester_id, addressee_id) = GREATEST($1::uuid, $2::uuid)`,
     [userA, userB],
   );
-  return rowCount === 1;
+  return rows[0] ? toRecord(rows[0]) : null;
 }
 
 /** @throws a unique violation (friendships_pair_key) if the pair already has a row. */

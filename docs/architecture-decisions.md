@@ -684,6 +684,21 @@ Each decision must be defensible in detail at the defense. Copy the template for
   - Create room and Create playlist: pinned under their list, above the tab bar, and shown while the list loads.
 - Consequences: the server and its visibility rules are unchanged; only the names on the profile changed. Part 2 (other people's profiles) reuses `ProfileBlocks` without `onEdit`.
 
+### ADR-042: A profile says where you stand with its owner
+
+- Status: accepted
+- Date: 2026-10-26
+- Deciders: belmqadem, kaoutharrr (contract change: both review)
+- Context: someone else's profile in the app needs one action depending on where you stand: Add friend, Cancel request, Accept or Decline, Unfriend. `GET /users/{userId}/profile` did not say; accept, decline and cancel take the request's id, which only the request lists had.
+- Options considered:
+  - **The app works it out**: friends when `friendsInfo` is present, pending by scanning your incoming and outgoing request lists (two more requests per profile, paging when there are many, briefly out of date).
+  - **Try and react**: always offer Add friend and turn `409 FRIEND_REQUEST_EXISTS` into "Request sent" (no way to cancel or accept from the profile).
+  - **A new endpoint** (`GET /friends/with/{userId}`): one more request per profile for something the profile read already knows.
+  - **The profile answer carries it** (chosen): the server already reads the row between the two people to decide what to show; returning it costs nothing and keeps the server the source of truth.
+- Decision: `Profile.friendship` is `{ id, status, direction }` from the caller's side, or `null` when there is no row, and always `null` on your own profile. The profile code now reads the row once (`findPair`, replacing `areFriends`) and `visibility.ts` decides both the relation (only `accepted` makes a friend) and this field, so there is still one place for profile visibility.
+- Security: the row concerns only the caller and the owner, so it tells the caller nothing they could not already see in their own request lists. No other user id or date is included. Friends-only blocks still need `accepted`; a pending request, either way, still sees the public block only (tests: unit for `relationOf` and `friendshipOf`, integration for each state; four mutations of these rules each fail a test).
+- Consequences: one field more on every profile answer, always present (so a client never confuses "absent" with "none"). The app shows the right action from one request and refreshes the profile after acting.
+
 ## Still to decide (record each as an ADR)
 
 TODO:

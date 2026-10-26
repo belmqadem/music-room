@@ -228,9 +228,9 @@ export const openApiDocument = {
       },
       Profile: {
         type: "object",
-        required: ["userId", "displayName", "publicInfo"],
+        required: ["userId", "displayName", "publicInfo", "friendship"],
         description:
-          "Only the blocks the caller may see are present: friendsInfo and musicPreferences for friends and the owner, privateInfo for the owner only.",
+          "Only the blocks the caller may see are present: friendsInfo and musicPreferences for friends and the owner, privateInfo for the owner only. `friendship` says where the caller stands with the owner (ADR-042).",
         properties: {
           userId: { type: "string", format: "uuid" },
           displayName: { type: "string" },
@@ -264,6 +264,18 @@ export const openApiDocument = {
             properties: {
               phone: { type: "string", nullable: true, maxLength: 30 },
               birthDate: { type: "string", format: "date", nullable: true },
+            },
+          },
+          friendship: {
+            type: "object",
+            nullable: true,
+            required: ["id", "status", "direction"],
+            description:
+              "The pending request or friendship between the caller and the owner, from the caller's side; null when there is none, and on your own profile. `id` is what accept, decline and cancel take.",
+            properties: {
+              id: { type: "string", format: "uuid" },
+              status: { type: "string", enum: ["pending", "accepted"] },
+              direction: { type: "string", enum: ["incoming", "outgoing"] },
             },
           },
         },
