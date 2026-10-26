@@ -112,6 +112,7 @@ and permission or privacy text say exactly what happens.
   **Private**, **Music taste**. The profile itself names its sections by what they hold: **My bio**,
   **About me** (full name, city, phone, birth date), **My taste in music** on your own profile;
   **Bio**, **About**, **Music taste** on someone else's.
+- Friends: **Add friend**, **Request sent** / **Cancel request**, **Accept** / **Decline**, **Unfriend**.
 
 **Rules for new text:**
 
