@@ -699,6 +699,24 @@ Each decision must be defensible in detail at the defense. Copy the template for
 - Security: the row concerns only the caller and the owner, so it tells the caller nothing they could not already see in their own request lists. No other user id or date is included. Friends-only blocks still need `accepted`; a pending request, either way, still sees the public block only (tests: unit for `relationOf` and `friendshipOf`, integration for each state; four mutations of these rules each fail a test).
 - Consequences: one field more on every profile answer, always present (so a client never confuses "absent" with "none"). The app shows the right action from one request and refreshes the profile after acting.
 
+### ADR-043: Friends in the app: a row on your profile, one screen, actions on the person's profile
+
+- Status: accepted
+- Date: 2026-10-26
+- Deciders: kaoutharrr, belmqadem to confirm in review
+- Context: the friends endpoints (ADR-023) and `Profile.friendship` (ADR-042) existed with no screen. Friendship decides who sees About and Music taste, so it has to be reachable, but it is not a mandatory feature of the subject.
+- Options considered:
+  - **Where**: a fourth tab (visible, but the tab bar is for the mandatory features); or **a Friends row on your profile** (chosen), with the number of requests waiting.
+  - **Unfriend**: one tap (too easy to do by mistake, and it removes what both of you see); a system alert (looks different on each platform); or **asked again in place** (chosen): the button turns into the exact consequence, Unfriend and Keep as friend.
+  - **New requests**: pushed live (not in the contract yet); or **read again whenever the screen or the profile tab shows** (chosen), with pull-to-refresh where there is a list.
+- Decision:
+  - Friends screen (`/friends`): Find people (the same search as invitations, ADR-013), then Requests (Accept, Decline), Sent (Cancel request), and Your friends. Empty request sections are not shown. Every list is read again after each action.
+  - Someone's profile (`/person/{id}`): their full name and then their city in small text under their name, each only when the server sent it and it is filled in (so only for a friend); then Bio and Music taste (ADR-041), with no About box and no line explaining what friends see (both were tried and dropped as clutter). One action from `friendship`, with no status badge (the button says it): Add friend, Cancel request, Accept and Decline, or Unfriend. After any action, and after any error, the profile is read again, so a conflict (they accepted or cancelled meanwhile) shows the server's state; Add friend when they had already asked makes you friends at once ("You're friends now."). Your own id opens the Profile tab instead.
+  - Ids in request paths are URL-encoded: a person id can come from a link and must not reach another path.
+- Genres, on every profile, are "vinyl chips": a pill with a small record drawn from surface tiers and the hairline (no new token, no Ember or Chartreuse); picked over a numbered top list and a mixed-size tag cloud.
+- Consequences: `PersonRow` and `ProfileHeader` are shared; the invitations screen uses the same row and the same search wording. Real-time requests can be added later without changing these screens.
+- Tested: 31 tests (`friendStateOf` for every state including your own profile, the request count, the error messages, each call's method and path, the encoded id). On the Android emulator as Bob: accept from a person's profile, Unfriend asked twice, Add friend and Cancel request (from the profile and from the Sent list), search, and Add friend while the other person had already asked.
+
 ## Still to decide (record each as an ADR)
 
 TODO:

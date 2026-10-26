@@ -5,7 +5,7 @@ import { ActivityIndicator, View } from "react-native";
 import { peopleQueryFrom } from "@/api/search-query";
 import { useLatestSearch } from "@/api/use-latest-search";
 import { usersApi } from "@/api/users-api";
-import { Badge, Button, Card, Input, Screen, Text } from "@/components";
+import { Badge, Button, Input, PersonRow, Screen, Text } from "@/components";
 import { colors } from "@/theme";
 import type { InvitableResource } from "./invitations-api";
 import { invitationErrorMessage } from "./messages";
@@ -43,8 +43,8 @@ function Invitations({ resource, id }: { resource: InvitableResource; id: string
       <Stack.Screen options={{ title: copy.invitations.title }} />
       <View className="gap-6">
         <Input
-          label={copy.invitations.findLabel}
-          placeholder={copy.invitations.findPlaceholder}
+          label={copy.common.findPeople}
+          placeholder={copy.common.findPeoplePlaceholder}
           value={text}
           onChangeText={(value) => {
             setText(value);
@@ -70,9 +70,7 @@ function Invitations({ resource, id }: { resource: InvitableResource; id: string
         ) : state.status === "done" ? (
           <View className="gap-3">
             {state.results.length === 0 ? (
-              <Text tone="secondary">
-                No one has a name starting with “{state.query}”.
-              </Text>
+              <Text tone="secondary">{copy.common.noPeopleMatch(state.query)}</Text>
             ) : (
               state.results.map((user) => (
                 <PersonRow key={user.id} user={user}>
@@ -136,22 +134,5 @@ function Invitations({ resource, id }: { resource: InvitableResource; id: string
         </View>
       </View>
     </Screen>
-  );
-}
-
-/** Names are not unique: the start of the id tells two people with the same name apart. */
-function PersonRow({ user, children }: { user: UserSummary; children: React.ReactNode }) {
-  return (
-    <Card className="flex-row items-center gap-3">
-      <View className="flex-1 gap-1">
-        <Text variant="h3" numberOfLines={1}>
-          {user.displayName}
-        </Text>
-        <Text variant="caption" tone="secondary">
-          #{user.id.slice(0, 8)}
-        </Text>
-      </View>
-      {children}
-    </Card>
   );
 }

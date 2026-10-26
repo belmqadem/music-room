@@ -6,6 +6,9 @@ import { auth } from "@/auth";
 export const profileApi = {
   /** Your own profile: all four blocks. */
   mine: () => auth.request<Profile>("GET", "/users/me/profile"),
+  /** Someone's profile: only the blocks you may see, and where you stand with them (ADR-042). */
+  of: (userId: string) =>
+    auth.request<Profile>("GET", `/users/${encodeURIComponent(userId)}/profile`),
   /** Only the fields sent change; the answer is the whole profile. */
   update: (body: UpdateProfileRequest) =>
     auth.request<Profile>("PATCH", "/users/me/profile", { body }),

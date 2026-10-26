@@ -12,6 +12,7 @@ export const ICONS = {
   chevronRight: { ios: "chevron.right", android: "chevron_right", web: "chevron_right" },
   bio: { ios: "text.quote", android: "format_quote", web: "format_quote" },
   about: { ios: "person", android: "person", web: "person" },
+  friends: { ios: "person.2", android: "group", web: "group" },
   music: { ios: "music.note", android: "music_note", web: "music_note" },
   edit: { ios: "pencil", android: "edit", web: "edit" },
   settings: { ios: "gearshape", android: "settings", web: "settings" },

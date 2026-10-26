@@ -25,6 +25,9 @@ export const copy = {
     codePlaceholder: "123456",
     or: "or",
     notFoundPage: "This page doesn't exist.",
+    findPeople: "Find people",
+    findPeoplePlaceholder: "Name (3 letters or more)",
+    noPeopleMatch: (query: string) => `No one has a name starting with “${query}”.`,
   },
 
   /** Failures that any screen can hit. Plain and specific: what went wrong, what to do. */
@@ -323,8 +326,6 @@ export const copy = {
 
   invitations: {
     title: "Invite people",
-    findLabel: "Find people",
-    findPlaceholder: "Name (3 letters or more)",
     invited: "Invited",
     invite: "Invite",
     inviteName: (name: string) => `Invite ${name}`,
@@ -342,6 +343,10 @@ export const copy = {
   },
 
   profile: {
+    friends: "Friends",
+    /** The Friends row with requests waiting; `count` is "3" or "20+". */
+    friendsWaiting: (count: string) =>
+      `Friends, ${count} ${count === "1" ? "request" : "requests"} waiting`,
     settings: "Settings",
     signOut: "Sign out",
     signOutFailed: "Couldn't sign out. Try again.",
@@ -375,6 +380,36 @@ export const copy = {
       birthDate: "Birth date",
     },
     loadFailed: "Couldn't load your profile.",
+  },
+
+  friends: {
+    title: "Friends",
+    requests: "Requests",
+    sent: "Sent",
+    yourFriends: "Your friends",
+    noFriends: "No friends yet. Find your people above.",
+    open: (name: string) => `Open ${name}'s profile`,
+    addFriend: "Add friend",
+    cancelRequest: "Cancel request",
+    cancelRequestTo: (name: string) => `Cancel your request to ${name}`,
+    accept: "Accept",
+    acceptFrom: (name: string) => `Accept ${name}'s request`,
+    decline: "Decline",
+    declineFrom: (name: string) => `Decline ${name}'s request`,
+    nowFriends: "You're friends now.",
+    unfriend: "Unfriend",
+    unfriendConfirm: (name: string) =>
+      `Unfriend ${name}? You'll both stop seeing each other's About and music taste.`,
+    keepFriend: "Keep as friend",
+    notFound: "This person doesn't exist, or their account is gone.",
+    errors: {
+      alreadyAsked: "You've already asked them.",
+      alreadyFriends: "You're already friends.",
+      requestGone: "That request isn't there anymore.",
+      personGone: "This person's account doesn't exist anymore.",
+      onlyTheyCanAccept: "Only the person you asked can accept.",
+      notYourself: "You can't add yourself as a friend.",
+    },
   },
 
   editProfile: {
