@@ -370,6 +370,7 @@ export const openApiDocument = {
           "email",
           "emailVerified",
           "linkedProviders",
+          "hasPassword",
           "createdAt",
         ],
         properties: {
@@ -380,6 +381,11 @@ export const openApiDocument = {
           linkedProviders: {
             type: "array",
             items: { type: "string", enum: ["google", "facebook"] },
+          },
+          hasPassword: {
+            type: "boolean",
+            description:
+              "Whether the account can sign in with a password (social-only accounts cannot). ADR-044.",
           },
           createdAt: { type: "string", format: "date-time" },
         },

@@ -130,7 +130,9 @@ VALIDATION_ERROR` with one `details` entry per broken rule (`path: "password"`, 
   password). Login does not apply the policy, so accounts created before it still work.
 - **Email verification and password reset (ADR-022).** Register creates the account and emails a 6-digit code but
   returns **no session**: `201 { email }`. The app shows a code screen, calls `POST /auth/verify-email`, then logs in
-  with the password it still holds. `User.emailVerified` tells whether the address is confirmed.
+  with the password it still holds. `User.emailVerified` tells whether the address is confirmed, and
+  `User.hasPassword` (ADR-044) whether the account can sign in with a password at all (a social-only account cannot, and
+  cannot get one through password reset), so the app offers only the proofs of ownership that can work.
   - **Login before confirming:** `403 EMAIL_NOT_VERIFIED`, but only when the password is right; a wrong password or an
     unknown address is the same `401 INVALID_CREDENTIALS` as before, so this reveals nothing. The app answers it with
     the code screen and `POST /auth/resend-verification`.
@@ -480,3 +482,4 @@ ANCHOR_NOT_FOUND`. Moving an entry after itself, or to the place it already has,
 | 2026-10-16 | Provider link and unlink need proof of ownership: `POST /users/me/providers/{provider}` body is now `{ credential, reauth }`, `DELETE` takes `{ reauth }`; new type `Reauth`, `LinkProviderRequest`, `UnlinkProviderRequest`, error code `REAUTH_FAILED` (403). **Breaking** for the link and unlink calls | belmqadem | pending     |
 | 2026-10-19 | Facebook `credential` may also be a Limited Login token (JWT, iOS without tracking permission); same body and error codes; additive (ADR-032)                                                                                                                                                              | belmqadem | pending     |
 | 2026-10-26 | Profiles: `Profile.friendship` (`ProfileFriendship`: `{ id, status, direction }` or `null`), where the caller stands with the owner; always present, `null` on your own profile; additive for readers (ADR-042)                                                                                            | belmqadem | pending     |
+| 2026-10-26 | Auth: `User.hasPassword` (boolean), whether the account can sign in with a password; always present; additive for readers (ADR-044)                                                                                                                                                                        | belmqadem | pending     |

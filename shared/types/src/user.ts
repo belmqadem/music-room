@@ -13,6 +13,12 @@ export interface User {
   emailVerified: boolean;
   /** Social accounts linked to this user. */
   linkedProviders: OAuthProvider[];
+  /**
+   * True when the account can sign in with a password (ADR-044). Social-only accounts cannot, so
+   * the app never asks them for one to confirm a link or unlink. Its login methods are the linked
+   * providers plus one for the password.
+   */
+  hasPassword: boolean;
   createdAt: string; // ISO 8601 UTC
 }
 /**

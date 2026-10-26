@@ -212,6 +212,7 @@ describe.skipIf(!databaseUrl)("social login, link and unlink", () => {
         email: `ada${EMAIL_DOMAIN}`,
         displayName: "Google ada",
         linkedProviders: ["google"],
+        hasPassword: false,
       });
       expect(response.body.user).not.toHaveProperty("passwordHash");
       const row = await pool.query("SELECT password_hash FROM users WHERE id = $1", [
@@ -248,6 +249,7 @@ describe.skipIf(!databaseUrl)("social login, link and unlink", () => {
         email: null,
         displayName: "Facebook grace",
         linkedProviders: ["facebook"],
+        hasPassword: false,
       });
     });
 
@@ -522,7 +524,11 @@ describe.skipIf(!databaseUrl)("social login, link and unlink", () => {
 
       expect(linked.status).toBe(200);
       expect(linked.body.linkedProviders).toEqual(["google"]);
-      expect((await me(session.accessToken)).body.linkedProviders).toEqual(["google"]);
+      expect(linked.body.hasPassword).toBe(true);
+      expect((await me(session.accessToken)).body).toMatchObject({
+        linkedProviders: ["google"],
+        hasPassword: true,
+      });
       const viaGoogle = await oauthLogin("google", {
         credential: googleCredential("linker-g"),
       });
