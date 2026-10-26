@@ -717,6 +717,18 @@ Each decision must be defensible in detail at the defense. Copy the template for
 - Consequences: `PersonRow` and `ProfileHeader` are shared; the invitations screen uses the same row and the same search wording. Real-time requests can be added later without changing these screens.
 - Tested: 31 tests (`friendStateOf` for every state including your own profile, the request count, the error messages, each call's method and path, the encoded id). On the Android emulator as Bob: accept from a person's profile, Unfriend asked twice, Add friend and Cancel request (from the profile and from the Sent list), search, and Add friend while the other person had already asked.
 
+### ADR-044: `User.hasPassword`, so the app asks only for proofs that can work
+
+- Status: accepted
+- Date: 2026-10-26
+- Deciders: belmqadem, kaoutharrr (contract change: both review)
+- Context: linking or unlinking Google or Facebook needs proof of ownership (ADR-025): the password, or a fresh sign-in with a provider already linked. `User` did not say whether the account has a password, so the app would offer "Confirm with your password" to a social-only account, where it can only fail, and could not tell that an Unlink would remove the last login method.
+- Options considered:
+  - **The app offers every proof** and explains a refusal ("…or this account has no password"): no contract change, but a dead end shown on purpose, and Unlink on the last method is only refused by the server.
+  - **`User.hasPassword`** (chosen): one boolean the server already knows (`password_hash IS NOT NULL`).
+- Decision: `User.hasPassword` is always present, in every `User` answer (login, OAuth, `/users/me`, link, unlink). The app counts login methods as linked providers plus one for a password, the same count the server uses for `409 LAST_LOGIN_METHOD`, and the server still decides.
+- Security: `User` is only ever returned to the user themself (`UserSummary` stays `{ id, displayName }`). The field says whether a hash exists, never anything about it. A social-only account cannot get a password through reset (`forgot-password` only sends a code to accounts that have one), so the value does not change under the app. A test pins the exact fields of `/users/me` and that no hash appears.
+
 ## Still to decide (record each as an ADR)
 
 TODO:
