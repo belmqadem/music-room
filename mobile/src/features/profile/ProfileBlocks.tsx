@@ -11,13 +11,16 @@ import type { ProfileSection } from "./profile-form";
 // sent are shown: a missing block is not empty, the caller may simply not see it, so nothing is
 // drawn for it (and no About at all when neither came). Short values sit on the right of their
 // label. With `onEdit` (only ever your own profile), each section has its own edit button and is
-// named in your words ("About me").
+// named in your words ("About me"). Someone else's profile shows their About under their name
+// instead (`withAbout={false}`).
 export function ProfileBlocks({
   profile,
   onEdit,
+  withAbout = true,
 }: {
   profile: Profile;
   onEdit?: (section: ProfileSection) => void;
+  withAbout?: boolean;
 }) {
   const { fields } = copy.profile;
   const headings = onEdit ? copy.profile.headings.mine : copy.profile.headings.theirs;
@@ -33,7 +36,7 @@ export function ProfileBlocks({
       >
         <Value value={profile.publicInfo.bio} className="py-2" />
       </Section>
-      {profile.friendsInfo || profile.privateInfo ? (
+      {withAbout && (profile.friendsInfo || profile.privateInfo) ? (
         <Section
           icon="about"
           title={headings.about}

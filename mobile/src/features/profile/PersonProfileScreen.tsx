@@ -4,7 +4,7 @@ import { useCallback, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { isRequestError } from "@/api/api-error";
 import { useAuth } from "@/auth";
-import { Badge, Button, Screen, Text } from "@/components";
+import { Button, Screen, Text } from "@/components";
 import { copy } from "@/copy";
 import { friendsApi } from "@/features/friends/friends-api";
 import { friendStateOf, type FriendState } from "@/features/friends/friend-state";
@@ -16,7 +16,8 @@ import { ProfileHeader } from "./ProfileHeader";
 import { profileApi } from "./profile-api";
 
 // Someone else's profile (docs/api-contract.md, "Profiles" and "Friends"; ADR-024, ADR-042): only
-// the blocks the server sends, and the one friend action where you stand with them. After any
+// the blocks the server sends (their full name and city, for a friend, under their name), and the
+// one friend action where you stand with them. After any
 // action the profile is read again: the server's answer is what shows, also after a conflict
 // (they accepted or cancelled meanwhile).
 export default function PersonProfileScreen() {
@@ -103,7 +104,10 @@ function PersonProfile({ userId, myId }: { userId: string; myId: string }) {
     <Screen scroll>
       <Stack.Screen options={{ title: profile.displayName }} />
       <View className="gap-8">
-        <ProfileHeader displayName={profile.displayName}>
+        <ProfileHeader
+          displayName={profile.displayName}
+          subtitle={<AboutLines profile={profile} />}
+        >
           <FriendActions
             name={profile.displayName}
             state={friendState}
@@ -145,14 +149,29 @@ function PersonProfile({ userId, myId }: { userId: string; myId: string }) {
           ) : null}
         </ProfileHeader>
 
-        <ProfileBlocks profile={profile} />
-        {friendState.kind === "friends" ? null : (
-          <Text variant="caption" tone="secondary" className="text-center">
-            {copy.friends.friendsSeeMore}
-          </Text>
-        )}
+        <ProfileBlocks profile={profile} withAbout={false} />
       </View>
     </Screen>
+  );
+}
+
+/** Their full name, then their city, each only when the server sent it and it is filled in. */
+function AboutLines({ profile }: { profile: Profile }) {
+  const fullName = profile.friendsInfo?.fullName;
+  const city = profile.friendsInfo?.city;
+  return (
+    <>
+      {fullName ? (
+        <Text tone="secondary" className="text-center">
+          {fullName}
+        </Text>
+      ) : null}
+      {city ? (
+        <Text variant="caption" tone="secondary" className="text-center">
+          {city}
+        </Text>
+      ) : null}
+    </>
   );
 }
 
@@ -184,27 +203,18 @@ function FriendActions({
       return <Button title={text.addFriend} fullWidth loading={busy} onPress={onAdd} />;
     case "sent":
       return (
-        <View className="items-center gap-3 self-stretch">
-          {/* A Badge sits at the start of its parent; this wrapper is what gets centered. */}
-          <View>
-            <Badge label={text.requestSent} />
-          </View>
-          <Button
-            title={text.cancelRequest}
-            variant="secondary"
-            fullWidth
-            loading={busy}
-            onPress={() => onCancelOrDecline(state.requestId)}
-            accessibilityLabel={text.cancelRequestTo(name)}
-          />
-        </View>
+        <Button
+          title={text.cancelRequest}
+          variant="secondary"
+          fullWidth
+          loading={busy}
+          onPress={() => onCancelOrDecline(state.requestId)}
+          accessibilityLabel={text.cancelRequestTo(name)}
+        />
       );
     case "received":
       return (
         <View className="items-center gap-3 self-stretch">
-          <Text tone="secondary" className="text-center">
-            {text.wantsToBeFriends(name)}
-          </Text>
           <Button
             title={text.accept}
             fullWidth
@@ -246,19 +256,13 @@ function FriendActions({
           />
         </View>
       ) : (
-        <View className="items-center gap-3 self-stretch">
-          {/* A Badge sits at the start of its parent; this wrapper is what gets centered. */}
-          <View>
-            <Badge label={text.isFriend} />
-          </View>
-          <Button
-            title={text.unfriend}
-            variant="ghost"
-            fullWidth
-            disabled={busy}
-            onPress={() => setConfirming(true)}
-          />
-        </View>
+        <Button
+          title={text.unfriend}
+          variant="ghost"
+          fullWidth
+          disabled={busy}
+          onPress={() => setConfirming(true)}
+        />
       );
   }
 }

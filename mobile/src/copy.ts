@@ -390,22 +390,17 @@ export const copy = {
     noFriends: "No friends yet. Find your people above.",
     open: (name: string) => `Open ${name}'s profile`,
     addFriend: "Add friend",
-    requestSent: "Request sent",
     cancelRequest: "Cancel request",
     cancelRequestTo: (name: string) => `Cancel your request to ${name}`,
-    wantsToBeFriends: (name: string) => `${name} wants to be friends.`,
     accept: "Accept",
     acceptFrom: (name: string) => `Accept ${name}'s request`,
     decline: "Decline",
     declineFrom: (name: string) => `Decline ${name}'s request`,
     nowFriends: "You're friends now.",
-    isFriend: "Friends",
     unfriend: "Unfriend",
     unfriendConfirm: (name: string) =>
       `Unfriend ${name}? You'll both stop seeing each other's About and music taste.`,
     keepFriend: "Keep as friend",
-    /** Under someone's profile when you are not friends: exactly what friendship adds. */
-    friendsSeeMore: "Friends also see their About and music taste.",
     notFound: "This person doesn't exist, or their account is gone.",
     errors: {
       alreadyAsked: "You've already asked them.",

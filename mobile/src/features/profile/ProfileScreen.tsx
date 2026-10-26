@@ -78,9 +78,10 @@ export default function ProfileScreen() {
   return (
     <Screen scroll>
       <View className="gap-8">
-        <ProfileHeader displayName={user.displayName}>
-          {user.email ? <Text tone="secondary">{user.email}</Text> : null}
-        </ProfileHeader>
+        <ProfileHeader
+          displayName={user.displayName}
+          subtitle={user.email ? <Text tone="secondary">{user.email}</Text> : null}
+        />
 
         {profile ? (
           <ProfileBlocks
