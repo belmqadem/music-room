@@ -10,10 +10,11 @@ import { navigationTheme, useAppFonts } from "@/theme";
 // Keep the splash screen up until the fonts are loaded and the stored session is checked.
 void SplashScreen.preventAutoHideAsync();
 
-// Two route groups: (auth) for signed-out users, (app) for signed-in users. A guarded group cannot
-// be reached; the router sends the user to the first group that is available.
+// Three route groups: (auth) for signed-out users, (onboarding) for a signed-in user who has not
+// chosen a username yet (ADR-046), (app) for everyone else. A guarded group cannot be reached; the
+// router sends the user to the first group that is available.
 export default function RootLayout() {
-  const { status } = useAuth();
+  const { status, user } = useAuth();
   const fontsReady = useAppFonts();
   const ready = fontsReady && status !== "loading";
 
@@ -32,6 +33,8 @@ export default function RootLayout() {
   // Signed out: only the sign-in screens. Signed in: only the app. A screen of the other group
   // cannot be opened, even by its URL; the server checks every request again anyway.
   const signedIn = status === "signedIn";
+  // The server refuses the rest until a name is chosen anyway; this just shows the right screen.
+  const named = signedIn && user?.displayNameSet === true;
   return (
     <ThemeProvider value={navigationTheme}>
       {/* Dark app: light status bar icons. */}
@@ -40,7 +43,10 @@ export default function RootLayout() {
         <Stack.Protected guard={!signedIn}>
           <Stack.Screen name="(auth)" />
         </Stack.Protected>
-        <Stack.Protected guard={signedIn}>
+        <Stack.Protected guard={signedIn && !named}>
+          <Stack.Screen name="(onboarding)" />
+        </Stack.Protected>
+        <Stack.Protected guard={named}>
           <Stack.Screen name="(app)" />
         </Stack.Protected>
       </Stack>

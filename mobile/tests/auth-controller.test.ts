@@ -170,7 +170,6 @@ describe("public endpoints (register, verify, reset)", () => {
     const result = await auth.register({
       email: "ada@example.invalid",
       password: "Correct-Horse-9!",
-      displayName: "Ada",
     });
 
     expect(result).toEqual({ email: "ada@example.invalid" });

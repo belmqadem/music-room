@@ -72,8 +72,6 @@ export const copy = {
     signUp: {
       title: "Make it yours",
       subtitle: "We'll email you a 6-digit code to check it's you.",
-      displayNameLabel: "Display name",
-      displayNameHelper: "Shown to people in your rooms and playlists.",
       passwordLabel: "Password",
       submit: "Create account",
       haveAccount: "I already have an account",
@@ -146,8 +144,6 @@ export const copy = {
       enterEmail: "Enter your email.",
       emailTooLong: "That email is too long.",
       emailShape: "Enter a valid email, like name@example.com.",
-      chooseDisplayName: "Choose a display name.",
-      displayNameTooLong: "Use 50 characters max.",
       enterCode: "Enter the 6-digit code.",
       codeShape: "The code is 6 digits.",
     },
@@ -380,6 +376,28 @@ export const copy = {
       birthDate: "Birth date",
     },
     loadFailed: "Couldn't load your profile.",
+  },
+
+  /** The username (the API's displayName, ADR-046): unique, how people find you. */
+  username: {
+    label: "Username",
+    pickTitle: "Pick your username",
+    pickSubtitle: "It's how friends find you. You can change it later in Settings.",
+    changeTitle: "Change username",
+    helper: "3 to 20 letters, numbers, . or _, starting with a letter.",
+    save: "Save username",
+    saved: "Username saved.",
+    change: "Change",
+    changeName: "Change your username",
+    errors: {
+      empty: "Pick a username.",
+      characters: "Use only letters, numbers, . and _.",
+      firstLetter: "Start with a letter.",
+      length: (min: number, max: number) => `Use ${min} to ${max} characters.`,
+      reserved: "Usernames can't start with user_.",
+      taken: "That username is taken. Try another one.",
+      rejected: "The server didn't accept that username. Try another one.",
+    },
   },
 
   friends: {
