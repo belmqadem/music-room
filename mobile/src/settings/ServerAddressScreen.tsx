@@ -8,7 +8,7 @@ export default function ServerAddressScreen() {
   return (
     <Screen scroll>
       <Stack.Screen options={{ title: copy.settings.serverAddressTitle }} />
-      <ServerAddressForm editable />
+      <ServerAddressForm />
     </Screen>
   );
 }

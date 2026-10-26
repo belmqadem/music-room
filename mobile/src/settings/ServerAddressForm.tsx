@@ -19,11 +19,11 @@ import { copy } from "@/copy";
 type Notice = { tone: "error" | "success" | "secondary"; text: string };
 
 /**
- * The backend address (the subject requires it to be changeable in the app). Editable only while
- * signed out: the session's refresh token belongs to one server, and changing the address while
- * signed in would send it to another one at the next refresh.
+ * The backend address (the subject requires it to be changeable in the app). Only shown while
+ * signed out (the Server address screen): the session's refresh token belongs to one server, and
+ * changing the address while signed in would send it to another one at the next refresh.
  */
-export function ServerAddressForm({ editable }: { editable: boolean }) {
+export function ServerAddressForm() {
   const [address, setAddress] = useState("");
   const [notice, setNotice] = useState<Notice | null>(null);
   const [checking, setChecking] = useState(false);
@@ -97,8 +97,7 @@ export function ServerAddressForm({ editable }: { editable: boolean }) {
           setAddress(value);
           setNotice(null);
         }}
-        editable={editable}
-        helper={editable ? copy.settings.addressHelp : copy.settings.addressReadOnly}
+        helper={copy.settings.addressHelp}
         keyboardType="url"
         autoCapitalize="none"
         autoCorrect={false}
@@ -119,17 +118,13 @@ export function ServerAddressForm({ editable }: { editable: boolean }) {
         loading={checking}
         onPress={() => void check()}
       />
-      {editable ? (
-        <>
-          <Button title={copy.settings.save} fullWidth onPress={() => void save()} />
-          <Button
-            title={copy.settings.useDefault}
-            variant="ghost"
-            fullWidth
-            onPress={() => void restoreDefault()}
-          />
-        </>
-      ) : null}
+      <Button title={copy.settings.save} fullWidth onPress={() => void save()} />
+      <Button
+        title={copy.settings.useDefault}
+        variant="ghost"
+        fullWidth
+        onPress={() => void restoreDefault()}
+      />
     </View>
   );
 }

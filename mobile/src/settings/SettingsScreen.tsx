@@ -3,11 +3,10 @@ import { View } from "react-native";
 import { useAuth } from "@/auth";
 import { Card, IconButton, Screen, Text } from "@/components";
 import { copy } from "@/copy";
-import { ServerAddressForm } from "./ServerAddressForm";
 import { SignInMethods } from "./SignInMethods";
 
-// Settings while signed in: your username (ADR-046), your sign-in methods (link and unlink Google
-// or Facebook), then the server address, read-only (sign out to change it).
+// Settings while signed in: your username (ADR-046) and your sign-in methods (link and unlink
+// Google or Facebook). The server address is set while signed out (Welcome, Server address).
 export default function SettingsScreen() {
   const state = useAuth();
   const user = state.status === "signedIn" ? state.user : null;
@@ -31,7 +30,6 @@ export default function SettingsScreen() {
           </Card>
         ) : null}
         {user ? <SignInMethods user={user} /> : null}
-        <ServerAddressForm editable={false} />
       </View>
     </Screen>
   );
