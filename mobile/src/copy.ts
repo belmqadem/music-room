@@ -387,7 +387,6 @@ export const copy = {
     helper: "3 to 20 letters, numbers, . or _, starting with a letter.",
     save: "Save username",
     saved: "Username saved.",
-    change: "Change",
     changeName: "Change your username",
     errors: {
       empty: "Pick a username.",

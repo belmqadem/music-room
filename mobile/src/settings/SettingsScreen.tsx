@@ -1,7 +1,7 @@
 import { router, Stack } from "expo-router";
 import { View } from "react-native";
 import { useAuth } from "@/auth";
-import { Button, Card, Screen, Text } from "@/components";
+import { Card, IconButton, Screen, Text } from "@/components";
 import { copy } from "@/copy";
 import { ServerAddressForm } from "./ServerAddressForm";
 import { SignInMethods } from "./SignInMethods";
@@ -23,9 +23,8 @@ export default function SettingsScreen() {
                 {user.displayName}
               </Text>
             </View>
-            <Button
-              title={copy.username.change}
-              variant="secondary"
+            <IconButton
+              icon="edit"
               accessibilityLabel={copy.username.changeName}
               onPress={() => router.push("/username")}
             />
