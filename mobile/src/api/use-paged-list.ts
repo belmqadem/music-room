@@ -3,7 +3,7 @@ import { useFocusEffect } from "expo-router";
 import { useCallback, useRef, useState } from "react";
 
 /**
- * A paged list from the backend (events, playlists): the first page (again on each return to the
+ * A paged list from the backend (events, playlists, friends): the first page (again on each return to the
  * screen, so something created meanwhile shows up), pull to refresh, and the next pages as the
  * list scrolls. Items are never shown twice: one created between two pages can shift the list.
  */
@@ -67,5 +67,7 @@ export function usePagedList<T extends { id: string }>(
     }
   }
 
-  return { items, loading, refreshing, error, refresh, loadMore };
+  /** Another page exists: for a "Show more" button where the list is not a FlatList. */
+  const hasMore = nextCursor !== null;
+  return { items, loading, refreshing, error, refresh, loadMore, hasMore };
 }
