@@ -136,6 +136,8 @@ export function createAuthService(deps: AuthServiceDependencies): AuthService {
       email: user.email,
       emailVerified: user.emailVerifiedAt !== null,
       linkedProviders: linkedProviders as OAuthProvider[],
+      // Only whether a hash exists: the hash itself never leaves the server.
+      hasPassword: user.passwordHash !== null,
       createdAt: user.createdAt.toISOString(),
     };
   }

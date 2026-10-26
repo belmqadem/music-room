@@ -268,6 +268,8 @@ describe.skipIf(!databaseUrl)("auth flow (register, login, me)", () => {
       expect(response.status).toBe(200);
       expect(response.headers["cache-control"]).toBe("no-store");
       expect(response.body.user.email).toBe(email("bob"));
+      expect(response.body.user.hasPassword).toBe(true);
+      expect(response.body.user).not.toHaveProperty("passwordHash");
       expect(response.body.expiresIn).toBe(900);
     });
 
@@ -371,7 +373,19 @@ describe.skipIf(!databaseUrl)("auth flow (register, login, me)", () => {
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual(registration.body.user);
-      expect(JSON.stringify(response.body)).not.toMatch(/password|\$2b\$/i);
+      // Exactly these fields: `hasPassword` says whether a hash exists, never the hash itself.
+      expect(Object.keys(response.body).sort()).toEqual([
+        "createdAt",
+        "displayName",
+        "email",
+        "emailVerified",
+        "hasPassword",
+        "id",
+        "linkedProviders",
+      ]);
+      expect(JSON.stringify(response.body)).not.toMatch(
+        /passwordHash|password_hash|\$2b\$/i,
+      );
     });
 
     it("answers 401 UNAUTHENTICATED without a token", async () => {
