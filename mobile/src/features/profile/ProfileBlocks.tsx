@@ -70,9 +70,7 @@ export function ProfileBlocks({
           {profile.musicPreferences.genres.length > 0 ? (
             <View className="flex-row flex-wrap gap-2 py-1">
               {profile.musicPreferences.genres.map((genre) => (
-                <View key={genre} className="rounded-full bg-surface-high px-3 py-1">
-                  <Text variant="caption">{genre}</Text>
-                </View>
+                <GenreChip key={genre} genre={genre} />
               ))}
             </View>
           ) : (
@@ -120,6 +118,28 @@ function Section({
         ) : null}
       </View>
       <Card>{children}</Card>
+    </View>
+  );
+}
+
+/**
+ * A genre as a record: a small disc (dark vinyl, one groove, a lighter label and the spindle hole,
+ * all surface tiers and the hairline) on the left of the name. Decorative: the name is what is read.
+ */
+function GenreChip({ genre }: { genre: string }) {
+  return (
+    <View className="flex-row items-center gap-2 rounded-full border border-line-subtle bg-surface-high py-1 pl-1 pr-3">
+      <View
+        className="h-7 w-7 items-center justify-center rounded-full border border-line-subtle bg-surface-lowest"
+        accessible={false}
+      >
+        <View className="h-5 w-5 items-center justify-center rounded-full border border-line-subtle">
+          <View className="h-2.5 w-2.5 items-center justify-center rounded-full bg-surface-bright">
+            <View className="h-1 w-1 rounded-full bg-canvas" />
+          </View>
+        </View>
+      </View>
+      <Text>{genre}</Text>
     </View>
   );
 }
