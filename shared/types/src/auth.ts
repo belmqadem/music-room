@@ -2,9 +2,18 @@
 // See docs/api-contract.md ("Authentication") and ADR-003.
 import type { OAuthProvider, User } from "./user";
 
+/** The display name is chosen after the email is verified (ADR-046), not here. */
 export interface RegisterRequest {
   email: string;
   password: string;
+}
+
+/**
+ * Body of PUT /users/me/display-name (ADR-046): the first choice after sign-up, or a change later.
+ * 3 to 20 characters: lowercase letters, digits, "." and "_", starting with a letter. The server
+ * trims and lowercases it, so "Ada " is "ada"; unique ignoring case.
+ */
+export interface SetDisplayNameRequest {
   displayName: string;
 }
 

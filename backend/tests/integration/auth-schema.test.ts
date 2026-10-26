@@ -34,7 +34,7 @@ describe.skipIf(!databaseUrl)("auth schema constraints", () => {
 
   async function insertUser(
     email: string | null,
-    displayName = "Test User",
+    displayName = `test ${Math.random()}`,
   ): Promise<string> {
     const result = await client.query<{ id: string }>(
       "INSERT INTO users (email, display_name) VALUES ($1, $2) RETURNING id",
@@ -67,7 +67,7 @@ describe.skipIf(!databaseUrl)("auth schema constraints", () => {
     it("rejects a password account that has no email", async () => {
       await expectPgError(
         client.query(
-          "INSERT INTO users (password_hash, display_name) VALUES ('hash', 'No Email')",
+          "INSERT INTO users (password_hash, display_name) VALUES ('hash', 'noemail' || md5(random()::text))",
         ),
         PG_CHECK_VIOLATION,
       );

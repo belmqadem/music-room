@@ -30,7 +30,7 @@ describe.skipIf(!databaseUrl)("access loaders", () => {
 
   async function insertUser(): Promise<string> {
     const { rows } = await client.query(
-      "INSERT INTO users (display_name) VALUES ('U') RETURNING id",
+      "INSERT INTO users (display_name) VALUES ('u' || md5(random()::text)) RETURNING id",
     );
     return rows[0].id;
   }

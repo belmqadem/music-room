@@ -34,6 +34,8 @@ export async function searchUsersByDisplayNamePrefix(
      FROM users
      WHERE lower(display_name) LIKE lower($2) || '%' ESCAPE '\\'
        AND id <> $1
+       -- A temporary name (ADR-046) is not a name to find someone by.
+       AND display_name_set
        AND ($3::text IS NULL OR (lower(display_name), id) > ($3::text, $4::uuid))
      ORDER BY lower(display_name), id
      LIMIT $5`,

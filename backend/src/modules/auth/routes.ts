@@ -23,10 +23,15 @@ export interface AuthRoutesOptions {
   emailCodeLimit?: RateLimitSettings;
 }
 
-/** Mounted at /api/v1: /auth/{register,verify-email,resend-verification,forgot-password,reset-password,login,refresh,logout,oauth/:provider}, /users/me and /users/me/providers/:provider. */
+/** Mounted at /api/v1: /auth/{register,verify-email,resend-verification,forgot-password,reset-password,login,refresh,logout,oauth/:provider}, /users/me, /users/me/display-name and /users/me/providers/:provider. */
 export function createAuthRoutes(options: AuthRoutesOptions): ExpressRouter {
   const controller = createAuthController(options.service);
   const authenticate = createAuthenticate(options.jwtSecret);
+  // SECURITY (ADR-046): the only routes open to an account that has not chosen its display name:
+  // reading itself, choosing the name, signing out. Every other route refuses it.
+  const authenticateBeforeName = createAuthenticate(options.jwtSecret, {
+    allowWithoutDisplayName: true,
+  });
   const loginLimiter = createRateLimiter(
     "login",
     options.loginLimit ?? DEFAULT_LOGIN_LIMIT,
@@ -64,8 +69,9 @@ export function createAuthRoutes(options: AuthRoutesOptions): ExpressRouter {
   router.post("/auth/login", loginLimiter, controller.login);
   // Public on purpose: the access token has usually expired when the app refreshes.
   router.post("/auth/refresh", refreshLimiter, controller.refresh);
-  router.post("/auth/logout", authenticate, controller.logout);
-  router.get("/users/me", authenticate, controller.me);
+  router.post("/auth/logout", authenticateBeforeName, controller.logout);
+  router.get("/users/me", authenticateBeforeName, controller.me);
+  router.put("/users/me/display-name", authenticateBeforeName, controller.setDisplayName);
   // Social login shares the login limit: it is another way to try to get in.
   router.post("/auth/oauth/:provider", loginLimiter, controller.oauthLogin);
   router.post(

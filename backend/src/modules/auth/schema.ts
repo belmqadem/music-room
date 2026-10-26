@@ -19,12 +19,28 @@ export const newPassword = z
     }
   });
 
+// The display name is chosen after the email is verified (PUT /users/me/display-name, ADR-046).
 export const registerSchema = z.strictObject({
   email,
   password: newPassword,
-  displayName: z.string().trim().min(1).max(50),
 });
 export type RegisterInput = z.infer<typeof registerSchema>;
+
+// Display names are handles (ADR-046): trimmed and lowercased first, so "Ada " and "ada" are one
+// name; then 3 to 20 of a-z, 0-9, "." and "_", starting with a letter. `user_` is kept for the
+// temporary names of new accounts, so a chosen name can never look like one.
+export const DISPLAY_NAME_SHAPE = /^[a-z][a-z0-9._]{2,19}$/;
+export const displayNameSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .regex(
+    DISPLAY_NAME_SHAPE,
+    "3 to 20 characters: letters, digits, . and _, starting with a letter.",
+  )
+  .refine((name) => !name.startsWith("user_"), "Names starting with user_ are reserved.");
+export const setDisplayNameSchema = z.strictObject({ displayName: displayNameSchema });
+export type SetDisplayNameInput = z.infer<typeof setDisplayNameSchema>;
 
 // Login is deliberately lenient on the password (no length policy): the answer
 // to a wrong password must not reveal anything about the rules or the account.

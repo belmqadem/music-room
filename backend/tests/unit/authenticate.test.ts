@@ -14,11 +14,19 @@ const app = express();
 app.get("/protected", createAuthenticate(SECRET), (req, res) => {
   res.json({ userId: req.auth?.userId });
 });
+// Like /users/me or choosing the name: open before the display name is chosen (ADR-046).
+app.get(
+  "/before-name",
+  createAuthenticate(SECRET, { allowWithoutDisplayName: true }),
+  (req, res) => {
+    res.json({ userId: req.auth?.userId });
+  },
+);
 app.use(createErrorHandler(pino({ level: "silent" })));
 
 describe("authenticate middleware", () => {
   it("lets a valid token through and exposes the user id", async () => {
-    const token = await signAccessToken(USER_ID, SECRET);
+    const token = await signAccessToken(USER_ID, SECRET, { displayNameSet: true });
 
     const response = await request(app)
       .get("/protected")
@@ -26,6 +34,36 @@ describe("authenticate middleware", () => {
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ userId: USER_ID });
+  });
+
+  it("answers 403 DISPLAY_NAME_REQUIRED before the display name is chosen (ADR-046)", async () => {
+    const token = await signAccessToken(USER_ID, SECRET, { displayNameSet: false });
+
+    const response = await request(app)
+      .get("/protected")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(response.status).toBe(403);
+    expect(response.body.error.code).toBe("DISPLAY_NAME_REQUIRED");
+  });
+
+  it("lets that account through only where it may choose its name", async () => {
+    const token = await signAccessToken(USER_ID, SECRET, { displayNameSet: false });
+
+    const response = await request(app)
+      .get("/before-name")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ userId: USER_ID });
+  });
+
+  it("still refuses a bad token on the routes open before the name", async () => {
+    const response = await request(app)
+      .get("/before-name")
+      .set("Authorization", "Bearer not-a-token");
+
+    expect(response.status).toBe(401);
   });
 
   it("answers 401 UNAUTHENTICATED when there is no Authorization header", async () => {
@@ -46,7 +84,9 @@ describe("authenticate middleware", () => {
   );
 
   it("answers 401 UNAUTHENTICATED for a token signed with another secret", async () => {
-    const token = await signAccessToken(USER_ID, "o".repeat(32));
+    const token = await signAccessToken(USER_ID, "o".repeat(32), {
+      displayNameSet: true,
+    });
 
     const response = await request(app)
       .get("/protected")
@@ -58,7 +98,12 @@ describe("authenticate middleware", () => {
 
   it("answers 401 TOKEN_EXPIRED for an expired token, so the app knows to refresh", async () => {
     const twentyMinutesAgo = new Date(Date.now() - 20 * 60 * 1000);
-    const token = await signAccessToken(USER_ID, SECRET, twentyMinutesAgo);
+    const token = await signAccessToken(
+      USER_ID,
+      SECRET,
+      { displayNameSet: true },
+      twentyMinutesAgo,
+    );
 
     const response = await request(app)
       .get("/protected")
@@ -69,7 +114,7 @@ describe("authenticate middleware", () => {
   });
 
   it("accepts the scheme in any letter case (RFC 7235)", async () => {
-    const token = await signAccessToken(USER_ID, SECRET);
+    const token = await signAccessToken(USER_ID, SECRET, { displayNameSet: true });
 
     const response = await request(app)
       .get("/protected")

@@ -81,7 +81,10 @@ describe.skipIf(!databaseUrl)("advancing the queue", () => {
       "INSERT INTO users (display_name) VALUES ($1) RETURNING id",
       [`${NAME_PREFIX}${name}`],
     );
-    return { id: rows[0].id, token: await signAccessToken(rows[0].id, SECRET) };
+    return {
+      id: rows[0].id,
+      token: await signAccessToken(rows[0].id, SECRET, { displayNameSet: true }),
+    };
   }
   const call = (
     method: "get" | "post" | "put" | "delete",

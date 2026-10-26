@@ -14,18 +14,33 @@ declare module "express-serve-static-core" {
  * It does NOT decide whether the caller may touch a given resource; that is
  * authorization and is checked separately in each handler/service.
  * Note: a deleted user's token stays valid until it expires (15 minutes max).
+ *
+ * SECURITY (ADR-046): an account that has not chosen its display name gets 403
+ * DISPLAY_NAME_REQUIRED, from the token's signed claim. Only the few routes that let it choose
+ * (reading /users/me, setting the name, signing out) pass `allowWithoutDisplayName`.
  */
-export function createAuthenticate(jwtSecret: string): RequestHandler {
+export function createAuthenticate(
+  jwtSecret: string,
+  options: { allowWithoutDisplayName?: boolean } = {},
+): RequestHandler {
   return async (req, _res, next) => {
     const match = /^Bearer (\S+)$/i.exec(req.get("authorization") ?? "");
     if (!match?.[1]) {
       throw new HttpError(401, "UNAUTHENTICATED", "Authentication required.");
     }
     try {
-      const { userId } = await verifyAccessToken(match[1], jwtSecret);
+      const { userId, displayNameSet } = await verifyAccessToken(match[1], jwtSecret);
+      if (!displayNameSet && !options.allowWithoutDisplayName) {
+        throw new HttpError(
+          403,
+          "DISPLAY_NAME_REQUIRED",
+          "Choose your display name first.",
+        );
+      }
       req.auth = { userId };
       next();
     } catch (error) {
+      if (error instanceof HttpError) throw error;
       if (error instanceof AccessTokenError && error.reason === "expired") {
         throw new HttpError(401, "TOKEN_EXPIRED", "Access token expired.");
       }

@@ -9,6 +9,8 @@ export interface UserRecord {
   email: string | null;
   passwordHash: string | null;
   displayName: string;
+  /** False until the user chose their display name (ADR-046); the name is temporary until then. */
+  displayNameSet: boolean;
   createdAt: Date;
   /** When the email address was proven to belong to the user; null = never. */
   emailVerifiedAt: Date | null;
@@ -19,12 +21,21 @@ interface UserRow {
   email: string | null;
   password_hash: string | null;
   display_name: string;
+  display_name_set: boolean;
   created_at: Date;
   email_verified_at: Date | null;
 }
 
 const USER_COLUMNS =
-  "id, email, password_hash, display_name, created_at, email_verified_at";
+  "id, email, password_hash, display_name, display_name_set, created_at, email_verified_at";
+
+/**
+ * A new account's temporary display name (ADR-046): `user_` and the first 12 hex digits of its
+ * random id, computed by Postgres in the same INSERT. Chosen names may not start with `user_`,
+ * so only two new accounts could collide (48 random bits); the unique index refuses that.
+ */
+const NEW_USER = `SELECT gen_random_uuid() AS id`;
+const TEMPORARY_NAME = `'user_' || substr(replace(n.id::text, '-', ''), 1, 12)`;
 
 function toUserRecord(row: UserRow): UserRecord {
   return {
@@ -32,6 +43,7 @@ function toUserRecord(row: UserRow): UserRecord {
     email: row.email,
     passwordHash: row.password_hash,
     displayName: row.display_name,
+    displayNameSet: row.display_name_set,
     createdAt: row.created_at,
     emailVerifiedAt: row.email_verified_at,
   };
@@ -81,14 +93,32 @@ export async function findUserById(
 /** @throws a Postgres unique-violation error if the email is taken (check with isUniqueViolation). */
 export async function insertUser(
   db: Queryable,
-  user: { email: string; passwordHash: string; displayName: string },
+  user: { email: string; passwordHash: string },
 ): Promise<UserRecord> {
   const { rows } = await db.query<UserRow>(
-    `INSERT INTO users (email, password_hash, display_name) VALUES ($1, $2, $3)
+    `INSERT INTO users (id, email, password_hash, display_name)
+     SELECT n.id, $1, $2, ${TEMPORARY_NAME} FROM (${NEW_USER}) n
      RETURNING ${USER_COLUMNS}`,
-    [user.email, user.passwordHash, user.displayName],
+    [user.email, user.passwordHash],
   );
   return toUserRecord(rows[0]!);
+}
+
+/**
+ * Sets the chosen display name (already checked and lowercased) and marks it chosen. Null when
+ * the user no longer exists. @throws a unique violation (users_display_name_lower_key) if taken.
+ */
+export async function updateDisplayName(
+  db: Queryable,
+  id: string,
+  displayName: string,
+): Promise<UserRecord | null> {
+  const { rows } = await db.query<UserRow>(
+    `UPDATE users SET display_name = $2, display_name_set = true WHERE id = $1
+     RETURNING ${USER_COLUMNS}`,
+    [id, displayName],
+  );
+  return rows[0] ? toUserRecord(rows[0]) : null;
 }
 
 /** The user a provider account is linked to, if any. */
@@ -98,7 +128,8 @@ export async function findUserByIdentity(
   providerUserId: string,
 ): Promise<UserRecord | null> {
   const { rows } = await db.query<UserRow>(
-    `SELECT u.id, u.email, u.password_hash, u.display_name, u.created_at, u.email_verified_at
+    `SELECT u.id, u.email, u.password_hash, u.display_name, u.display_name_set, u.created_at,
+            u.email_verified_at
      FROM oauth_identities i JOIN users u ON u.id = i.user_id
      WHERE i.provider = $1 AND i.provider_user_id = $2`,
     [provider, providerUserId],
@@ -125,13 +156,13 @@ export async function lockUser(db: Queryable, id: string): Promise<UserRecord | 
  */
 export async function insertSocialUser(
   db: Queryable,
-  user: { email: string | null; displayName: string; emailVerified: boolean },
+  user: { email: string | null; emailVerified: boolean },
 ): Promise<UserRecord> {
   const { rows } = await db.query<UserRow>(
-    `INSERT INTO users (email, display_name, email_verified_at)
-     VALUES ($1, $2, CASE WHEN $3 THEN now() END)
+    `INSERT INTO users (id, email, display_name, email_verified_at)
+     SELECT n.id, $1, ${TEMPORARY_NAME}, CASE WHEN $2 THEN now() END FROM (${NEW_USER}) n
      RETURNING ${USER_COLUMNS}`,
-    [user.email, user.displayName, user.emailVerified],
+    [user.email, user.emailVerified],
   );
   return toUserRecord(rows[0]!);
 }

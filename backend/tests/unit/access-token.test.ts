@@ -28,45 +28,78 @@ async function expectRejected(promise: Promise<unknown>, reason: "expired" | "in
 
 describe("access token", () => {
   it("expires 15 minutes after it is issued", async () => {
-    const token = await signAccessToken(USER_ID, SECRET);
+    const token = await signAccessToken(USER_ID, SECRET, { displayNameSet: true });
     const { exp, iat } = decodePayload(token);
 
     expect(ACCESS_TOKEN_TTL_SECONDS).toBe(900);
     expect(exp - iat).toBe(900);
   });
 
-  it("round-trips the user id", async () => {
-    const token = await signAccessToken(USER_ID, SECRET);
+  it("round-trips the user id and whether the display name is set (ADR-046)", async () => {
+    for (const displayNameSet of [true, false]) {
+      const token = await signAccessToken(USER_ID, SECRET, { displayNameSet });
+      await expect(verifyAccessToken(token, SECRET)).resolves.toEqual({
+        userId: USER_ID,
+        displayNameSet,
+      });
+    }
+  });
 
-    await expect(verifyAccessToken(token, SECRET)).resolves.toEqual({ userId: USER_ID });
+  it.each([
+    ["without the claim (issued before it existed)", {}],
+    ["with a claim that is not exactly true", { dns: "true" }],
+  ])("a token %s counts as no display name yet", async (_label, payload) => {
+    const now = Math.floor(Date.now() / 1000);
+    const token = await new SignJWT(payload)
+      .setProtectedHeader({ alg: "HS256" })
+      .setSubject(USER_ID)
+      .setIssuer("music-room")
+      .setIssuedAt(now)
+      .setExpirationTime(now + 60)
+      .sign(key(SECRET));
+    await expect(verifyAccessToken(token, SECRET)).resolves.toEqual({
+      userId: USER_ID,
+      displayNameSet: false,
+    });
   });
 
   it("is still valid just before 15 minutes", async () => {
     const issued = new Date("2026-10-10T12:00:00Z");
-    const token = await signAccessToken(USER_ID, SECRET, issued);
+    const token = await signAccessToken(
+      USER_ID,
+      SECRET,
+      { displayNameSet: true },
+      issued,
+    );
 
     const almost = new Date(issued.getTime() + (ACCESS_TOKEN_TTL_SECONDS - 1) * 1000);
     await expect(verifyAccessToken(token, SECRET, almost)).resolves.toEqual({
       userId: USER_ID,
+      displayNameSet: true,
     });
   });
 
   it("is reported as expired after 15 minutes (the app should refresh)", async () => {
     const issued = new Date("2026-10-10T12:00:00Z");
-    const token = await signAccessToken(USER_ID, SECRET, issued);
+    const token = await signAccessToken(
+      USER_ID,
+      SECRET,
+      { displayNameSet: true },
+      issued,
+    );
 
     const later = new Date(issued.getTime() + (ACCESS_TOKEN_TTL_SECONDS + 1) * 1000);
     await expectRejected(verifyAccessToken(token, SECRET, later), "expired");
   });
 
   it("rejects a token signed with a different secret", async () => {
-    const token = await signAccessToken(USER_ID, OTHER_SECRET);
+    const token = await signAccessToken(USER_ID, OTHER_SECRET, { displayNameSet: true });
 
     await expectRejected(verifyAccessToken(token, SECRET), "invalid");
   });
 
   it("rejects a token whose payload was edited (e.g. another user id)", async () => {
-    const token = await signAccessToken(USER_ID, SECRET);
+    const token = await signAccessToken(USER_ID, SECRET, { displayNameSet: true });
     const [header, , signature] = token.split(".");
     const forgedPayload = Buffer.from(
       JSON.stringify({

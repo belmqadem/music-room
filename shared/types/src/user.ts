@@ -6,7 +6,16 @@ export type OAuthProvider = "google" | "facebook";
 /** A user. Never contains secrets (no password hash, no tokens). */
 export interface User {
   id: string; // UUID
+  /**
+   * The unique name people find you by (ADR-046). Until `displayNameSet`, a temporary one
+   * (`user_` and 12 hex digits) that nobody can search for.
+   */
   displayName: string;
+  /**
+   * False until the user has chosen their display name. Until then every signed-in endpoint
+   * except reading `/users/me`, choosing the name and signing out answers 403 DISPLAY_NAME_REQUIRED.
+   */
+  displayNameSet: boolean;
   /** Null for social-only accounts whose provider gave no email (Facebook may not). */
   email: string | null;
   /** True once the address was proven (a code from the email, or a provider that vouches for it). */

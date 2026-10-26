@@ -649,11 +649,12 @@ async function main() {
       const fresh = users.slice(connected, target);
       // Tokens last 15 minutes: sign them again for every step.
       for (const user of users.slice(0, target))
-        user.token = await signAccessToken(user.id, SECRET);
+        user.token = await signAccessToken(user.id, SECRET, { displayNameSet: true });
       // New rooms for new users (a room is created when its first ROOM_SIZE members are all in this step).
       for (let first = rooms.length * ROOM_SIZE; first < target; first += ROOM_SIZE) {
         const members = users.slice(first, Math.min(first + ROOM_SIZE, maxUsers));
-        for (const user of members) user.token = await signAccessToken(user.id, SECRET);
+        for (const user of members)
+          user.token = await signAccessToken(user.id, SECRET, { displayNameSet: true });
         rooms.push(await createRoom(rooms.length, members));
       }
       let failedConnections = 0;

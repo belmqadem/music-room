@@ -118,7 +118,20 @@ export function registerAuthenticatedNamespace(
     try {
       if (typeof token !== "string" || token === "")
         throw new AccessTokenError("invalid");
-      const { userId } = await verifyAccessToken(token, deps.jwtSecret);
+      const { userId, displayNameSet } = await verifyAccessToken(token, deps.jwtSecret);
+      if (!displayNameSet) {
+        // Same rule as REST (ADR-046): no live updates before the display name is chosen.
+        deps.logger.warn(
+          { code: "DISPLAY_NAME_REQUIRED", client },
+          "socket handshake refused",
+        );
+        next(
+          Object.assign(new Error("display name required"), {
+            data: { code: "DISPLAY_NAME_REQUIRED" },
+          }),
+        );
+        return;
+      }
       socket.data.userId = userId;
       socket.data.client = client;
       next();
