@@ -113,6 +113,8 @@ and permission or privacy text say exactly what happens.
   **About me** (full name, city, phone, birth date), **My taste in music** on your own profile;
   **Bio**, **Music taste** on someone else's (their full name and city sit under their name).
 - Friends: **Add friend**, **Cancel request**, **Accept** / **Decline**, **Unfriend**.
+- Sign-in methods (Settings): **Link** / **Unlink**, **Linked** / **Not linked**; the proof step is
+  **Confirm it's you**.
 
 **Rules for new text:**
 

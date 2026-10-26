@@ -116,7 +116,7 @@ export const copy = {
         `${provider} sign-in isn't available right now. Try again later, or use your email.`,
       // No automatic linking by email (ADR-007): the owner signs in, then links the provider.
       emailTaken: (provider: string) =>
-        `This email already has an account. Sign in with your password, then link ${provider} from your profile.`,
+        `This email already has an account. Sign in with your password, then link ${provider} in Settings.`,
     },
     errors: {
       wrongCredentials: "Email or password is wrong. Check them and try again.",
@@ -439,6 +439,42 @@ export const copy = {
 
   settings: {
     title: "Settings",
+    /** Sign-in methods: link and unlink Google or Facebook (ADR-025, ADR-044). */
+    signIn: {
+      title: "Sign-in methods",
+      password: "Email and password",
+      noPassword: "Not set up",
+      linked: "Linked",
+      notLinked: "Not linked",
+      link: "Link",
+      linkName: (provider: string) => `Link ${provider}`,
+      unlink: "Unlink",
+      unlinkName: (provider: string) => `Unlink ${provider}`,
+      onlyWay: "Your only way to sign in",
+      notInThisApp: "Not available in this version of the app",
+      confirmLink: (provider: string) =>
+        `Confirm it's you to link ${provider}. Then pick the ${provider} account to link.`,
+      confirmUnlink: (provider: string) =>
+        `Confirm it's you to unlink ${provider}. You won't be able to sign in with it anymore.`,
+      passwordLabel: "Your password",
+      confirmWithPassword: "Confirm with password",
+      confirmWith: (provider: string) => `Confirm with ${provider}`,
+      cancel: "Cancel",
+      cantConfirm: "There's no way to confirm it's you in this version of the app.",
+      linkedDone: (provider: string) =>
+        `${provider} linked. You can sign in with it now.`,
+      unlinkedDone: (provider: string) => `${provider} unlinked.`,
+      errors: {
+        wrongPassword: "That password isn't right.",
+        proofNotLinked: "That account isn't linked to you. Confirm with one that is.",
+        alreadyLinked: (provider: string) =>
+          `That ${provider} account is already linked to an account.`,
+        lastMethod: "You can't remove your only way to sign in.",
+        notLinked: (provider: string) => `${provider} isn't linked anymore.`,
+        providerDown: (provider: string) =>
+          `Can't reach ${provider} right now. Try again in a moment.`,
+      },
+    },
     serverAddressTitle: "Server address",
     addressLabel: "Server address",
     addressPlaceholder: "http://192.168.1.20:3000",

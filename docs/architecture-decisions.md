@@ -729,6 +729,23 @@ Each decision must be defensible in detail at the defense. Copy the template for
 - Decision: `User.hasPassword` is always present, in every `User` answer (login, OAuth, `/users/me`, link, unlink). The app counts login methods as linked providers plus one for a password, the same count the server uses for `409 LAST_LOGIN_METHOD`, and the server still decides.
 - Security: `User` is only ever returned to the user themself (`UserSummary` stays `{ id, displayName }`). The field says whether a hash exists, never anything about it. A social-only account cannot get a password through reset (`forgot-password` only sends a code to accounts that have one), so the value does not change under the app. A test pins the exact fields of `/users/me` and that no hash appears.
 
+### ADR-045: Sign-in methods in Settings: link and unlink with a proof first
+
+- Status: accepted
+- Date: 2026-10-26
+- Deciders: kaoutharrr, belmqadem to confirm in review
+- Context: the link and unlink endpoints (ADR-025) had no screen. Both need a proof of ownership, and `User.hasPassword` (ADR-044) now tells the app which proofs can work.
+- Options considered:
+  - **Where**: a row on the profile opening its own screen; or **a Sign-in methods section in Settings** (chosen): account security with the settings, the profile stays about you.
+  - **Order when linking**: pick the new account first, then confirm; or **confirm first, then pick the account to link** (chosen): the confirm step reads the same for link and unlink, and nothing about the new account is fetched before you have said it's you. The password is only checked by the server at the end, so a wrong one is reported after the account was picked.
+- Decision:
+  - Rows: Email and password (your email, or "Not set up"; not changed here), Google, Facebook, each "Linked" or "Not linked". Link is offered when this build has the provider's SDK ("Not available in this version of the app" otherwise); Unlink only when it is not your last way to sign in (the row says "Your only way to sign in"), counted as the server counts (linked providers plus one for a password).
+  - Confirm, in place under the row: the password field only if `hasPassword`, and "Confirm with Google/Facebook" for each linked provider this build can sign in with. If there is no proof possible here, it says so. Cancelling a provider sign-in at any step changes nothing.
+  - After success the user is read again from the server (`refreshUser`) and the rows follow it. Errors come from the codes: wrong password, a provider account that isn't yours, already linked elsewhere, last login method, the provider unreachable.
+- Security: the app never decides; it only avoids offering proofs that cannot work. The password is kept in the field only until the change is sent and is never logged. Provider SDKs are signed out right after handing over their token (ADR-033).
+- Consequences: `PROVIDERS` and `ProviderLogo` are shared by sign-in and Settings. The sign-in error for an email already taken now points to Settings.
+- Tested: 25 tests (login method count, when Unlink is offered, which proofs, each call's method, path and body, every error message). On the Android emulator as Bob (a password account): the section, the confirm step, and cancelling Google's account picker (nothing linked). Linking a real Google or Facebook account was not done in this run: that is a sign-in with a real account, done by a person.
+
 ## Still to decide (record each as an ADR)
 
 TODO:
