@@ -461,7 +461,8 @@ export const copy = {
       confirmWith: (provider: string) => `Confirm with ${provider}`,
       cancel: "Cancel",
       cantConfirm: "There's no way to confirm it's you in this version of the app.",
-      linkedDone: (provider: string) => `${provider} linked. You can sign in with it now.`,
+      linkedDone: (provider: string) =>
+        `${provider} linked. You can sign in with it now.`,
       unlinkedDone: (provider: string) => `${provider} unlinked.`,
       errors: {
         wrongPassword: "That password isn't right.",
