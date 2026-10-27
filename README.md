@@ -40,7 +40,12 @@ make db-up                              # Postgres and Redis in Docker
 make migrate                            # create the database tables
 make dev                                # backend on http://localhost:3000 (API docs at /docs, off in production)
 make dev-mobile                         # Expo dev server for the app
+make web                                # the web version, on http://localhost:8081
 ```
+
+The **web version** is the same app in a browser (ADR-050): on a wide window it sits in a centered column. Sign in
+there with email and password; Google and Facebook are only in the mobile app. The backend accepts browser calls only
+from the addresses in `ALLOWED_ORIGINS` (`.env`), which already holds `http://localhost:8081`.
 
 In `.env`, replace `JWT_ACCESS_SECRET` (the server refuses to start with the placeholder; generate one with
 `openssl rand -base64 48`) and `POSTGRES_PASSWORD` (then update the same password in `DATABASE_URL`). Everything else

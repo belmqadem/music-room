@@ -82,6 +82,10 @@ describe("what the tokens become", () => {
     ).toBeGreaterThanOrEqual(4.5);
   });
 
+  it("adds the app's column width, a number in pixels (ADR-050)", () => {
+    expect(theme.maxWidth).toEqual({ content: 640 });
+  });
+
   it("turns radii into numbers", () => {
     expect(theme.radius).toEqual({ sm: 6, md: 8, lg: 12, xl: 16, "2xl": 20, full: 9999 });
   });
@@ -140,6 +144,7 @@ describe("what the tokens become", () => {
     for (const reset of [
       "--color-*: initial;",
       "--radius-*: initial;",
+      "--container-*: initial;",
       "--font-*: initial;",
       "--text-*: initial;",
     ]) {
@@ -148,6 +153,7 @@ describe("what the tokens become", () => {
     expect(css).toContain("--color-ember: #FF5A36;");
     expect(css).toContain("--color-line-subtle: rgba(255, 255, 255, 0.08);");
     expect(css).toContain("--radius-2xl: 20px;");
+    expect(css).toContain("--container-content: 640px;");
     expect(css).toContain("--font-sans-600: PlusJakartaSans_600SemiBold;");
     expect(css).toContain("--text-hero--letter-spacing: -0.96px;");
     // One variable per token; the `--color-*: initial` reset has a star and is not counted.
@@ -156,6 +162,12 @@ describe("what the tokens become", () => {
 });
 
 describe("the generator refuses what it cannot translate", () => {
+  it("a max width that is not in pixels", () => {
+    const inRem = { maxWidth: { content: { value: "40rem", description: "x" } } };
+
+    expect(() => generateTheme(tokens, inRem)).toThrow(/maxWidth\.content/);
+  });
+
   it("a token in our extensions that already exists in the export", () => {
     const clash = {
       colors: { text: { primary: { value: "#FFFFFF", description: "x" } } },

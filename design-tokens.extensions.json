@@ -7,5 +7,11 @@
         "description": "Placeholder text inside inputs. 4.55:1 on surfaceContainerLowest (the input fill), where text.tertiary is only 3.32:1. text.tertiary stays for inactive icons."
       }
     }
+  },
+  "maxWidth": {
+    "content": {
+      "value": "640px",
+      "description": "The widest the app's column gets. Phones are narrower, so nothing changes there; on a tablet or a browser window the app sits in a centered column of this width instead of stretching (ADR-050)."
+    }
   }
 }

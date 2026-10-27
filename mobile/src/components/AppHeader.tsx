@@ -21,6 +21,8 @@ const BRAND_MARK = require("../../assets/images/brand-mark.png");
  * surface tier above the canvas (depth from surfaces, DESIGN.md rule 2) that runs under the status
  * bar and rounds off at the bottom. The name is in the display font, like the welcome headline.
  */
+const FILL = { width: "100%", height: "100%" } as const;
+
 export function BrandHeader() {
   const insets = useSafeAreaInsets();
   return (
@@ -28,10 +30,12 @@ export function BrandHeader() {
       <View
         className="flex-row items-center justify-center gap-3 rounded-b-2xl bg-surface-low pb-4"
         style={{ paddingTop: insets.top + 12 }}
-        accessibilityRole="header"
-        accessibilityLabel={copy.app.name}
       >
-        <Image source={BRAND_MARK} className="h-9 w-9" accessible={false} />
+        {/* The h1 below is the heading; a heading role here too would nest two on the web. */}
+        {/* The size sits on a View: on the web the image's own size (144 px) beats its className. */}
+        <View className="h-9 w-9">
+          <Image source={BRAND_MARK} style={FILL} accessible={false} />
+        </View>
         <Text variant="h1" numberOfLines={1}>
           {copy.app.name}
         </Text>

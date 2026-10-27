@@ -36,6 +36,11 @@ export const radius = {
   full: 9999,
 } as const;
 
+/** Maximum widths in pixels (className: max-w-<name>). */
+export const maxWidth = {
+  content: 640,
+} as const;
+
 /** The name React Native knows each loaded font file by: fontFamilies[role][weight]. */
 export const fontFamilies = {
   display: {

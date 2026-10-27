@@ -32,6 +32,10 @@
   --radius-2xl: 20px;
   --radius-full: 9999px;
 
+  /* max-w-<name>: Tailwind takes max widths from the --container namespace. */
+  --container-*: initial;
+  --container-content: 640px;
+
   /* font-<role>-<weight>: the loaded font file for that weight (React Native cannot synthesize weights). */
   --font-*: initial;
   --font-display-700: Syne_700Bold;

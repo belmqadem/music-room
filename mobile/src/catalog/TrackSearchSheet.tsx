@@ -31,8 +31,13 @@ export function TrackSearchSheet({ visible, ...content }: TrackSearchSheetProps)
       presentationStyle="pageSheet"
       onRequestClose={content.onClose}
     >
-      {/* Mounted only while open: each opening starts with an empty search. */}
-      {visible ? <SheetContent {...content} /> : null}
+      {/* A modal is drawn outside the app's column, so it centers itself the same way (ADR-050).
+          Mounted only while open: each opening starts with an empty search. */}
+      <View className="flex-1 bg-canvas">
+        <View className="w-full max-w-content flex-1 self-center">
+          {visible ? <SheetContent {...content} /> : null}
+        </View>
+      </View>
     </Modal>
   );
 }
