@@ -30,8 +30,6 @@ export function useEventQueue(eventId: string) {
   const [notice, setNotice] = useState<string | null>(null);
   const [busyTrackId, setBusyTrackId] = useState<string | null>(null);
   const [advancing, setAdvancing] = useState(false);
-  /** When the saved queue on screen was kept (offline mode, ADR-049); null when it is the server's. */
-  const [cachedAt, setCachedAt] = useState<string | null>(null);
   // Once the server asked for a position in this event, send it straight away with the next ones.
   const locationRequired = useRef(false);
 
@@ -48,7 +46,6 @@ export function useEventQueue(eventId: string) {
       eventApi.queue(eventId).then(
         (mine) => {
           update((s) => applyMyQueue(s, mine));
-          if (active) setCachedAt(null);
           void offlineStore.write(cacheName, mine);
         },
         async (error: unknown) => {
@@ -58,7 +55,6 @@ export function useEventQueue(eventId: string) {
           if (!active) return;
           if (copy) {
             update((s) => applyMyQueue(s, copy.data));
-            setCachedAt(copy.savedAt);
           } else setLoadError(trackVoteErrorMessage(error));
         },
       );
@@ -169,7 +165,6 @@ export function useEventQueue(eventId: string) {
 
   return {
     loaded: queue.version >= 0,
-    cachedAt,
     tracks: visibleTracks(queue),
     playing: playingTrack(queue),
     loadError,

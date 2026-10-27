@@ -385,10 +385,7 @@ export const copy = {
 
   /** Offline mode (ADR-049): what the phone shows without the server, and what syncs after. */
   offline: {
-    showing: "You're offline.",
     offline: "You're offline.",
-    pending: (n: number) =>
-      `${plural(n, "change", "changes")} will sync when you're back online.`,
     synced: (n: number) => `Back online: ${plural(n, "change", "changes")} synced.`,
     /** Adding searches the music catalog, so it needs the server (ADR-049). */
     addNeedsConnection:

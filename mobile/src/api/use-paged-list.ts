@@ -9,7 +9,7 @@ import { connectivity, isUnreachable, offlineStore } from "@/offline";
  * the list scrolls. Items are never shown twice: one created between two pages can shift the list.
  *
  * With `cacheName` (offline mode, ADR-049) the first page is kept on the phone; when the server
- * cannot be reached that copy is shown instead, with `cachedAt`, and it is replaced by the
+ * cannot be reached that copy is shown instead, and it is replaced by the
  * server's answer as soon as the server is back.
  */
 export function usePagedList<T extends { id: string }>(
@@ -22,8 +22,6 @@ export function usePagedList<T extends { id: string }>(
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  /** When the offline copy on screen was saved; null when the list is the server's. */
-  const [cachedAt, setCachedAt] = useState<string | null>(null);
   // A page request is in flight: a second scroll to the end must not ask for the same page twice.
   const loadingMore = useRef(false);
 
@@ -32,7 +30,6 @@ export function usePagedList<T extends { id: string }>(
       setItems(page.items);
       setNextCursor(page.nextCursor);
       setError(null);
-      setCachedAt(null);
       if (cacheName) void offlineStore.write(cacheName, page.items);
     },
     [cacheName],
@@ -47,7 +44,6 @@ export function usePagedList<T extends { id: string }>(
           setItems(copy.data);
           setNextCursor(null); // more pages need the server
           setError(null);
-          setCachedAt(copy.savedAt);
           return;
         }
       }
@@ -102,5 +98,5 @@ export function usePagedList<T extends { id: string }>(
 
   /** Another page exists: for a "Show more" button where the list is not a FlatList. */
   const hasMore = nextCursor !== null;
-  return { items, loading, refreshing, error, refresh, loadMore, hasMore, cachedAt };
+  return { items, loading, refreshing, error, refresh, loadMore, hasMore };
 }

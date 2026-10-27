@@ -98,7 +98,7 @@ export default function TrackVoteScreen() {
         )}
         ListHeaderComponent={
           <View className="gap-4 pb-1">
-            <OfflineNotice cachedAt={queue.cachedAt} />
+            <OfflineNotice />
             <View className="flex-row items-center justify-between gap-3">
               <Text variant="caption" tone="secondary" className="flex-1">
                 {voteLicenseLabel(event.voteLicense)}

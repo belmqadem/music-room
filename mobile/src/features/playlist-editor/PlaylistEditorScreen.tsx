@@ -104,7 +104,7 @@ export default function PlaylistEditorScreen() {
         )}
         ListHeaderComponent={
           <View className="gap-4 pb-1">
-            <OfflineNotice cachedAt={editor.cachedAt} pending={editor.pendingCount} />
+            <OfflineNotice />
             <SyncSummaryNotice />
             <View className="flex-row items-center justify-between gap-3">
               <Text variant="caption" tone="secondary" className="flex-1">

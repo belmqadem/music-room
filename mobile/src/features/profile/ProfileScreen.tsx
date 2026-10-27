@@ -38,7 +38,6 @@ export default function ProfileScreen() {
   const [signingOut, setSigningOut] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [waiting, setWaiting] = useState<string | null>(null);
-  const [cachedAt, setCachedAt] = useState<string | null>(null);
 
   const load = useCallback(() => {
     let active = true;
@@ -47,7 +46,6 @@ export default function ProfileScreen() {
       (loaded) => {
         if (!active) return;
         setProfile(loaded);
-        setCachedAt(null);
         // Kept for offline mode (ADR-049), without the private block.
         void offlineStore.write(PROFILE_CACHE, offlineProfile(loaded));
       },
@@ -58,7 +56,6 @@ export default function ProfileScreen() {
         if (!active) return;
         if (copy) {
           setProfile(copy.data);
-          setCachedAt(copy.savedAt);
         } else setLoadError(profileErrorMessage(failure));
       },
     );
@@ -118,7 +115,7 @@ export default function ProfileScreen() {
           }
         />
 
-        <OfflineNotice cachedAt={cachedAt} />
+        <OfflineNotice />
         {profile ? (
           <ProfileBlocks
             profile={profile}

@@ -100,9 +100,7 @@ export default function FriendsScreen() {
 
         {searching ? null : (
           <>
-            <OfflineNotice
-              cachedAt={friends.cachedAt ?? incoming.cachedAt ?? outgoing.cachedAt}
-            />
+            <OfflineNotice />
             {actionError ? (
               <Text tone="error" accessibilityRole="alert">
                 {actionError}

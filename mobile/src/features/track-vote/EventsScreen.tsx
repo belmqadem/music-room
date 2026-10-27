@@ -15,7 +15,7 @@ import { copy } from "@/copy";
 
 // Events tab: public events, mine, and private ones I am invited to (the server decides which).
 export default function EventsScreen() {
-  const { events, loading, refreshing, error, refresh, loadMore, cachedAt } = useEvents();
+  const { events, loading, refreshing, error, refresh, loadMore } = useEvents();
 
   return (
     <View className="flex-1 bg-canvas">
@@ -40,7 +40,7 @@ export default function EventsScreen() {
           }
           ListHeaderComponent={
             <View className="gap-3">
-              <OfflineNotice cachedAt={cachedAt} />
+              <OfflineNotice />
               {error ? (
                 <Text tone="error" accessibilityRole="alert">
                   {error}

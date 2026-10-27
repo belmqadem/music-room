@@ -38,7 +38,6 @@ export function usePlaylist(playlistId: string) {
   const [accessLost, setAccessLost] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [busyEntryId, setBusyEntryId] = useState<string | null>(null);
-  const [cachedAt, setCachedAt] = useState<string | null>(null);
   const [pending, setPending] = useState<PendingChange[]>([]);
   const cacheName = `playlist-tracks:${playlistId}`;
 
@@ -47,7 +46,6 @@ export function usePlaylist(playlistId: string) {
     const apply = (snapshot: PlaylistSnapshot) => {
       if (!active) return;
       setState((s) => applyPlaylist(s, snapshot));
-      setCachedAt(null);
       void offlineStore.write(cacheName, snapshot);
     };
     const load = () =>
@@ -58,7 +56,6 @@ export function usePlaylist(playlistId: string) {
         if (!active) return;
         if (copy) {
           setState((s) => applyPlaylist(s, copy.data));
-          setCachedAt(copy.savedAt);
         } else setLoadError(playlistErrorMessage(error));
       });
     void load();
@@ -188,10 +185,6 @@ export function usePlaylist(playlistId: string) {
   return {
     loaded: state.version >= 0,
     entries,
-    /** When the saved list on screen was kept; null when it is the server's. */
-    cachedAt,
-    /** Changes made offline for this playlist, not synced yet. */
-    pendingCount: pending.length,
     loadError,
     accessLost,
     actionError,
