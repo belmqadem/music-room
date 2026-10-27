@@ -10,8 +10,8 @@
 //   android-icon-foreground.png  the rings alone on transparent, inside the 66dp safe zone
 //   android-icon-monochrome.png  the rings in white (themed icons)
 //   splash-icon.png              the rings alone, over the splash's own background
-//   brand-mark.png               144, the tile with rounded corners on transparent: the logo in the
-//                                app's own header (shown at 36dp, so 4x)
+//   brand-mark.png               144, the rings alone on transparent, cropped to them: the logo in
+//                                the app's own header (shown at 36dp, so 4x)
 // The numbers below (where the tile is, how far the rings reach) are measured on this logo: a
 // different logo needs them measured again. Run it, then check the files before committing.
 // It uses jimp-compact, which comes with Expo's own image tools (@expo/image-utils); it is not a
@@ -57,18 +57,6 @@ const OUT = join(MOBILE, "assets/images");
     .writeAsync(`${OUT}/icon.png`);
   await tile.clone().resize(48, 48, Jimp.RESIZE_BICUBIC).writeAsync(`${OUT}/favicon.png`);
 
-  // The mark inside the app: the tile with its corners rounded (22%, like an app icon), the rest
-  // transparent, so it sits on any surface.
-  const mark = tile.clone().resize(144, 144, Jimp.RESIZE_BICUBIC);
-  const markRadius = 144 * 0.22;
-  mark.scan(0, 0, 144, 144, function (x, y, i) {
-    const dx = Math.max(0, markRadius - x - 0.5, x + 0.5 - (144 - markRadius));
-    const dy = Math.max(0, markRadius - y - 0.5, y + 0.5 - (144 - markRadius));
-    const outside = Math.hypot(dx, dy) - markRadius;
-    if (outside > 0) this.bitmap.data[i + 3] = Math.round(255 * Math.max(0, 1 - outside));
-  });
-  await mark.writeAsync(`${OUT}/brand-mark.png`);
-
   // Android adaptive icon (108dp, the launcher shows at least the middle 66dp): the rings, about
   // 78% of the tile, must fit 61% of the layer, so the tile is drawn at 400 of 512.
   await fill(512, 512).writeAsync(`${OUT}/android-icon-background.png`);
@@ -106,4 +94,7 @@ const OUT = join(MOBILE, "assets/images");
   await mono.writeAsync(`${OUT}/android-icon-monochrome.png`);
   // Splash: the colored rings on transparent, over the splash's own dark background.
   await rings(600, true).writeAsync(`${OUT}/splash-icon.png`);
+  // The mark inside the app: the colored rings, cropped to the circle that holds them (86% of the
+  // drawn size), so they fill the 36dp square in the header.
+  await rings(168, true).crop(12, 12, 144, 144).writeAsync(`${OUT}/brand-mark.png`);
 })();

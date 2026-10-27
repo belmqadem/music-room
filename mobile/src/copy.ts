@@ -41,8 +41,8 @@ export const copy = {
   },
 
   app: {
-    /** The app's name, as it shows on the launcher and in its own header. */
-    name: "music room",
+    /** The app's name, in its own header. */
+    name: "Music Room",
   },
 
   tabs: {

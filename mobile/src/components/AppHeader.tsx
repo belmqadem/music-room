@@ -17,23 +17,25 @@ export function StatusBarSpace() {
 const BRAND_MARK = require("../../assets/images/brand-mark.png");
 
 /**
- * The main lists (Rooms, Playlists): the logo and the app's name, under the status bar. The name is
- * in the display font, like the welcome headline; the mark is the icon, so the app looks like its
- * own icon from the launcher in.
+ * The main lists (Rooms, Playlists): the logo's rings and the app's name, centered on a band one
+ * surface tier above the canvas (depth from surfaces, DESIGN.md rule 2) that runs under the status
+ * bar and rounds off at the bottom. The name is in the display font, like the welcome headline.
  */
 export function BrandHeader() {
   const insets = useSafeAreaInsets();
   return (
-    <View
-      className="flex-row items-center gap-3 bg-canvas px-5 pb-2 pt-3"
-      style={{ marginTop: insets.top }}
-      accessibilityRole="header"
-      accessibilityLabel={copy.app.name}
-    >
-      <Image source={BRAND_MARK} className="h-9 w-9" accessible={false} />
-      <Text variant="h1" numberOfLines={1}>
-        {copy.app.name}
-      </Text>
+    <View className="bg-canvas pb-2">
+      <View
+        className="flex-row items-center justify-center gap-3 rounded-b-2xl bg-surface-low pb-4"
+        style={{ paddingTop: insets.top + 12 }}
+        accessibilityRole="header"
+        accessibilityLabel={copy.app.name}
+      >
+        <Image source={BRAND_MARK} className="h-9 w-9" accessible={false} />
+        <Text variant="h1" numberOfLines={1}>
+          {copy.app.name}
+        </Text>
+      </View>
     </View>
   );
 }
