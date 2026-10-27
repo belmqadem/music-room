@@ -3,6 +3,7 @@ export interface GeneratedTheme {
   colorMode: string;
   colors: Record<string, string>;
   radius: Record<string, number>;
+  maxWidth: Record<string, number>;
   fonts: Record<string, { pkg: string; loaded: Record<string, string> }>;
   typography: Record<
     string,

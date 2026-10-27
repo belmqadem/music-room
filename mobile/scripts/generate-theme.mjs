@@ -163,6 +163,16 @@ function buildRadius(borderRadius) {
   );
 }
 
+/** Our maximum widths (extensions only: the export has none), in pixels. */
+function buildMaxWidth(maxWidth = {}) {
+  return Object.fromEntries(
+    Object.entries(maxWidth).map(([name, token]) => [
+      name,
+      px(token.value, `maxWidth.${name}`),
+    ]),
+  );
+}
+
 const q = (key) => (/^[A-Za-z_$][\w$]*$/.test(key) ? key : JSON.stringify(key));
 const lines = (entries, indent) => entries.map((line) => `${indent}${line}`).join("\n");
 
@@ -171,6 +181,7 @@ function tsFile(theme) {
     ([k, v]) => `${q(k)}: ${JSON.stringify(v)},`,
   );
   const radiusLines = Object.entries(theme.radius).map(([k, v]) => `${q(k)}: ${v},`);
+  const maxWidthLines = Object.entries(theme.maxWidth).map(([k, v]) => `${q(k)}: ${v},`);
   const familyLines = Object.entries(theme.fonts).flatMap(([role, { loaded }]) => [
     `${q(role)}: {`,
     ...Object.entries(loaded).map(
@@ -198,6 +209,11 @@ ${lines(colorLines, "  ")}
 /** Corner radii in pixels. */
 export const radius = {
 ${lines(radiusLines, "  ")}
+} as const;
+
+/** Maximum widths in pixels (className: max-w-<name>). */
+export const maxWidth = {
+${lines(maxWidthLines, "  ")}
 } as const;
 
 /** The name React Native knows each loaded font file by: fontFamilies[role][weight]. */
@@ -266,6 +282,13 @@ function cssFile(theme) {
     out.push(`  --radius-${name}: ${value}px;`);
   out.push("");
   out.push(
+    "  /* max-w-<name>: Tailwind takes max widths from the --container namespace. */",
+  );
+  out.push("  --container-*: initial;");
+  for (const [name, value] of Object.entries(theme.maxWidth))
+    out.push(`  --container-${name}: ${value}px;`);
+  out.push("");
+  out.push(
     "  /* font-<role>-<weight>: the loaded font file for that weight (React Native cannot synthesize weights). */",
   );
   out.push("  --font-*: initial;");
@@ -284,7 +307,7 @@ function cssFile(theme) {
   return out.join("\n") + "\n";
 }
 
-/** @returns {{ colorMode: string, colors: object, radius: object, fonts: object, typography: object, files: Record<string, string> }} */
+/** @returns {{ colorMode: string, colors: object, radius: object, maxWidth: object, fonts: object, typography: object, files: Record<string, string> }} */
 export function generateTheme(tokens, extensions = {}) {
   if (tokens.colorMode !== "dark")
     throw new Error(
@@ -295,6 +318,7 @@ export function generateTheme(tokens, extensions = {}) {
     colorMode: tokens.colorMode,
     colors: buildColors(mergeTokens(tokens, extensions)),
     radius: buildRadius(tokens.borderRadius),
+    maxWidth: buildMaxWidth(extensions.maxWidth),
     fonts,
     typography: buildTypography(tokens.typography, fonts),
   };

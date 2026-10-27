@@ -3,6 +3,7 @@ import { Stack, ThemeProvider } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
+import { View } from "react-native";
 import { auth, useAuth } from "@/auth";
 
 import { navigationTheme, useAppFonts } from "@/theme";
@@ -39,17 +40,24 @@ export default function RootLayout() {
     <ThemeProvider value={navigationTheme}>
       {/* Dark app: light status bar icons. */}
       <StatusBar style="light" />
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Protected guard={!signedIn}>
-          <Stack.Screen name="(auth)" />
-        </Stack.Protected>
-        <Stack.Protected guard={signedIn && !named}>
-          <Stack.Screen name="(onboarding)" />
-        </Stack.Protected>
-        <Stack.Protected guard={named}>
-          <Stack.Screen name="(app)" />
-        </Stack.Protected>
-      </Stack>
+      {/* The whole app sits in one centered column (maxWidth.content, ADR-050): a phone is
+          narrower, so nothing changes there; a tablet or a browser window gets a column instead of
+          stretched screens. The canvas fills the rest. */}
+      <View className="flex-1 bg-canvas">
+        <View className="w-full max-w-content flex-1 self-center">
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Protected guard={!signedIn}>
+              <Stack.Screen name="(auth)" />
+            </Stack.Protected>
+            <Stack.Protected guard={signedIn && !named}>
+              <Stack.Screen name="(onboarding)" />
+            </Stack.Protected>
+            <Stack.Protected guard={named}>
+              <Stack.Screen name="(app)" />
+            </Stack.Protected>
+          </Stack>
+        </View>
+      </View>
     </ThemeProvider>
   );
 }

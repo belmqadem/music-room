@@ -6,6 +6,7 @@ import { Text } from "@/components";
 // and format (JPEG: a photo, so a few hundred KB rather than megabytes), to change it; a tall, dark
 // photo works best.
 const BRAND_PICTURE = require("../../../assets/images/welcome-background.jpg");
+const FILL = { width: "100%", height: "100%" } as const;
 
 /**
  * The brand picture, for a Screen's `background`: at 40% over the canvas, so the text on it stays
@@ -15,12 +16,13 @@ const BRAND_PICTURE = require("../../../assets/images/welcome-background.jpg");
  */
 export function BrandBackground({ faint = false }: { faint?: boolean }) {
   return (
-    <Image
-      source={BRAND_PICTURE}
-      className={`h-full w-full ${faint ? "opacity-20" : "opacity-40"}`}
-      resizeMode="cover"
-      accessible={false}
-    />
+    // The size sits on a View that clips: on the web an image's own size (940 x 1672) beats its
+    // className, so the picture overflowed the app's column (ADR-050).
+    <View
+      className={`h-full w-full overflow-hidden ${faint ? "opacity-20" : "opacity-40"}`}
+    >
+      <Image source={BRAND_PICTURE} style={FILL} resizeMode="cover" accessible={false} />
+    </View>
   );
 }
 

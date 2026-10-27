@@ -819,6 +819,26 @@ Each decision must be defensible in detail at the defense. Copy the template for
 - Security: the private profile block (phone, birth date) is never saved (`offlineProfile`, tested). No token is added to storage: the refresh token stays in SecureStore as before. Sign-out wipes every offline key and pending change, even offline. Copies are plain AsyncStorage, readable on a rooted phone, like any app cache: only what the user was already shown, minus the private block. An offline change gets no more rights than an online one: the server judges it when it arrives.
 - Consequences: a change made offline can be refused later, and the user is told. Pending changes are lost if the user signs out before they sync. Lists show only their first page offline. Tests: connectivity, the store, `applyPending`, the outcome of every answer, the outbox (order, stop and keep, one sync at a time, restarts), the offline start in the auth controller, and the profile without its private block. On the Android emulator with the server cut off: offline start, each saved screen, a reorder and a removal offline, the sync with a move dropped because another user removed its anchor, Add track off, and sign-out leaving nothing behind.
 
+### ADR-050: The web version: the same app in a centered column, email and password only
+
+- Status: accepted
+- Date: 2026-10-27
+- Deciders: kaoutharrr (belmqadem to confirm in review)
+- Context: the subject's multi-platform bonus asks to make the service available on the web and "responsive" to any screen size. The app is built with Expo, whose web target compiles the same code, and the backend was already ready for it: it accepts the `web` platform in its logging headers and lets in browser calls only from the exact addresses in `ALLOWED_ORIGINS`.
+- Options considered:
+  - **Layout on wide screens**: a centered column only (chosen); or the column plus a side bar instead of the tab bar and two columns on large screens. The column already keeps every screen readable from a phone to a desktop, with one rule in one place. The richer layout would roughly double the work and the screens to test, for a bonus judged on adapting to the screen size.
+  - **Social sign-in on the web**: email and password only (chosen); Google only; or both. The web flows need each provider's web setup, and Facebook needs HTTPS outside localhost. Email and password already gives full access, so the web adds no new way to sign in and nothing to change in the auth flow.
+  - **Where it runs**: locally (chosen): `make web`, at the address already allowed. Deploying it would mean hosting and securing one more thing for nothing graded.
+- Decision:
+  - A `maxWidth.content` token of 640 px, in `design-tokens.extensions.json`; the generator turns it into `max-w-content`. The root layout puts the whole app in one centered column of that width. Phones are narrower, so nothing changes there. A tablet or a browser window gets the column, with the canvas around it. The track search sheet, a modal drawn outside that column, centers itself the same way.
+  - Fixes found by using the app in a browser:
+    - A screen opened by its address (a link, or a refresh) now has the tabs under it (`initialRouteName`), so its back button leads home instead of disappearing.
+    - The brand header no longer nests two headings, which is invalid HTML.
+    - The logo and the welcome picture are sized by a wrapper view (the picture's also clips it), because on the web an image's own size beats its className: the picture ran past the column.
+  - Logging: the web has no device model, so the browser stands in for it (`X-Device: Chrome on macOS`, from the user agent). The every-action logging rule holds on the web too.
+- Security: no check changes. A browser can call the API only from an allowed address, and the server checks every request as before. The user agent is used for logging only, like every client header, and the backend still filters its characters. Tokens on the web are kept as before, in the web storage with a refresh lock across tabs. Sign-out clears them and every offline copy (ADR-049).
+- Consequences: Google and Facebook buttons stay hidden on the web. "At the venue" uses the browser's location prompt, or coordinates typed by hand. Tests: the column token (its value, the CSS it produces, a refused unit) and the device name for every common browser and system. In Chrome against the dev backend: every tab, a room live, a playlist with Add track, About me, Plans with both switches logged as `web` / `Chrome on macOS`, a screen opened by its address, phone (390 px) and tablet (820 px) widths, and sign-out. On the Android emulator: unchanged.
+
 ## Still to decide (record each as an ADR)
 
 TODO:
