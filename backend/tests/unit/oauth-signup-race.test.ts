@@ -16,6 +16,7 @@ const identity = {
   providerUserId: GOOGLE_ID,
   displayName: "Ada",
   verifiedEmail: "ada@example.com",
+  expiresAt: new Date(Date.now() + 3600_000),
 };
 const verifiers = {
   google: { verify: () => Promise.resolve(identity) },
@@ -43,6 +44,10 @@ function scriptedPool(identityLookups: Record<string, unknown>[][], emailOwner: 
       }
       if (sql.includes("lower(email) = lower")) {
         return Promise.resolve({ rows: emailOwner ? [userRow] : [] });
+      }
+      // The credential's first use (ADR-047): this test is about the race, not about replay.
+      if (sql.includes("INSERT INTO used_provider_credentials")) {
+        return Promise.resolve({ rows: [], rowCount: 1 });
       }
       if (sql.includes("SELECT provider FROM oauth_identities")) {
         return Promise.resolve({ rows: [{ provider: "google" }] });

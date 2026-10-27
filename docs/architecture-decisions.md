@@ -769,6 +769,21 @@ Each decision must be defensible in detail at the defense. Copy the template for
 - Consequences: one more step for every account once. Names can change, so anything that must stay stable (friends, invitations, owners) keeps using the id, as it already did. People search now finds one person per name.
 - Tested: backend unit (rules, the claim, the middleware, the handshake) and integration (every state, case, simultaneous choice, change and freeing, search, OAuth sign-up); eight mutations of these rules each fail a test. App: the rules against the backend's own schema, save then refresh, the messages; on the Android emulator against a test database, sign-up, the step (rules, a taken name in other capitals, Back), the app opening, and a change from Settings.
 
+### ADR-047: Google and Facebook credentials work once; Google ID tokens expire for us after 10 minutes
+
+- Status: accepted
+- Date: 2026-10-27
+- Deciders: belmqadem (kaoutharrr to confirm in review)
+- Context: a security check found that a captured provider credential could be replayed. `docs/security.md` said tokens older than 10 minutes were refused, but only Facebook Limited Login tokens were (ADR-032): a Google ID token was accepted for its whole life (about an hour), and a Facebook classic access token (Android, and iOS with tracking allowed) was checked with `debug_token` and accepted for as long as Facebook said it was valid, weeks for the SDK's long-lived tokens. The same credentials also serve as the `reauth` proof (ADR-025).
+- Options considered:
+  - **Age limit only**: `maxTokenAge` on Google like Limited Login. One line, but nothing for classic Facebook tokens, and a fresh token can still be replayed for 10 minutes.
+  - **One-time use** (chosen, with the age limit): remember every accepted credential until it expires and refuse it the second time. Covers every provider and every use without changing the app or the contract's shape.
+  - **A per-login nonce**: the textbook fix for ID tokens, but it changes the contract and both apps, and Facebook classic tokens carry no nonce, so one-time use would still be needed for them.
+  - **Where to remember**: Redis (optional in this app, with an in-memory fallback that would not be shared between instances) or **Postgres** (chosen: always there, shared, and a primary key settles simultaneous uses).
+- Decision: Google ID tokens: `maxTokenAge: "10m"`. Every verified credential is spent in `verifyWithProvider` (the one path for login, link and proof): `used_provider_credentials(credential_hash, expires_at)` with the SHA-256 of `provider:credential`, kept until the provider's expiry (a classic Facebook token: its `expires_at`, at most 90 days; 0 means "never" and gets the 90). A second use answers like a rejected credential (401, or 403 REAUTH_FAILED as a proof). Only verified credentials get a row, so garbage cannot fill the table; expired rows are deleted when a new one is spent. The spend happens before the rest of the request, so a credential stays spent even if the login then fails (`EMAIL_TAKEN`): the user signs in with the provider again.
+- Not changed: access tokens stay valid until they expire (at most 15 minutes) after logout. A Redis deny-list would close it at the price of a read on every request and every socket handshake; ADR-003's stateless tokens are kept and the risk stays accepted in `docs/security.md`.
+- Consequences: every login, link or proof needs a fresh credential from the SDK, which the app already does (it signs the SDK out right after taking a token, ADR-033). To check on devices: that Facebook hands out a new classic token at each sign-in after that sign-out. Tests: unit (the Google age limit, the Facebook expiry and its 90-day cap) and integration (a replayed login, 8 simultaneous uses with exactly one winner, a credential spent on login refused as a proof and the other way round, only hashes stored and never a refused credential, expired rows forgotten); four mutations each fail a test.
+
 ## Still to decide (record each as an ADR)
 
 TODO:

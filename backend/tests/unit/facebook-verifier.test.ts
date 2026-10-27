@@ -51,6 +51,44 @@ describe("Facebook access token verifier", () => {
       providerUserId: "fb-user-1",
       displayName: "Grace Hopper",
       verifiedEmail: null,
+      expiresAt: expect.any(Date),
+    });
+  });
+
+  describe("how long its use is remembered (ADR-047)", () => {
+    const debugExpiring =
+      (expiresAt: number): Handler =>
+      () =>
+        json({
+          data: {
+            is_valid: true,
+            app_id: APP_ID,
+            user_id: "fb-user-1",
+            expires_at: expiresAt,
+          },
+        });
+    const ninetyDays = 90 * 24 * 3600 * 1000;
+
+    it("until the token expires", async () => {
+      const inTwoDays = Math.floor(Date.now() / 1000) + 2 * 24 * 3600;
+      const { fakeFetch } = fakeGraph({ debug: debugExpiring(inTwoDays), me: okMe });
+
+      const identity = await verifierFor(fakeFetch).verify(USER_TOKEN);
+
+      expect(identity.expiresAt.getTime()).toBe(inTwoDays * 1000);
+    });
+
+    it.each([
+      ["a token that never expires (0)", 0],
+      ["a token that expires in a year", Math.floor(Date.now() / 1000) + 365 * 24 * 3600],
+    ])("at most 90 days, for %s", async (_label, expiresAt) => {
+      const { fakeFetch } = fakeGraph({ debug: debugExpiring(expiresAt), me: okMe });
+
+      const identity = await verifierFor(fakeFetch).verify(USER_TOKEN);
+
+      const remembered = identity.expiresAt.getTime() - Date.now();
+      expect(remembered).toBeGreaterThan(ninetyDays - 60_000);
+      expect(remembered).toBeLessThanOrEqual(ninetyDays);
     });
   });
 
@@ -224,6 +262,7 @@ describe("Facebook Limited Login token verifier", () => {
       providerUserId: "fb-user-1",
       displayName: "Grace Hopper",
       verifiedEmail: null,
+      expiresAt: expect.any(Date),
     });
     expect(requested).toHaveLength(0);
   });

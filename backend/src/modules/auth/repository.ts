@@ -397,3 +397,21 @@ export async function deleteEmailCode(
   );
   return result.rowCount === 1;
 }
+
+/**
+ * Records the first use of a provider credential (ADR-047). False when it was used before: the
+ * primary key decides, so of two simultaneous uses exactly one gets true. Expired rows go first.
+ */
+export async function spendProviderCredential(
+  db: Queryable,
+  credentialHash: string,
+  expiresAt: Date,
+): Promise<boolean> {
+  await db.query("DELETE FROM used_provider_credentials WHERE expires_at < now()");
+  const { rowCount } = await db.query(
+    `INSERT INTO used_provider_credentials (credential_hash, expires_at) VALUES ($1, $2)
+     ON CONFLICT (credential_hash) DO NOTHING`,
+    [credentialHash, expiresAt],
+  );
+  return rowCount === 1;
+}
