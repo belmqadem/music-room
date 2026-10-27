@@ -3,9 +3,10 @@ import { Image, View } from "react-native";
 import { Button, Screen, Text } from "@/components";
 import { copy } from "@/copy";
 
-// The picture behind the welcome screen. Replace the file, same name and format, to change it; a
-// tall, dark photo works best (it is shown at 40% over the canvas, so the text stays readable).
-const BACKGROUND = require("../../../assets/images/welcome-background.png");
+// The picture behind the welcome screen. Replace the file, same name and format (JPEG: a photo, so
+// a few hundred KB rather than megabytes), to change it; a tall, dark photo works best (it is shown
+// at 40% over the canvas, so the text stays readable).
+const BACKGROUND = require("../../../assets/images/welcome-background.jpg");
 
 // The first screen when signed out: what the app is, and the two ways in. One primary action.
 export default function WelcomeScreen() {
