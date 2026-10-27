@@ -2,6 +2,7 @@ import type { User } from "@music-room/shared";
 import { Platform } from "react-native";
 import { buildClientHeaders } from "@/api/client-headers";
 import { createHttpClient } from "@/api/http-client";
+import { stopWatchingRooms } from "@/features/nearby/stop-watching";
 import { offlineStore, reportingConnectivity } from "@/offline";
 import { getBackendUrl } from "@/settings/backend-url";
 import { createAuthController } from "./auth-controller";
@@ -24,10 +25,15 @@ export const auth = createAuthController({
   storage: isWeb ? createWebStorage() : createSecureStoreStorage(),
   ...(isWeb && { runExclusiveRefresh: createWebRefreshLock() }),
   // The last signed-in user, to open the app offline (ADR-049). Signing out removes it, and with
-  // it every offline copy and pending change (whoever signs in next starts clean).
+  // it every offline copy and pending change (whoever signs in next starts clean), and stops
+  // watching for rooms near you, which that person turned on for themselves (ADR-052).
   savedUser: {
     read: async () => (await offlineStore.read<User>("user"))?.data ?? null,
     write: (user) => offlineStore.write("user", user),
-    clear: () => offlineStore.clear(),
+    // The copies first: with "on" gone, a region the phone still reports is ignored and stopped.
+    clear: async () => {
+      await offlineStore.clear();
+      await stopWatchingRooms();
+    },
   },
 });

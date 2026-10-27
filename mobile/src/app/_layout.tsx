@@ -5,6 +5,9 @@ import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
 import { View } from "react-native";
 import { auth, useAuth } from "@/auth";
+// Defines the "rooms near you" background task. It must run when the bundle loads, also when the
+// phone starts the app in the background for a geofence (ADR-052).
+import "@/features/nearby/nearby-native";
 
 import { navigationTheme, useAppFonts } from "@/theme";
 
