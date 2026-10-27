@@ -2,7 +2,8 @@ import type { TypographyVariant } from "@/theme/tokens.generated";
 
 // Text colors (DESIGN.md rule 6 and 7): primary for titles, secondary for metadata and labels,
 // tertiary only for inactive things, placeholder for placeholders, inverse on bright fills,
-// feedback colors for their fixed meanings. Chartreuse and Ember are never text colors.
+// feedback colors for their fixed meanings. Chartreuse and Ember are never text colors (the one
+// exception, the brand gradient on the app's name, is BrandTitle, ADR-051).
 export type TextTone =
   | "primary"
   | "secondary"
