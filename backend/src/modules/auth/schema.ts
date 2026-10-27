@@ -42,6 +42,10 @@ export const displayNameSchema = z
 export const setDisplayNameSchema = z.strictObject({ displayName: displayNameSchema });
 export type SetDisplayNameInput = z.infer<typeof setDisplayNameSchema>;
 
+// Switching offer (ADR-048). Payment is simulated, so the body only names the plan.
+export const setPlanSchema = z.strictObject({ plan: z.enum(["free", "premium"]) });
+export type SetPlanInput = z.infer<typeof setPlanSchema>;
+
 // Login is deliberately lenient on the password (no length policy): the answer
 // to a wrong password must not reveal anything about the rules or the account.
 export const loginSchema = z.strictObject({

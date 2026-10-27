@@ -1,4 +1,5 @@
 import type { Invitation, MusicEvent, Page, VoteLicense } from "@music-room/shared";
+import { requirePremium } from "../access/plans.js";
 import type pg from "pg";
 import { withTransaction } from "../../db/postgres.js";
 import { foreignKeyViolationOf, uniqueViolationOf } from "../../db/pg-errors.js";
@@ -104,6 +105,8 @@ export function createEventService(deps: {
 
   return {
     async create(userId, input) {
+      // "At the venue" rooms are Premium (ADR-048); every other kind of room is free.
+      if (input.voteLicense?.type === "location_time") await requirePremium(pool, userId);
       const record = await insertEvent(pool, userId, {
         name: input.name,
         visibility: input.visibility ?? "public",
@@ -148,6 +151,10 @@ export function createEventService(deps: {
         if (!current) throw toHttpError("event", "NOT_FOUND");
         const { resource, subject } = accessOf(current, userId);
         requireManage("event", resource, subject);
+        // Setting an "At the venue" license is Premium (ADR-048). A room that already has one
+        // keeps working, and its owner can still rename it or make it free to vote in.
+        if (input.voteLicense?.type === "location_time")
+          await requirePremium(client, userId);
 
         await updateEvent(client, eventId, {
           name: input.name ?? current.name,

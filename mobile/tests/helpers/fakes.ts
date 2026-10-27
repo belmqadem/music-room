@@ -109,6 +109,7 @@ export const user = {
   emailVerified: true,
   linkedProviders: [],
   displayNameSet: true,
+  plan: "free",
   hasPassword: true,
   createdAt: "2026-01-01T00:00:00.000Z",
 } as const;

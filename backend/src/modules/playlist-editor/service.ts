@@ -1,4 +1,5 @@
 import type { Invitation, Page, Playlist } from "@music-room/shared";
+import { requirePremium } from "../access/plans.js";
 import type pg from "pg";
 import { foreignKeyViolationOf, uniqueViolationOf } from "../../db/pg-errors.js";
 import { withTransaction } from "../../db/postgres.js";
@@ -96,6 +97,8 @@ export function createPlaylistService(deps: {
 
   return {
     async create(userId, input) {
+      // Creating a playlist is the Playlist Editor itself: Premium only (ADR-048).
+      await requirePremium(pool, userId);
       const record = await insertPlaylist(pool, userId, {
         name: input.name,
         visibility: input.visibility ?? "public",
@@ -142,6 +145,7 @@ export function createPlaylistService(deps: {
         if (!current) throw toHttpError("playlist", "NOT_FOUND");
         const { resource, subject } = accessOf(current, userId);
         requireManage("playlist", resource, subject);
+        await requirePremium(client, userId);
 
         await updatePlaylist(client, playlistId, {
           name: input.name ?? current.name,
@@ -199,6 +203,7 @@ export function createPlaylistService(deps: {
       if (!current) throw toHttpError("playlist", "NOT_FOUND");
       const { resource, subject } = accessOf(current, userId);
       requireManage("playlist", resource, subject);
+      await requirePremium(pool, userId);
 
       if (input.userId === current.ownerId) {
         throw new HttpError(

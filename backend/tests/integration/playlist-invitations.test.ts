@@ -40,7 +40,7 @@ describe.skipIf(!databaseUrl)("playlist invitations", () => {
 
   async function makeUser(name: string, email: string | null = null): Promise<TestUser> {
     const { rows } = await pool.query(
-      "INSERT INTO users (display_name, email) VALUES ($1, $2) RETURNING id",
+      "INSERT INTO users (display_name, email, plan) VALUES ($1, $2, 'premium') RETURNING id",
       [`${NAME_PREFIX}${name}`, email],
     );
     return {

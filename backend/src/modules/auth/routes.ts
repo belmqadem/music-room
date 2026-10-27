@@ -23,7 +23,7 @@ export interface AuthRoutesOptions {
   emailCodeLimit?: RateLimitSettings;
 }
 
-/** Mounted at /api/v1: /auth/{register,verify-email,resend-verification,forgot-password,reset-password,login,refresh,logout,oauth/:provider}, /users/me, /users/me/display-name and /users/me/providers/:provider. */
+/** Mounted at /api/v1: /auth/{register,verify-email,resend-verification,forgot-password,reset-password,login,refresh,logout,oauth/:provider}, /users/me, /users/me/display-name, /users/me/plan and /users/me/providers/:provider. */
 export function createAuthRoutes(options: AuthRoutesOptions): ExpressRouter {
   const controller = createAuthController(options.service);
   const authenticate = createAuthenticate(options.jwtSecret);
@@ -72,6 +72,8 @@ export function createAuthRoutes(options: AuthRoutesOptions): ExpressRouter {
   router.post("/auth/logout", authenticateBeforeName, controller.logout);
   router.get("/users/me", authenticateBeforeName, controller.me);
   router.put("/users/me/display-name", authenticateBeforeName, controller.setDisplayName);
+  // Switching offer (ADR-048): an account must have chosen its name first, like everything else.
+  router.put("/users/me/plan", authenticate, controller.setPlan);
   // Social login shares the login limit: it is another way to try to get in.
   router.post("/auth/oauth/:provider", loginLimiter, controller.oauthLogin);
   router.post(

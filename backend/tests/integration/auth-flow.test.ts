@@ -374,6 +374,7 @@ describe.skipIf(!databaseUrl)("auth flow (register, login, me)", () => {
         "hasPassword",
         "id",
         "linkedProviders",
+        "plan",
       ]);
       expect(JSON.stringify(response.body)).not.toMatch(
         /passwordHash|password_hash|\$2b\$/i,
