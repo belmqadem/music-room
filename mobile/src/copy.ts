@@ -26,7 +26,7 @@ export const copy = {
     or: "or",
     notFoundPage: "This page doesn't exist.",
     findPeople: "Find people by username",
-    findPeoplePlaceholder: "Username (3 letters or more)",
+    findPeoplePlaceholder: "Username",
     noPeopleMatch: (query: string) => `No one has a username starting with “${query}”.`,
   },
 
