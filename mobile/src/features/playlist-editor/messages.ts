@@ -20,6 +20,9 @@ export function playlistErrorMessage(error: unknown): string {
       return MESSAGES.network;
     case "RATE_LIMITED":
       return MESSAGES.rateLimited;
+    // ADR-048: the server refuses a Premium feature to a Free user.
+    case "PREMIUM_REQUIRED":
+      return copy.plan.required;
     case "PLAYLIST_NOT_FOUND":
     case "NOT_FOUND":
       return PLAYLIST_MESSAGES.notFound;

@@ -383,6 +383,49 @@ export const copy = {
     loadFailed: "Couldn't load your profile.",
   },
 
+  /** Free and Premium (ADR-048). Payment is simulated: the text never says otherwise. */
+  plan: {
+    title: "Plans",
+    names: { free: "Free", premium: "Premium" },
+    currentLabel: "Current",
+    current: (name: string) => `You're on ${name}.`,
+    includes: {
+      free: [
+        "Join rooms, suggest tracks and vote",
+        "Create rooms for everyone or for invited people",
+        "See the playlists shared with you",
+        "Friends and your profile",
+      ],
+      premium: [
+        "Everything in Free",
+        "Create playlists and edit them together",
+        "Rooms at the venue: people vote only there, while it's on",
+      ],
+    },
+    upgrade: "Upgrade to Premium",
+    switchToFree: "Switch to Free",
+    confirmUpgrade:
+      "Upgrade to Premium? Payment is simulated in this version: no card, no charge.",
+    confirmFree:
+      "Switch to Free? Your playlists stay, but you can't edit them until you upgrade again. Your rooms at the venue keep working.",
+    confirm: "Confirm",
+    cancel: "Cancel",
+    upgraded: "You're on Premium. Enjoy.",
+    downgraded: "You're on Free now.",
+    settingsRow: "Plan",
+    seePlans: "See plans",
+    seePremium: "See Premium",
+    badge: "Premium",
+    /** Where a Free user meets a Premium feature: what is locked, plainly. */
+    locked: {
+      playlistEdit: "Editing playlists is Premium.",
+      playlistCreate: "Creating playlists is Premium.",
+      venue: "Rooms at the venue are Premium.",
+    },
+    /** PREMIUM_REQUIRED from the server, whatever was refused. */
+    required: "That needs Premium. You can upgrade in Settings, under Plan.",
+  },
+
   /** The username (the API's displayName, ADR-046): unique, how people find you. */
   username: {
     label: "Username",

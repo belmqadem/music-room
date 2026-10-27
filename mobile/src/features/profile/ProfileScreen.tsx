@@ -5,6 +5,7 @@ import { ActivityIndicator, Pressable, View } from "react-native";
 import { auth, useAuth } from "@/auth";
 import { Badge, Button, Card, Icon, type IconName, Screen, Text } from "@/components";
 import { copy } from "@/copy";
+import { isPremium } from "@/features/plan/plan";
 import { friendsApi } from "@/features/friends/friends-api";
 import { requestCountLabel } from "@/features/friends/friend-state";
 import { colors } from "@/theme";
@@ -80,7 +81,16 @@ export default function ProfileScreen() {
       <View className="gap-8">
         <ProfileHeader
           displayName={user.displayName}
-          subtitle={user.email ? <Text tone="secondary">{user.email}</Text> : null}
+          subtitle={
+            <>
+              {user.email ? <Text tone="secondary">{user.email}</Text> : null}
+              {isPremium(user) ? (
+                <View className="pt-1">
+                  <Badge label={copy.plan.badge} tone="accent" />
+                </View>
+              ) : null}
+            </>
+          }
         />
 
         {profile ? (

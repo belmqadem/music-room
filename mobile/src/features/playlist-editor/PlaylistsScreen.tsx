@@ -7,7 +7,9 @@ import {
   RefreshControl,
   View,
 } from "react-native";
+import { useAuth } from "@/auth";
 import { Badge, Button, Card, Text } from "@/components";
+import { isPremium } from "@/features/plan/plan";
 import { colors } from "@/theme";
 import { editLicenseLabel, playlistTags } from "./messages";
 import { usePlaylists } from "./use-playlists";
@@ -16,6 +18,9 @@ import { copy } from "@/copy";
 // Playlists tab: public playlists, mine, and private ones I am invited to (the server decides which).
 export default function PlaylistsScreen() {
   const { playlists, loading, refreshing, error, refresh, loadMore } = usePlaylists();
+  const auth = useAuth();
+  // Creating a playlist is Premium (ADR-048): a Free user is shown the plans instead.
+  const premium = isPremium(auth.status === "signedIn" ? auth.user : null);
 
   return (
     <View className="flex-1 bg-canvas">
@@ -63,7 +68,7 @@ export default function PlaylistsScreen() {
         <Button
           title={copy.playlists.create}
           fullWidth
-          onPress={() => router.push("/create-playlist")}
+          onPress={() => router.push(premium ? "/create-playlist" : "/plan")}
         />
       </View>
     </View>

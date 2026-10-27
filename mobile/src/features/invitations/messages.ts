@@ -16,6 +16,9 @@ export function invitationErrorMessage(error: unknown): string {
       return MESSAGES.network;
     case "RATE_LIMITED":
       return MESSAGES.rateLimited;
+    // ADR-048: the server refuses a Premium feature to a Free user.
+    case "PREMIUM_REQUIRED":
+      return copy.plan.required;
     case "FORBIDDEN":
       return INVITATION_MESSAGES.ownerOnly;
     // The event or playlist itself answers with its own code...
