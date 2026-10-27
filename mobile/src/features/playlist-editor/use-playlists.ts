@@ -4,6 +4,10 @@ import { playlistApi } from "./playlist-api";
 
 /** The playlists tab: what the server lets me see, paged (use-paged-list.ts). */
 export function usePlaylists() {
-  const { items, ...list } = usePagedList(playlistApi.list, playlistErrorMessage);
+  const { items, ...list } = usePagedList(
+    playlistApi.list,
+    playlistErrorMessage,
+    "playlists",
+  );
   return { playlists: items, ...list };
 }

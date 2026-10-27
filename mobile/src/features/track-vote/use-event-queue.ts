@@ -1,6 +1,7 @@
 import type { EventQueueUpdate, EventTrack, GeoPoint } from "@music-room/shared";
 import { useEffect, useRef, useState } from "react";
 import { currentPosition } from "@/location/current-position";
+import { connectivity, isUnreachable, offlineStore } from "@/offline";
 import { live } from "@/sockets/live";
 import { eventApi } from "./event-api";
 import { sendWithLocationIfRequired } from "./location-required";
@@ -38,13 +39,29 @@ export function useEventQueue(eventId: string) {
       if (active) setQueue(change);
     };
 
-    // REST first: the queue shows even if the live connection is slow or down.
-    eventApi.queue(eventId).then(
-      (mine) => update((s) => applyMyQueue(s, mine)),
-      (error: unknown) => {
-        if (active) setLoadError(trackVoteErrorMessage(error));
-      },
-    );
+    // REST first: the queue shows even if the live connection is slow or down. Offline, the
+    // queue last seen is shown instead, read only: votes and suggestions need the server.
+    const cacheName = `room-queue:${eventId}`;
+    const load = () =>
+      eventApi.queue(eventId).then(
+        (mine) => {
+          update((s) => applyMyQueue(s, mine));
+          void offlineStore.write(cacheName, mine);
+        },
+        async (error: unknown) => {
+          const copy = isUnreachable(error)
+            ? await offlineStore.read<EventQueueUpdate>(cacheName)
+            : null;
+          if (!active) return;
+          if (copy) {
+            update((s) => applyMyQueue(s, copy.data));
+          } else setLoadError(trackVoteErrorMessage(error));
+        },
+      );
+    void load();
+    const stopOnline = connectivity.subscribe((online) => {
+      if (online) void load();
+    });
     const leave = live.subscribeToEvent(eventId, {
       onState: (mine) => update((s) => applyMyQueue(s, mine)),
       onUpdate: (snapshot) => update((s) => applySnapshot(s, snapshot)),
@@ -61,6 +78,7 @@ export function useEventQueue(eventId: string) {
     return () => {
       active = false;
       leave();
+      stopOnline();
     };
   }, [eventId]);
 

@@ -46,6 +46,15 @@ export interface AuthControllerDeps {
    * Default: just run it; one app instance already has a single refresh in flight.
    */
   runExclusiveRefresh?: <T>(task: () => Promise<T>) => Promise<T>;
+  /**
+   * The last signed-in user, kept on the phone for offline mode (ADR-049): opening the app without
+   * a connection shows the offline copies instead of the sign-in screen. Default: none kept.
+   */
+  savedUser?: {
+    read(): Promise<User | null>;
+    write(user: User): Promise<void>;
+    clear(): Promise<void>;
+  };
 }
 
 export interface RequestOptions {
@@ -63,6 +72,7 @@ export interface SignOutResult {
 export function createAuthController(deps: AuthControllerDeps) {
   const { http, storage } = deps;
   const runExclusive = deps.runExclusiveRefresh ?? ((task) => task());
+  const savedUser = deps.savedUser;
 
   let state: AuthState = { status: "loading", user: null };
   let accessToken: string | null = null;
@@ -73,6 +83,12 @@ export function createAuthController(deps: AuthControllerDeps) {
 
   function setState(next: AuthState): void {
     state = next;
+    // Kept for offline mode; a failure only means no offline start next time.
+    if (next.status === "signedIn" && next.user && savedUser) {
+      void savedUser.write(next.user).catch((error: unknown) => {
+        console.warn("Could not keep the user for offline mode:", error);
+      });
+    }
     listeners.forEach((listener) => listener());
   }
 
@@ -96,6 +112,7 @@ export function createAuthController(deps: AuthControllerDeps) {
     memoryRefreshToken = null;
     setState({ status: "signedOut", user: null });
     await storage.clear();
+    await savedUser?.clear();
   }
 
   async function applySession(session: AuthSession): Promise<void> {
@@ -161,6 +178,18 @@ export function createAuthController(deps: AuthControllerDeps) {
     const { auth = true, ...sendOptions } = options;
     if (!auth) return http.send<T>(method, path, sendOptions);
 
+    // Started offline (ADR-049): signed in from the saved user, without an access token yet. Get
+    // one first; offline, this throws the network error like any call would.
+    if (accessToken === null && state.status === "signedIn") {
+      if ((await refresh()) === "lost") {
+        throw new RequestError(
+          401,
+          "UNAUTHENTICATED",
+          "Your session has ended. Sign in again.",
+        );
+      }
+    }
+
     const tokenSent = accessToken;
     try {
       return await http.send<T>(method, path, { ...sendOptions, accessToken: tokenSent });
@@ -206,9 +235,15 @@ export function createAuthController(deps: AuthControllerDeps) {
         }
         await refresh();
       } catch (error) {
-        // Offline at start: stay signed out for now but KEEP the stored token for the next launch.
+        // Offline at start (the session itself was not refused: that is a 401, handled by
+        // refresh). With a saved user the app opens signed in on its offline copies (ADR-049) and
+        // gets a token at the first call that reaches the server. Without one, signed out for
+        // now; the stored token is KEPT for the next launch either way.
         console.warn("Could not restore the session:", error);
-        setState({ status: "signedOut", user: null });
+        const user = await savedUser?.read().catch(() => null);
+        setState(
+          user ? { status: "signedIn", user } : { status: "signedOut", user: null },
+        );
       }
     })().finally(() => {
       restoring = null;

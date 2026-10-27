@@ -8,7 +8,7 @@ import {
   View,
 } from "react-native";
 import { useAuth } from "@/auth";
-import { Badge, Button, Card, Text } from "@/components";
+import { Badge, Button, Card, OfflineNotice, Text } from "@/components";
 import { isPremium } from "@/features/plan/plan";
 import { colors } from "@/theme";
 import { editLicenseLabel, playlistTags } from "./messages";
@@ -44,11 +44,14 @@ export default function PlaylistsScreen() {
             />
           }
           ListHeaderComponent={
-            error ? (
-              <Text tone="error" accessibilityRole="alert">
-                {error}
-              </Text>
-            ) : null
+            <View className="gap-3">
+              <OfflineNotice />
+              {error ? (
+                <Text tone="error" accessibilityRole="alert">
+                  {error}
+                </Text>
+              ) : null}
+            </View>
           }
           ListEmptyComponent={
             // The list grows to the space above the button, so this sits in its middle.

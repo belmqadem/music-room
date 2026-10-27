@@ -2,7 +2,8 @@ import type { MusicEvent } from "@music-room/shared";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, FlatList, View } from "react-native";
-import { Button, Card, Text, TrackRow } from "@/components";
+import { Button, Card, OfflineNotice, Text, TrackRow } from "@/components";
+import { isUnreachable, offlineStore } from "@/offline";
 import { LiveBadge } from "@/sockets/LiveBadge";
 import { colors } from "@/theme";
 import { eventApi } from "./event-api";
@@ -25,12 +26,21 @@ export default function TrackVoteScreen() {
 
   useEffect(() => {
     let active = true;
+    // Kept for offline mode (ADR-049): its name and rules, as last seen.
+    const cacheName = `room:${id}`;
     eventApi.get(id).then(
       (loaded) => {
-        if (active) setEvent(loaded);
+        if (!active) return;
+        setEvent(loaded);
+        void offlineStore.write(cacheName, loaded);
       },
-      (error: unknown) => {
-        if (active) setEventError(trackVoteErrorMessage(error));
+      async (error: unknown) => {
+        const copy = isUnreachable(error)
+          ? await offlineStore.read<MusicEvent>(cacheName)
+          : null;
+        if (!active) return;
+        if (copy) setEvent(copy.data);
+        else setEventError(trackVoteErrorMessage(error));
       },
     );
     return () => {
@@ -88,6 +98,7 @@ export default function TrackVoteScreen() {
         )}
         ListHeaderComponent={
           <View className="gap-4 pb-1">
+            <OfflineNotice />
             <View className="flex-row items-center justify-between gap-3">
               <Text variant="caption" tone="secondary" className="flex-1">
                 {voteLicenseLabel(event.voteLicense)}

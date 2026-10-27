@@ -6,7 +6,7 @@ import { peopleQueryFrom } from "@/api/search-query";
 import { usePagedList } from "@/api/use-paged-list";
 import { useLatestSearch } from "@/api/use-latest-search";
 import { usersApi } from "@/api/users-api";
-import { Button, Input, PersonRow, Screen, Text } from "@/components";
+import { Button, Input, OfflineNotice, PersonRow, Screen, Text } from "@/components";
 import { copy } from "@/copy";
 import { colors } from "@/theme";
 import { friendsApi } from "./friends-api";
@@ -25,9 +25,9 @@ const friendsPage = (cursor?: string) => friendsApi.friends(cursor);
 const openProfile = (user: UserSummary) => router.push(`/person/${user.id}`);
 
 export default function FriendsScreen() {
-  const incoming = usePagedList(incomingPage, friendsErrorMessage);
-  const outgoing = usePagedList(outgoingPage, friendsErrorMessage);
-  const friends = usePagedList(friendsPage, friendsErrorMessage);
+  const incoming = usePagedList(incomingPage, friendsErrorMessage, "friend-requests-in");
+  const outgoing = usePagedList(outgoingPage, friendsErrorMessage, "friend-requests-out");
+  const friends = usePagedList(friendsPage, friendsErrorMessage, "friends");
   const people = useLatestSearch<UserSummary>(
     peopleQueryFrom,
     async (query) => (await usersApi.search(query)).items,
@@ -100,6 +100,7 @@ export default function FriendsScreen() {
 
         {searching ? null : (
           <>
+            <OfflineNotice />
             {actionError ? (
               <Text tone="error" accessibilityRole="alert">
                 {actionError}

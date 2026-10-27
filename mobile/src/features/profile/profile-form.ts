@@ -160,3 +160,12 @@ export function profileUpdateFrom(
 /** "YYYY-MM-DD" today in UTC: the server's own day for the birth-date check. */
 export const todayUtc = (now: Date = new Date()): string =>
   now.toISOString().slice(0, 10);
+
+/**
+ * Your profile as it may be kept on the phone for offline mode (ADR-049). SECURITY: without the
+ * private block; phone and birth date never stay on the phone outside a live answer.
+ */
+export function offlineProfile(profile: Profile): Profile {
+  const { privateInfo: _private, ...shareable } = profile;
+  return shareable;
+}

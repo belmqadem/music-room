@@ -7,6 +7,7 @@ export { ChoiceGroup, type ChoiceGroupProps } from "./ChoiceGroup";
 export { Icon, ICONS, type IconName, type IconProps } from "./Icon";
 export { IconButton, type IconButtonProps } from "./IconButton";
 export { Input, type InputProps } from "./Input";
+export { OfflineNotice } from "./OfflineNotice";
 export { PersonRow, type PersonRowProps } from "./PersonRow";
 export { PlaylistRow, type PlaylistRowProps } from "./PlaylistRow";
 export { Screen, type ScreenProps } from "./Screen";
