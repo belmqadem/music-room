@@ -210,10 +210,15 @@ request is checked by the server, and an app screen opened without a session wou
 - **Access tokens are not revoked at logout.** Logout revokes the refresh token, but the access token (and so a stolen
   copy) stays valid until it expires, at most 15 minutes. Accepted: stateless verification is the point of ADR-003. A
   deny-list in Redis would close it at the price of a Redis read on every request.
-- **A Google ID token (and a Facebook Limited Login token) is not bound to a nonce.** A captured, still-valid token
-  could be replayed to log in. A Facebook Limited Login token was observed valid for 90 days (a Google ID token for about
-  an hour), so the backend refuses one issued more than 10 minutes ago; the replay window is those 10 minutes (ADR-032). Mitigations: the app sends it over TLS only, it is verified for signature, issuer, audience and expiry, and login
-  is rate limited. Open item: a per-login nonce.
+- **Provider credentials are not bound to a nonce, but each works only once (ADR-047).** A captured, still-valid Google
+  ID token or Facebook token cannot be replayed: the server remembers (by SHA-256, never the token) every credential it
+  accepted, for login, for linking and as the proof for link or unlink, until it expires at the provider (a Facebook
+  classic token at most 90 days), and refuses it the second time; a database key decides, so two simultaneous uses
+  cannot both pass. A Google ID token or a Facebook Limited Login token issued more than 10 minutes ago is refused as
+  well. What is left: a token captured BEFORE the app uses it (on the device, or by a hostile network without TLS) can be
+  used first by the attacker, and the real login then fails. Mitigations: TLS only, signature, issuer, audience and
+  expiry checks, rate limiting. A per-login nonce would close that too; Facebook classic tokens carry no nonce, so it
+  would only cover Google and Limited Login.
 - **The guess limits are per IP, not per account.** An attacker with many addresses can spread guesses of a password
   (through login or the link/unlink re-authentication) or of an emailed code (5 tries per code, 60 s between codes, about
   0.7% a day for one targeted account, ADR-022). The password policy and the lifetime of codes and tokens bound it. Decision (2026-10-17): accepted, no per-account counter is planned.

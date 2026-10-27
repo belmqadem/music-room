@@ -120,6 +120,10 @@ rejects the request; values are stripped of unsafe characters and capped at 64 c
 - Provider failures: a credential the provider rejects (bad signature, expired, wrong app) is
   `401 INVALID_PROVIDER_CREDENTIAL`, always the same message. If the provider cannot be reached, `502
 PROVIDER_UNAVAILABLE`; the app may retry later. Both are logged without the credential.
+- **A credential works once (ADR-047).** Whatever it is used for (OAuth login, the account to link, or the `reauth`
+  proof), a Google or Facebook credential the server accepted is refused the next time, like a bad one (`401
+INVALID_PROVIDER_CREDENTIAL`, or `403 REAUTH_FAILED` as a proof). A Google ID token or a Facebook Limited Login token
+  issued more than 10 minutes ago is refused too. The app gets a fresh credential from the SDK for every attempt.
 - **Proof of ownership (ADR-025).** Linking or unlinking changes who can get into the account for good, so a valid
   access token is not enough (it may be stolen). Both requests carry `reauth`, a login method the account **already
   has**: `{ "method": "password", "password": "..." }`, or `{ "method": "provider", "provider": "google" | "facebook",
@@ -498,3 +502,4 @@ ANCHOR_NOT_FOUND`. Moving an entry after itself, or to the place it already has,
 | 2026-10-26 | Profiles: `Profile.friendship` (`ProfileFriendship`: `{ id, status, direction }` or `null`), where the caller stands with the owner; always present, `null` on your own profile; additive for readers (ADR-042)                                                                                                                                                    | belmqadem | pending     |
 | 2026-10-26 | Auth: `User.hasPassword` (boolean), whether the account can sign in with a password; always present; additive for readers (ADR-044)                                                                                                                                                                                                                                | belmqadem | pending     |
 | 2026-10-27 | Unique display names (ADR-046): `RegisterRequest` loses `displayName` (**breaking** for register); new `PUT /users/me/display-name` (`SetDisplayNameRequest`), `User.displayNameSet`, error codes `DISPLAY_NAME_TAKEN` (409) and `DISPLAY_NAME_REQUIRED` (403, every bearer route and the socket handshake until a name is chosen); search finds only chosen names | belmqadem | pending     |
+| 2026-10-27 | Provider credentials work once, Google ID tokens older than 10 minutes are refused (ADR-047); no new type or code, same errors                                                                                                                                                                                                                                     | belmqadem | pending     |
