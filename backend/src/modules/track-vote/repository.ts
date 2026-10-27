@@ -169,6 +169,58 @@ export async function listVisibleEvents(
   return rows.map(toRecord);
 }
 
+export interface NearbyEventRecord extends EventRecord {
+  /** From the point asked about to the venue's center, in metres. */
+  distanceMeters: number;
+}
+
+/**
+ * Public "At the venue" rooms whose circle comes within `withinMeters` of a point, and whose
+ * window overlaps [from, until): on now, or starting soon. Never `userId`'s own rooms (you know
+ * about those). Private rooms are left out entirely, even for people invited to them: this list
+ * is about telling strangers a public room exists (ADR-052).
+ * Rooms you are already in come first, then by how far you are from their edge.
+ * The distance is the haversine formula of access/rules.ts `distanceMeters`, written in SQL so
+ * Postgres can sort and cut the list; a test checks the two agree
+ * (tests/integration/nearby-events.test.ts).
+ */
+export async function listNearbyEvents(
+  db: Queryable,
+  userId: string,
+  point: { latitude: number; longitude: number },
+  options: { withinMeters: number; from: Date; until: Date; limit: number },
+): Promise<NearbyEventRecord[]> {
+  const { rows } = await db.query<EventRow & { distance_meters: number }>(
+    `WITH candidates AS (
+       SELECT ${EVENT_SELECT},
+              2 * 6371000 * asin(least(1, sqrt(
+                sin(radians(e.latitude - $2) / 2) ^ 2
+                + cos(radians($2)) * cos(radians(e.latitude))
+                  * sin(radians(e.longitude - $3) / 2) ^ 2
+              ))) AS distance_meters
+       FROM events e
+       -- These two conditions are the partial index events_nearby_idx.
+       WHERE e.visibility = 'public' AND e.vote_license = 'location_time'
+         AND e.ends_at > $4 AND e.starts_at < $5
+         AND e.owner_id <> $1
+     )
+     SELECT * FROM candidates
+     WHERE distance_meters - radius_meters <= $6
+     ORDER BY greatest(distance_meters - radius_meters, 0), distance_meters, id
+     LIMIT $7`,
+    [
+      userId,
+      point.latitude,
+      point.longitude,
+      options.from,
+      options.until,
+      options.withinMeters,
+      options.limit,
+    ],
+  );
+  return rows.map((row) => ({ ...toRecord(row), distanceMeters: row.distance_meters }));
+}
+
 export async function updateEvent(
   db: Queryable,
   eventId: string,

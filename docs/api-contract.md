@@ -320,21 +320,22 @@ The license applies to people who can already see the resource.
 
 All endpoints are bearer-authenticated and check the access rules above on every call.
 
-| Method | Path                                      | Who may call it        | Purpose                                             | Success                  | Errors                                                           |
-| ------ | ----------------------------------------- | ---------------------- | --------------------------------------------------- | ------------------------ | ---------------------------------------------------------------- |
-| POST   | `/events`                                 | any authenticated user | Create an event (caller is owner)                   | 201 `MusicEvent`         | 400                                                              |
-| GET    | `/events`                                 | any authenticated user | Page of events you can see (public + yours/invited) | 200 page of `MusicEvent` | —                                                                |
-| GET    | `/events/{eventId}`                       | anyone who can see it  | Event details incl. `myPermissions`                 | 200 `MusicEvent`         | 404                                                              |
-| PATCH  | `/events/{eventId}`                       | owner                  | Change name, visibility, vote license               | 200 `MusicEvent`         | 400, 403, 404                                                    |
-| DELETE | `/events/{eventId}`                       | owner                  | Delete the event                                    | 204                      | 403, 404                                                         |
-| GET    | `/events/{eventId}/invitations`           | owner                  | List invited users                                  | 200 page of `Invitation` | 403, 404                                                         |
-| POST   | `/events/{eventId}/invitations`           | owner                  | Invite a user                                       | 201 `Invitation`         | 400, 403, 404, 409 `ALREADY_INVITED`                             |
-| DELETE | `/events/{eventId}/invitations/{userId}`  | owner                  | Remove an invitation                                | 204                      | 403, 404                                                         |
-| GET    | `/events/{eventId}/tracks`                | anyone who can see it  | The queue, **already ordered** (see Ranking)        | 200 `EventQueueUpdate`   | 404                                                              |
-| POST   | `/events/{eventId}/tracks`                | anyone allowed to act  | Suggest a track (counts as your vote)               | 201 `EventTrack`         | 400, 403, 404 `TRACK_NOT_FOUND`, 409 `TRACK_ALREADY_QUEUED`, 502 |
-| PUT    | `/events/{eventId}/tracks/{trackId}/vote` | anyone allowed to act  | Vote for a track (**idempotent**)                   | 200 `EventTrack`         | 400, 403, 404, 409 `TRACK_NOT_VOTABLE`                           |
-| DELETE | `/events/{eventId}/tracks/{trackId}/vote` | anyone who can see it  | Withdraw your own vote (**idempotent**)             | 200 `EventTrack`         | 404, 409 `TRACK_NOT_VOTABLE`                                     |
-| POST   | `/events/{eventId}/queue/advance`         | owner                  | Move to the next track (body: `currentTrackId`)     | 200 `EventQueueUpdate`   | 400, 403, 404, 409 `QUEUE_CHANGED`                               |
+| Method | Path                                      | Who may call it        | Purpose                                             | Success                    | Errors                                                           |
+| ------ | ----------------------------------------- | ---------------------- | --------------------------------------------------- | -------------------------- | ---------------------------------------------------------------- |
+| POST   | `/events`                                 | any authenticated user | Create an event (caller is owner)                   | 201 `MusicEvent`           | 400                                                              |
+| GET    | `/events`                                 | any authenticated user | Page of events you can see (public + yours/invited) | 200 page of `MusicEvent`   | —                                                                |
+| GET    | `/events/nearby?latitude=&longitude=`     | any authenticated user | Public "At the venue" rooms near a point (ADR-052)  | 200 `NearbyEventsResponse` | 400                                                              |
+| GET    | `/events/{eventId}`                       | anyone who can see it  | Event details incl. `myPermissions`                 | 200 `MusicEvent`           | 404                                                              |
+| PATCH  | `/events/{eventId}`                       | owner                  | Change name, visibility, vote license               | 200 `MusicEvent`           | 400, 403, 404                                                    |
+| DELETE | `/events/{eventId}`                       | owner                  | Delete the event                                    | 204                        | 403, 404                                                         |
+| GET    | `/events/{eventId}/invitations`           | owner                  | List invited users                                  | 200 page of `Invitation`   | 403, 404                                                         |
+| POST   | `/events/{eventId}/invitations`           | owner                  | Invite a user                                       | 201 `Invitation`           | 400, 403, 404, 409 `ALREADY_INVITED`                             |
+| DELETE | `/events/{eventId}/invitations/{userId}`  | owner                  | Remove an invitation                                | 204                        | 403, 404                                                         |
+| GET    | `/events/{eventId}/tracks`                | anyone who can see it  | The queue, **already ordered** (see Ranking)        | 200 `EventQueueUpdate`     | 404                                                              |
+| POST   | `/events/{eventId}/tracks`                | anyone allowed to act  | Suggest a track (counts as your vote)               | 201 `EventTrack`           | 400, 403, 404 `TRACK_NOT_FOUND`, 409 `TRACK_ALREADY_QUEUED`, 502 |
+| PUT    | `/events/{eventId}/tracks/{trackId}/vote` | anyone allowed to act  | Vote for a track (**idempotent**)                   | 200 `EventTrack`           | 400, 403, 404, 409 `TRACK_NOT_VOTABLE`                           |
+| DELETE | `/events/{eventId}/tracks/{trackId}/vote` | anyone who can see it  | Withdraw your own vote (**idempotent**)             | 200 `EventTrack`           | 404, 409 `TRACK_NOT_VOTABLE`                                     |
+| POST   | `/events/{eventId}/queue/advance`         | owner                  | Move to the next track (body: `currentTrackId`)     | 200 `EventQueueUpdate`     | 400, 403, 404, 409 `QUEUE_CHANGED`                               |
 
 - Request bodies: `CreateEventRequest`, `UpdateEventRequest`, `InviteRequest` (`{ userId }`),
   `SuggestTrackRequest` (`{ providerTrackId, location? }`, `location` is a `GeoPoint`), `VoteRequest` (`{ location? }`, only needed when the
@@ -359,6 +360,15 @@ All endpoints are bearer-authenticated and check the access rules above on every
   event (and vote, if the license needs an invitation) at once. Errors: `409 ALREADY_INVITED`, `404 NOT_FOUND` for an
   unknown user, `400` for a malformed id or for inviting the owner. `DELETE` is idempotent (`204` even if that user was
   not invited) and takes effect immediately. The list is newest invitation first and paginated like every list.
+- **Rooms near a point** (`GET /events/nearby`, ADR-052): for the app to tell you about a public room when you get
+  to its venue. Returns public `location_time` rooms whose circle comes within 10 km of the point and whose window is
+  on now or starts within the next 12 hours; never private rooms (even ones you are invited to) and never your own.
+  The rooms you are in come first, then by distance to their edge; at most 20 (the most regions iOS watches for one
+  app). Each `NearbyEvent` is `{ event, distanceMeters, tracks }`: `distanceMeters` is to the venue's center,
+  rounded; `tracks` is the kind of music, the playing track first, then the top of Up next, at most 3. `latitude`
+  and `longitude` are required numbers (an empty value is `400`, not 0). **Privacy**: the point is used for this
+  query only; it is not stored, and the request log never writes query strings. It reveals nothing new: public
+  rooms and their venues are already in `GET /events`.
 - `GET /events/{id}`: a private event you may not see is `404 EVENT_NOT_FOUND`, identical to a missing one. Anyone who
   can see an event but is not its owner gets `403 FORBIDDEN` on `PATCH`, `DELETE` and the invitation endpoints.
 
@@ -527,3 +537,4 @@ ANCHOR_NOT_FOUND`. Moving an entry after itself, or to the place it already has,
 | 2026-10-27 | Unique display names (ADR-046): `RegisterRequest` loses `displayName` (**breaking** for register); new `PUT /users/me/display-name` (`SetDisplayNameRequest`), `User.displayNameSet`, error codes `DISPLAY_NAME_TAKEN` (409) and `DISPLAY_NAME_REQUIRED` (403, every bearer route and the socket handshake until a name is chosen); search finds only chosen names | belmqadem | pending     |
 | 2026-10-27 | Provider credentials work once, Google ID tokens older than 10 minutes are refused (ADR-047); no new type or code, same errors                                                                                                                                                                                                                                     | belmqadem | pending     |
 | 2026-10-27 | Plans (ADR-048): `User.plan` (`Plan`: `free` \| `premium`), `PUT /users/me/plan` (`SetPlanRequest`), error code `PREMIUM_REQUIRED` (403) on creating and editing playlists and on `location_time` rooms; additive for readers, but those writes now need Premium                                                                                                   | belmqadem | pending     |
+| 2026-10-27 | Rooms near a point (ADR-052): `GET /events/nearby?latitude=&longitude=`, types `NearbyEvent` and `NearbyEventsResponse`; additive                                                                                                                                                                                                                                  | belmqadem | pending     |

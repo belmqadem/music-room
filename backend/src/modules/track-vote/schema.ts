@@ -49,6 +49,17 @@ export const updateEventSchema = z
   });
 export type UpdateEventInput = z.infer<typeof updateEventSchema>;
 
+// GET /events/nearby?latitude=&longitude= (ADR-052). Query values arrive as strings: an empty
+// one must be a 400, not the number 0 (which is a real place), so it is checked before converting.
+const coordinate = (limit: number) =>
+  z.string().trim().min(1).transform(Number).pipe(z.number().min(-limit).max(limit));
+
+export const nearbyQuerySchema = z.object({
+  latitude: coordinate(90),
+  longitude: coordinate(180),
+});
+export type NearbyQuery = z.infer<typeof nearbyQuerySchema>;
+
 export const eventIdSchema = z.uuid();
 
 export const listQuerySchema = z.object({

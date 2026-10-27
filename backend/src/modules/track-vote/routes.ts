@@ -29,6 +29,8 @@ export function createEventRoutes(options: {
   router.use("/events", createAuthenticate(options.jwtSecret));
   router.post("/events", controller.create);
   router.get("/events", controller.list);
+  // Before /events/:eventId, which would otherwise take "nearby" for an event id.
+  router.get("/events/nearby", controller.nearby);
   router.get("/events/:eventId", controller.get);
   router.patch("/events/:eventId", controller.update);
   router.delete("/events/:eventId", controller.remove);

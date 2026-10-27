@@ -858,6 +858,30 @@ Each decision must be defensible in detail at the defense. Copy the template for
 - Accessibility: the title stays one heading read as "Music Room". On phones, the MaskedView carries the heading role and the label; the mask and the invisible copy are not read twice.
 - Consequences: two native dependencies, installed from the lockfile like every other. npm 11 pruned other platforms' optional packages from the lockfile when adding them, which `npm ci` then refused, so the lockfile change was limited to the two new packages and checked with `npm ci`. MaskedView's Android support is marked experimental by Expo; it was checked on the emulator. Tests: the new text style and both refusals. On the web (Chrome) and the Android emulator: the title in the gradient.
 
+### ADR-052: Rooms near you, by geofencing instead of Bluetooth beacons
+
+- Status: accepted (backend); the app part follows in its own PR
+- Date: 2026-10-27
+- Deciders: belmqadem, kaoutharrr
+- Context: the subject's IoT bonus suggests "a mechanism such as iBeacon": people who get near a public room receive its details automatically (how to get in, the kind of music). "At the venue" rooms already store a venue (a circle) and a time window (ADR-005).
+- Options considered:
+  - **The mechanism**:
+    - Bluetooth beacons (iBeacon): each venue needs a beacon, a device or the owner's phone broadcasting, and the attendee's phone scans for it. It needs a Bluetooth library and real hardware, and the Android emulator has no Bluetooth, so it could only be shown with two real phones.
+    - A "Happening near you" card while the app is open: easy, but nothing arrives "automatically".
+    - **Geofencing (chosen)**: the phone asks the system to watch circles around nearby public venues, and a local notification is shown on entering one. It uses the venue circles that already exist, needs no hardware, and the emulator can be moved to a venue by command.
+  - **"The kind of music"**: a new genres field on rooms (a contract change, and one more thing an owner has to fill in); or **the top of the room's queue (chosen)**. In a voting app, what is playing and what is voted up is the honest answer, and it needs no new field.
+  - **Delivery**: one PR, or **two (chosen)**: the endpoint (backend), then the app.
+- Decision (backend): `GET /events/nearby?latitude=&longitude=`, authenticated like every route.
+  - Returns public `location_time` rooms whose circle comes within 10 km of the point, on now or starting within 12 hours. Never private rooms, even for invited people: the feature tells strangers that a public room exists. Never the caller's own rooms.
+  - The rooms you are in come first, then by distance to their edge. At most 20, because iOS watches at most 20 regions per app. Each comes with the top 3 of its queue.
+  - The distance is the access rules' haversine formula written in SQL, so Postgres can sort and cut the list. A test checks the two agree, as for the event list and `canView`. A partial index holds only public "At the venue" rooms by end of window.
+- Security and privacy:
+  - Authorization is the visibility rule itself: the query reads public rooms only, and every signed-in user may see a public room.
+  - The endpoint reveals nothing new: public rooms and their venues are already listed by `GET /events`.
+  - The point the app sends is a precise location, so it is used for this one query. It is not stored, and the request log never writes query strings (a test checks this endpoint's log line). Validation errors name the field, never the value.
+- Decision (app, next PR): a Settings switch, off by default. Turning it on asks for location "all the time" and notifications. With it on, the app fetches the nearby rooms and registers their circles with the system (`expo-location` geofencing, `expo-task-manager`). Entering a circle shows a local notification (`expo-notifications`) with the room's name, when it is on and its music; tapping it opens the room, where the server checks voting rights as usual. No push server and no keys.
+- Consequences: one migration (an index only). Rooms that change after the app fetched them are corrected the next time it fetches, and opening the room always shows the server's current state. Tests: the query's validation, and against Postgres: authentication, every room left out and why, the time and distance limits, the order, the limit of 20, the queue's top, the log line, and the SQL distance against the access rules'.
+
 ## Still to decide (record each as an ADR)
 
 TODO:
