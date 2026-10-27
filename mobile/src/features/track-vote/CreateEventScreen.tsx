@@ -1,4 +1,6 @@
 import { router, Stack } from "expo-router";
+import { useAuth } from "@/auth";
+import { isPremium } from "@/features/plan/plan";
 import { useState } from "react";
 import { View } from "react-native";
 import { Button, ChoiceGroup, Input, Screen, Text } from "@/components";
@@ -44,6 +46,9 @@ const VOTE_HELP = copy.createRoom.voteHelp;
 // Create an event (docs/api-contract.md, "Events"): name, who can see it, who can vote. The form
 // checks what it can before sending; the server checks everything again.
 export default function CreateEventScreen() {
+  const auth = useAuth();
+  // Rooms at the venue are Premium (ADR-048): a Free user sees why, and how to get it.
+  const venueLocked = !isPremium(auth.status === "signedIn" ? auth.user : null);
   const [draft, setDraft] = useState<CreateEventDraft>(EMPTY_DRAFT);
   const [errors, setErrors] = useState<Partial<Record<DraftField, string>>>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -116,7 +121,19 @@ export default function CreateEventScreen() {
           helper={VOTE_HELP[draft.mode]}
         />
 
-        {draft.mode === "location_time" ? (
+        {draft.mode === "location_time" && venueLocked ? (
+          <View className="gap-2">
+            <Text variant="caption" tone="secondary">
+              {copy.plan.locked.venue}
+            </Text>
+            <Button
+              title={copy.plan.seePremium}
+              variant="secondary"
+              fullWidth
+              onPress={() => router.push("/plan")}
+            />
+          </View>
+        ) : draft.mode === "location_time" ? (
           <View className="gap-4">
             <Button
               title={copy.createRoom.useMyPosition}
@@ -171,6 +188,7 @@ export default function CreateEventScreen() {
           title={copy.createRoom.submit}
           fullWidth
           loading={creating}
+          disabled={draft.mode === "location_time" && venueLocked}
           onPress={() => void create()}
         />
       </View>

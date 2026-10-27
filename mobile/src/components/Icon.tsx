@@ -15,6 +15,7 @@ export const ICONS = {
   friends: { ios: "person.2", android: "group", web: "group" },
   music: { ios: "music.note", android: "music_note", web: "music_note" },
   edit: { ios: "pencil", android: "edit", web: "edit" },
+  check: { ios: "checkmark", android: "check", web: "check" },
   link: { ios: "link", android: "link", web: "link" },
   settings: { ios: "gearshape", android: "settings", web: "settings" },
   signOut: {

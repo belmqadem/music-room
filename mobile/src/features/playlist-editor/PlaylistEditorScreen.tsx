@@ -2,7 +2,9 @@ import type { Playlist } from "@music-room/shared";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, FlatList, View } from "react-native";
+import { useAuth } from "@/auth";
 import { TrackSearchSheet } from "@/catalog/TrackSearchSheet";
+import { playlistEditing } from "@/features/plan/plan";
 import { Button, PlaylistRow, Text } from "@/components";
 import { LiveBadge } from "@/sockets/LiveBadge";
 import { colors } from "@/theme";
@@ -20,6 +22,7 @@ export default function PlaylistEditorScreen() {
   const [playlistError, setPlaylistError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const editor = usePlaylist(id);
+  const auth = useAuth();
 
   useEffect(() => {
     let active = true;
@@ -60,7 +63,13 @@ export default function PlaylistEditorScreen() {
     );
   }
 
-  const { canAct, canManage } = playlist.myPermissions;
+  const { canManage } = playlist.myPermissions;
+  // The license says whether you may edit this playlist; the plan whether you can (ADR-048).
+  const editing = playlistEditing(
+    playlist.myPermissions.canAct,
+    auth.status === "signedIn" ? auth.user : null,
+  );
+  const canAct = editing === "allowed";
   return (
     <>
       <Stack.Screen options={{ title: playlist.name }} />
@@ -97,6 +106,18 @@ export default function PlaylistEditorScreen() {
                 fullWidth
                 onPress={() => setAdding(true)}
               />
+            ) : editing === "needs-premium" ? (
+              <View className="gap-2">
+                <Text variant="caption" tone="secondary">
+                  {copy.plan.locked.playlistEdit}
+                </Text>
+                <Button
+                  title={copy.plan.seePremium}
+                  variant="secondary"
+                  fullWidth
+                  onPress={() => router.push("/plan")}
+                />
+              </View>
             ) : (
               <Text variant="caption" tone="secondary">
                 {copy.playlistEditor.listenOnly}

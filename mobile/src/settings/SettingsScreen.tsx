@@ -3,6 +3,7 @@ import { View } from "react-native";
 import { useAuth } from "@/auth";
 import { Card, IconButton, Screen, Text } from "@/components";
 import { copy } from "@/copy";
+import { isPremium } from "@/features/plan/plan";
 import { SignInMethods } from "./SignInMethods";
 
 // Settings while signed in: your username (ADR-046) and your sign-in methods (link and unlink
@@ -26,6 +27,21 @@ export default function SettingsScreen() {
               icon="edit"
               accessibilityLabel={copy.username.changeName}
               onPress={() => router.push("/username")}
+            />
+          </Card>
+        ) : null}
+        {user ? (
+          <Card className="min-h-12 flex-row items-center gap-3">
+            <View className="flex-1 gap-1">
+              <Text>{copy.plan.settingsRow}</Text>
+              <Text variant="caption" tone="secondary">
+                {copy.plan.names[isPremium(user) ? "premium" : "free"]}
+              </Text>
+            </View>
+            <IconButton
+              icon="chevronRight"
+              accessibilityLabel={copy.plan.seePlans}
+              onPress={() => router.push("/plan")}
             />
           </Card>
         ) : null}
