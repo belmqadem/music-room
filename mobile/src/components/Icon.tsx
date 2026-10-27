@@ -16,6 +16,7 @@ export const ICONS = {
   music: { ios: "music.note", android: "music_note", web: "music_note" },
   edit: { ios: "pencil", android: "edit", web: "edit" },
   check: { ios: "checkmark", android: "check", web: "check" },
+  close: { ios: "xmark", android: "close", web: "close" },
   offline: { ios: "icloud.slash", android: "cloud_off", web: "cloud_off" },
   link: { ios: "link", android: "link", web: "link" },
   settings: { ios: "gearshape", android: "settings", web: "settings" },

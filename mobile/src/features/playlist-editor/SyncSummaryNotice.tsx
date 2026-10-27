@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { View } from "react-native";
-import { Button, Card, Text } from "@/components";
+import { Card, IconButton, Text } from "@/components";
 import { copy } from "@/copy";
 import { playlistOutbox } from "./offline-edits";
 
@@ -12,24 +12,24 @@ export function SyncSummaryNotice() {
   const summary = useSyncExternalStore(playlistOutbox.subscribe, playlistOutbox.summary);
   if (!summary) return null;
   return (
-    <Card className="gap-2" accessibilityLiveRegion="polite">
-      {summary.synced > 0 ? (
-        <Text variant="caption" tone="success">
-          {copy.offline.synced(summary.synced)}
-        </Text>
-      ) : null}
-      {summary.dropped.map((dropped, index) => (
-        <Text key={index} variant="caption" tone="warning">
-          {copy.offline.dropped[dropped.reason](dropped.trackTitle)}
-        </Text>
-      ))}
-      <View className="items-start">
-        <Button
-          title={copy.common.close}
-          variant="ghost"
-          onPress={() => playlistOutbox.dismissSummary()}
-        />
+    <Card className="flex-row items-start gap-3" accessibilityLiveRegion="polite">
+      <View className="flex-1 gap-2">
+        {summary.synced > 0 ? (
+          <Text variant="caption" tone="success">
+            {copy.offline.synced(summary.synced)}
+          </Text>
+        ) : null}
+        {summary.dropped.map((dropped, index) => (
+          <Text key={index} variant="caption" tone="warning">
+            {copy.offline.dropped[dropped.reason](dropped.trackTitle)}
+          </Text>
+        ))}
       </View>
+      <IconButton
+        icon="close"
+        accessibilityLabel={copy.common.close}
+        onPress={() => playlistOutbox.dismissSummary()}
+      />
     </Card>
   );
 }
