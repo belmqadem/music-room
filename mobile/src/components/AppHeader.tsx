@@ -1,6 +1,7 @@
 import { Image, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { copy } from "@/copy";
+import { BrandTitle } from "./BrandTitle";
 import { IconButton } from "./IconButton";
 import { Text } from "./Text";
 
@@ -19,7 +20,7 @@ const BRAND_MARK = require("../../assets/images/brand-mark.png");
 /**
  * The main lists (Rooms, Playlists): the logo's rings and the app's name, centered on a band one
  * surface tier above the canvas (depth from surfaces, DESIGN.md rule 2) that runs under the status
- * bar and rounds off at the bottom. The name is in the display font, like the welcome headline.
+ * bar and rounds off at the bottom. The name is in the display font, in the brand gradient.
  */
 const FILL = { width: "100%", height: "100%" } as const;
 
@@ -31,14 +32,12 @@ export function BrandHeader() {
         className="flex-row items-center justify-center gap-3 rounded-b-2xl bg-surface-low pb-4"
         style={{ paddingTop: insets.top + 12 }}
       >
-        {/* The h1 below is the heading; a heading role here too would nest two on the web. */}
+        {/* The title below is the heading; a heading role here too would nest two on the web. */}
         {/* The size sits on a View: on the web the image's own size (144 px) beats its className. */}
         <View className="h-9 w-9">
           <Image source={BRAND_MARK} style={FILL} accessible={false} />
         </View>
-        <Text variant="h1" numberOfLines={1}>
-          {copy.app.name}
-        </Text>
+        <BrandTitle>{copy.app.name}</BrandTitle>
       </View>
     </View>
   );

@@ -13,5 +13,17 @@
       "value": "640px",
       "description": "The widest the app's column gets. Phones are narrower, so nothing changes there; on a tablet or a browser window the app sits in a centered column of this width instead of stretching (ADR-050)."
     }
+  },
+  "typography": {
+    "scale": {
+      "brandTitle": {
+        "fontSize": "26px",
+        "lineHeight": "32px",
+        "fontWeight": "800",
+        "letterSpacing": "-0.03em",
+        "fontFamily": "display",
+        "description": "The app's name in the brand header: h1's size with hero's weight and spacing, drawn with the brand gradient (ADR-051)."
+      }
+    }
   }
 }

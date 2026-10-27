@@ -124,6 +124,12 @@ export const typography = {
     lineHeight: 24,
     letterSpacing: 1.44,
   },
+  brandTitle: {
+    fontFamily: "Syne_800ExtraBold",
+    fontSize: 26,
+    lineHeight: 32,
+    letterSpacing: -0.78,
+  },
 } as const satisfies Record<string, TypographyStyle>;
 
 export type ColorName = keyof typeof colors;

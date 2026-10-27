@@ -839,6 +839,25 @@ Each decision must be defensible in detail at the defense. Copy the template for
 - Security: no check changes. A browser can call the API only from an allowed address, and the server checks every request as before. The user agent is used for logging only, like every client header, and the backend still filters its characters. Tokens on the web are kept as before, in the web storage with a refresh lock across tabs. Sign-out clears them and every offline copy (ADR-049).
 - Consequences: Google and Facebook buttons stay hidden on the web. "At the venue" uses the browser's location prompt, or coordinates typed by hand. Tests: the column token (its value, the CSS it produces, a refused unit) and the device name for every common browser and system. In Chrome against the dev backend: every tab, a room live, a playlist with Add track, About me, Plans with both switches logged as `web` / `Chrome on macOS`, a screen opened by its address, phone (390 px) and tablet (820 px) widths, and sign-out. On the Android emulator: unchanged.
 
+### ADR-051: The app's name in the brand gradient, Ember to Chartreuse
+
+- Status: accepted
+- Date: 2026-10-27
+- Deciders: kaoutharrr (belmqadem to confirm in review)
+- Context: a brand spec for the header's "Music Room": Syne 800, letter spacing -0.03em, a left-to-right gradient from Electric Ember (#FF5A36) to High-Voltage Chartreuse (#C8FF00). DESIGN.md rule 4 keeps Chartreuse for live content only and forbids it as a decorative color. Gradient text is plain CSS on the web, but Android and iOS cannot clip a gradient to text.
+- Options considered:
+  - **The Chartreuse rule**: keep it (solid Ember title, or no change); or **allow the gradient on the app's name only, as a written exception** (chosen). The brand mark's rings already use both colors, and one documented exception keeps the rule defensible: Chartreuse still means "live" everywhere else.
+  - **On phones**: gradient on the web only, solid elsewhere (no new library, but the app would look different per platform); or **the gradient everywhere** (chosen). That needs `expo-linear-gradient` and `@react-native-masked-view/masked-view`, both native, so the dev builds were rebuilt once.
+  - **Size**: hero (32 px, an existing token); or **26 px, as before** (chosen), so the header band keeps its height. That needs one new text style.
+- Decision:
+  - A `brandTitle` text style (26 px, line height 32, Syne 800, -0.03em) in `design-tokens.extensions.json`. The generator now accepts text styles there, refusing a name that already exists or a weight that is not loaded, as it does for colors.
+  - `BrandTitle` draws it:
+    - on the web, a CSS gradient clipped to the text (`bg-linear-to-r from-ember to-chartreuse bg-clip-text`, transparent text);
+    - on Android and iOS, a `LinearGradient` masked by the text (`MaskedView`), with an invisible copy of the text giving the gradient its size.
+  - The colors come from the tokens (`colors.ember`, `colors.chartreuse`), never as values in the code. DESIGN.md rule 4 names the exception.
+- Accessibility: the title stays one heading read as "Music Room". On phones, the MaskedView carries the heading role and the label; the mask and the invisible copy are not read twice.
+- Consequences: two native dependencies, installed from the lockfile like every other. npm 11 pruned other platforms' optional packages from the lockfile when adding them, which `npm ci` then refused, so the lockfile change was limited to the two new packages and checked with `npm ci`. MaskedView's Android support is marked experimental by Expo; it was checked on the emulator. Tests: the new text style and both refusals. On the web (Chrome) and the Android emulator: the title in the gradient.
+
 ## Still to decide (record each as an ADR)
 
 TODO:

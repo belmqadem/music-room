@@ -7,7 +7,7 @@ Source of truth: `design-tokens.json` (exported from Stitch). **Read it before b
 1. **Dark only.** `colorMode` is dark. Screen background is `surfaces.canvas` (#12131C).
 2. **Depth comes from surface tiers, not shadows.** Lowest (#0D0E16) for recessed areas and input fills, Low (#1A1B24) for cards and list rows, Elevated (#222638) for modals and track-list surfaces, High (#2A2E42) for selected/hover, Bright (#383843) for dividers and inactive borders.
 3. **Electric Ember (#FF5A36)** is the one primary accent: main CTA, active voting state, playback hero, input focus ring. One primary CTA per screen. Pressed state is `electricEmberHover` (#E04826).
-4. **Chartreuse (#C8FF00)** is reserved for _live/realtime_ only: presence indicators, sync status, other users' active selection ring. Do not use it as a decorative color.
+4. **Chartreuse (#C8FF00)** is reserved for _live/realtime_ only: presence indicators, sync status, other users' active selection ring. Do not use it as a decorative color. **One exception:** the app's name in the brand header (Rooms and Playlists) is drawn in the brand gradient, Ember to Chartreuse, left to right (`BrandTitle`, ADR-051). Nothing else uses the gradient.
 5. **Text on bright fills** (Ember, Chartreuse) uses `text.inverse` (#12131C), never white.
 6. **Text hierarchy:** primary (#F3F4F8) for titles, secondary (#8E94A8) for metadata/timestamps/labels, tertiary (#5F6578) for placeholders and inactive icons.
 7. **Feedback colors have fixed meanings:** success #00E599 (track queued, connected), warning #FFB800 (expiring room link), error #FF3366 (invalid room code, disconnected playback).

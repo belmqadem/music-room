@@ -75,4 +75,7 @@
   --text-code: 18px;
   --text-code--line-height: 24px;
   --text-code--letter-spacing: 1.44px;
+  --text-brand-title: 26px;
+  --text-brand-title--line-height: 32px;
+  --text-brand-title--letter-spacing: -0.78px;
 }

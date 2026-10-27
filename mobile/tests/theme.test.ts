@@ -82,6 +82,16 @@ describe("what the tokens become", () => {
     ).toBeGreaterThanOrEqual(4.5);
   });
 
+  it("adds our brandTitle text style: h1's size with hero's Syne 800 and spacing (ADR-051)", () => {
+    expect(theme.typography.brandTitle).toEqual({
+      fontFamily: "Syne_800ExtraBold",
+      fontSize: theme.typography.h1.fontSize,
+      lineHeight: theme.typography.h1.lineHeight,
+      letterSpacing: theme.typography.hero.letterSpacing * (26 / 32),
+    });
+    expect(theme.typography.hero.fontFamily).toBe("Syne_800ExtraBold");
+  });
+
   it("adds the app's column width, a number in pixels (ADR-050)", () => {
     expect(theme.maxWidth).toEqual({ content: 640 });
   });
@@ -162,6 +172,24 @@ describe("what the tokens become", () => {
 });
 
 describe("the generator refuses what it cannot translate", () => {
+  it("a text style in our extensions that already exists in the export", () => {
+    const clash = {
+      typography: { scale: { h1: { ...tokens.typography.scale.h1 } } },
+    };
+
+    expect(() => generateTheme(tokens, clash)).toThrow(
+      /typography\.scale\.h1 already exists/,
+    );
+  });
+
+  it("a text style in our extensions with a weight its font does not load", () => {
+    const heavy = {
+      typography: { scale: { x: { ...tokens.typography.scale.h1, fontWeight: "900" } } },
+    };
+
+    expect(() => generateTheme(tokens, heavy)).toThrow(/scale\.x: .* no weight 900/);
+  });
+
   it("a max width that is not in pixels", () => {
     const inRem = { maxWidth: { content: { value: "40rem", description: "x" } } };
 
