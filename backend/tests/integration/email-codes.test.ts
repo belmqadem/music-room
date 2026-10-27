@@ -56,7 +56,7 @@ describe.skipIf(!databaseUrl)("email verification and password reset", () => {
   const post = (path: string, body: object, target: Express = app) =>
     request(target).post(`/api/v1${path}`).send(body);
   const register = (name = "bob") =>
-    post("/auth/register", { email: email(name), password: PASSWORD, displayName: name });
+    post("/auth/register", { email: email(name), password: PASSWORD });
   const verify = (name: string, code: string) =>
     post("/auth/verify-email", { email: email(name), code });
   const login = (name: string, password = PASSWORD) =>
@@ -271,10 +271,9 @@ describe.skipIf(!databaseUrl)("email verification and password reset", () => {
       await signUpVerified(app, mailer, {
         email: email("done"),
         password: PASSWORD,
-        displayName: "Done",
       });
       await pool.query(
-        "INSERT INTO users (email, display_name, email_verified_at) VALUES ($1, 'Social', now())",
+        "INSERT INTO users (email, display_name, email_verified_at) VALUES ($1, 'social' || md5(random()::text), now())",
         [email("social")],
       );
       const before = mailer.sent.length;
@@ -311,7 +310,6 @@ describe.skipIf(!databaseUrl)("email verification and password reset", () => {
       return signUpVerified(app, mailer, {
         email: email("bob"),
         password: PASSWORD,
-        displayName: "Bob",
       });
     }
 
@@ -332,7 +330,7 @@ describe.skipIf(!databaseUrl)("email verification and password reset", () => {
     it("sends nothing to a social-only account: it has no password to reset", async () => {
       useFreshApp();
       await pool.query(
-        "INSERT INTO users (email, display_name, email_verified_at) VALUES ($1, 'Social', now())",
+        "INSERT INTO users (email, display_name, email_verified_at) VALUES ($1, 'social' || md5(random()::text), now())",
         [email("social")],
       );
 

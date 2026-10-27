@@ -10,7 +10,7 @@ import {
   PROVIDERS,
   providerIn,
 } from "@/auth/social/providers";
-import { Button, Card, Input, Text } from "@/components";
+import { Button, Card, IconButton, Input, Text } from "@/components";
 import { copy } from "@/copy";
 import {
   accountsApi,
@@ -79,15 +79,15 @@ export function SignInMethods({ user }: { user: User }) {
                       />
                     ) : null
                   ) : providerIn(provider) ? (
-                    <Button
-                      title={text.link}
-                      variant="secondary"
+                    <IconButton
+                      icon="link"
+                      accessibilityLabel={text.linkName(name)}
+                      // One change at a time: not while the other row's confirm step is open.
                       disabled={pending !== null}
                       onPress={() => {
                         setNotice(null);
                         setPending({ action: "link", provider });
                       }}
-                      accessibilityLabel={text.linkName(name)}
                     />
                   ) : null
                 }

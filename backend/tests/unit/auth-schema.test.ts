@@ -4,14 +4,55 @@ import {
   loginSchema,
   registerSchema,
   resetPasswordSchema,
+  setDisplayNameSchema,
   verifyEmailSchema,
 } from "../../src/modules/auth/schema.js";
 
 const validRegistration = {
   email: "bob@example.com",
   password: "Correct-Horse-9",
-  displayName: "Bob",
 };
+
+describe("setDisplayNameSchema (ADR-046)", () => {
+  const nameOf = (displayName: unknown) =>
+    setDisplayNameSchema.safeParse({ displayName });
+
+  it.each([
+    ["ada", "ada"],
+    ["  Ada  ", "ada"],
+    ["ADA.Lovelace_42", "ada.lovelace_42"],
+    ["abc", "abc"],
+    ["a".repeat(20), "a".repeat(20)],
+    ["users", "users"],
+  ])("accepts %j as %j", (input, stored) => {
+    const parsed = nameOf(input);
+    expect(parsed.success && parsed.data.displayName).toBe(stored);
+  });
+
+  it.each([
+    ["too short", "ab"],
+    ["too long", "a".repeat(21)],
+    ["starting with a digit", "1ada"],
+    ["starting with a dot", ".ada"],
+    ["starting with an underscore", "_ada"],
+    ["a space inside", "ada lovelace"],
+    ["a dash", "ada-l"],
+    ["an accent", "élodie"],
+    ["a look-alike Cyrillic letter", "\u0430da"],
+    ["an emoji", "ada\u{1F3B5}"],
+    ["the prefix of temporary names", "user_1a2b3c4d5e6f"],
+    ["empty", "   "],
+    ["not a string", 42],
+  ])("refuses %s", (_label, input) => {
+    expect(nameOf(input).success).toBe(false);
+  });
+
+  it("refuses unknown fields", () => {
+    expect(
+      setDisplayNameSchema.safeParse({ displayName: "ada", userId: "x" }).success,
+    ).toBe(false);
+  });
+});
 
 describe("registerSchema", () => {
   it("accepts a valid body", () => {
@@ -27,12 +68,6 @@ describe("registerSchema", () => {
     expect(parsed.email).toBe("bob@example.com");
   });
 
-  it("trims the display name", () => {
-    expect(
-      registerSchema.parse({ ...validRegistration, displayName: "  Bob  " }).displayName,
-    ).toBe("Bob");
-  });
-
   it("does not trim the password (spaces may be intended)", () => {
     expect(
       registerSchema.parse({ ...validRegistration, password: " Spaced pw 1! " }).password,
@@ -40,9 +75,10 @@ describe("registerSchema", () => {
   });
 
   it.each([
-    ["no email", { password: "Correct-Horse-9", displayName: "Bob" }],
-    ["no password", { email: "bob@example.com", displayName: "Bob" }],
-    ["no display name", { email: "bob@example.com", password: "Correct-Horse-9" }],
+    ["no email", { password: "Correct-Horse-9" }],
+    ["no password", { email: "bob@example.com" }],
+    // Chosen after the email is verified (ADR-046): a client still sending it is told so.
+    ["a display name", { ...validRegistration, displayName: "bob" }],
     ["an invalid email", { ...validRegistration, email: "not-an-email" }],
     [
       "an email over 254 characters",
@@ -50,11 +86,6 @@ describe("registerSchema", () => {
     ],
     ["a password under 8 bytes", { ...validRegistration, password: "short12" }],
     ["a password over 72 bytes", { ...validRegistration, password: "a".repeat(73) }],
-    ["an empty display name", { ...validRegistration, displayName: "   " }],
-    [
-      "a display name over 50 characters",
-      { ...validRegistration, displayName: "x".repeat(51) },
-    ],
     ["a non-string password", { ...validRegistration, password: 12345678 }],
     ["an unknown field", { ...validRegistration, isAdmin: true }],
   ])("rejects %s", (_label, body) => {

@@ -9,6 +9,7 @@ import {
   refreshTokenBodySchema,
   registerSchema,
   resetPasswordSchema,
+  setDisplayNameSchema,
   unlinkProviderSchema,
   verifyEmailSchema,
 } from "./schema.js";
@@ -81,6 +82,15 @@ export function createAuthController(service: AuthService) {
         throw new HttpError(401, "UNAUTHENTICATED", "Authentication required.");
       }
       res.status(200).json(await service.getUser(req.auth.userId));
+    },
+
+    async setDisplayName(req: Request, res: Response): Promise<void> {
+      if (!req.auth) {
+        // Only reachable if the route was wired without the authenticate middleware.
+        throw new HttpError(401, "UNAUTHENTICATED", "Authentication required.");
+      }
+      const input = setDisplayNameSchema.parse(req.body);
+      res.status(200).json(await service.setDisplayName(req.auth.userId, input));
     },
 
     async oauthLogin(req: Request, res: Response): Promise<void> {

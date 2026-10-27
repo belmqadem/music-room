@@ -3,6 +3,7 @@ export type { User, UserSummary, OAuthProvider } from "./user";
 export type {
   RegisterRequest,
   RegisterResult,
+  SetDisplayNameRequest,
   VerifyEmailRequest,
   EmailRequest,
   ResetPasswordRequest,

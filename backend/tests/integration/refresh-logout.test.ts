@@ -81,11 +81,17 @@ describe.skipIf(!databaseUrl)("refresh and logout", () => {
       .send({ refreshToken });
 
   async function registerUser(name = "bob"): Promise<Session> {
-    const response = await signUpVerified(app, mailer, {
-      email: email(name),
-      password: PASSWORD,
-      displayName: name,
-    });
+    const response = await signUpVerified(
+      app,
+      mailer,
+      {
+        email: email(name),
+        password: PASSWORD,
+      },
+      // Refresh and logout are open before a name is chosen; stopping at the login keeps the
+      // token rows these tests count to the ones they create themselves.
+      { chooseName: false },
+    );
     return response.body as Session;
   }
   async function loginUser(name = "bob"): Promise<Session> {

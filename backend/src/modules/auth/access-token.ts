@@ -16,6 +16,15 @@ export class AccessTokenError extends Error {
 
 const userIdSchema = z.uuid();
 
+/**
+ * What the token says besides who you are. `displayNameSet` (claim `dns`, ADR-046) lets every
+ * request refuse an account that has not chosen its display name, without a database read. It
+ * can only go from false to true; the app gets a new token (refresh) right after choosing.
+ */
+export interface AccessClaims {
+  displayNameSet: boolean;
+}
+
 function toKey(secret: string): Uint8Array {
   return new TextEncoder().encode(secret);
 }
@@ -23,10 +32,11 @@ function toKey(secret: string): Uint8Array {
 export async function signAccessToken(
   userId: string,
   secret: string,
+  claims: AccessClaims,
   now: Date = new Date(),
 ): Promise<string> {
   const issuedAt = Math.floor(now.getTime() / 1000);
-  return new SignJWT({})
+  return new SignJWT({ dns: claims.displayNameSet })
     .setProtectedHeader({ alg: ALGORITHM })
     .setSubject(userId)
     .setIssuer(ISSUER)
@@ -36,7 +46,8 @@ export async function signAccessToken(
 }
 
 /**
- * Verifies signature, expiry and issuer and returns the user id.
+ * Verifies signature, expiry and issuer and returns the user id and the claims. A token without
+ * `dns: true` (including one issued before the claim existed) counts as "no display name yet".
  * The algorithm is pinned to HS256: a token claiming another algorithm (or
  * "none") is rejected, which blocks algorithm-confusion attacks.
  * @throws AccessTokenError
@@ -45,7 +56,7 @@ export async function verifyAccessToken(
   token: string,
   secret: string,
   now: Date = new Date(),
-): Promise<{ userId: string }> {
+): Promise<{ userId: string } & AccessClaims> {
   try {
     const { payload } = await jwtVerify(token, toKey(secret), {
       algorithms: [ALGORITHM],
@@ -55,7 +66,7 @@ export async function verifyAccessToken(
     });
     const parsed = userIdSchema.safeParse(payload.sub);
     if (!parsed.success) throw new AccessTokenError("invalid");
-    return { userId: parsed.data };
+    return { userId: parsed.data, displayNameSet: payload["dns"] === true };
   } catch (error) {
     if (error instanceof AccessTokenError) throw error;
     if (error instanceof errors.JWTExpired) throw new AccessTokenError("expired");

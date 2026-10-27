@@ -8,7 +8,6 @@ import { fieldErrors, formErrorsFrom, MESSAGES } from "@/auth/forms/error-messag
 import { clearHandoff, handOff, readHandoff, takeNotice } from "@/auth/forms/handoff";
 import {
   codeError,
-  displayNameError,
   emailError,
   missingPasswordRules,
   newPasswordError,
@@ -102,23 +101,6 @@ describe("password rules agree with the backend", () => {
 });
 
 describe("other fields agree with the backend", () => {
-  const displayName = registerSchema.shape.displayName;
-
-  it.each([
-    "Ada",
-    "  Ada  ",
-    "",
-    "   ",
-    "x".repeat(50),
-    "x".repeat(51),
-    " " + "x".repeat(50) + " ",
-  ])(
-    "display name %j: accepted by the app exactly when the backend accepts it",
-    (name) => {
-      expect(displayNameError(name) === null).toBe(displayName.safeParse(name).success);
-    },
-  );
-
   it("normalizes the email the way the backend stores it", () => {
     expect(normalizeEmail("  Ada@Example.COM ")).toBe("ada@example.com");
   });
@@ -183,7 +165,7 @@ describe("error messages", () => {
       fail(400, "VALIDATION_ERROR", [
         { path: "password", message: "Password must contain a digit." },
         { path: "password", message: "Password must contain a symbol." },
-        { path: "displayName", message: "Too long." },
+        { path: "email", message: "Too long." },
         { path: "somethingElse", message: "ignored" },
       ]),
       "signUp",
@@ -192,7 +174,7 @@ describe("error messages", () => {
     expect(errors.form).toBe(MESSAGES.checkFields);
     expect(errors.fields).toEqual({
       password: "Password must contain a digit. Password must contain a symbol.",
-      displayName: "Too long.",
+      email: "Too long.",
     });
   });
 

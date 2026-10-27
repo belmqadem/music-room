@@ -370,12 +370,22 @@ export const openApiDocument = {
           "email",
           "emailVerified",
           "linkedProviders",
+          "displayNameSet",
           "hasPassword",
           "createdAt",
         ],
         properties: {
           id: { type: "string", format: "uuid" },
-          displayName: { type: "string" },
+          displayName: {
+            type: "string",
+            description:
+              "Unique, lowercase (ADR-046). A temporary user_ name until displayNameSet.",
+          },
+          displayNameSet: {
+            type: "boolean",
+            description:
+              "False until the user chose their display name; until then every signed-in route except GET /users/me, PUT /users/me/display-name and POST /auth/logout answers 403 DISPLAY_NAME_REQUIRED.",
+          },
           email: { type: "string", nullable: true },
           emailVerified: { type: "boolean" },
           linkedProviders: {
@@ -416,7 +426,7 @@ export const openApiDocument = {
             "application/json": {
               schema: {
                 type: "object",
-                required: ["email", "password", "displayName"],
+                required: ["email", "password"],
                 additionalProperties: false,
                 properties: {
                   email: { type: "string", format: "email" },
@@ -425,7 +435,6 @@ export const openApiDocument = {
                     description:
                       "8 to 72 bytes (UTF-8), with a lowercase letter, an uppercase letter, a digit and a symbol",
                   },
-                  displayName: { type: "string", minLength: 1, maxLength: 50 },
                 },
               },
             },
@@ -434,7 +443,7 @@ export const openApiDocument = {
         responses: {
           "201": {
             description:
-              "Account created but not usable yet: a 6-digit code was emailed. Confirm it with POST /auth/verify-email, then log in.",
+              "Account created but not usable yet: a 6-digit code was emailed. Confirm it with POST /auth/verify-email, then log in, then choose a display name (PUT /users/me/display-name, ADR-046).",
             content: {
               "application/json": {
                 schema: {
@@ -784,6 +793,53 @@ export const openApiDocument = {
           },
           "401": {
             description: "UNAUTHENTICATED or TOKEN_EXPIRED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+        },
+      },
+    },
+    "/api/v1/users/me/display-name": {
+      put: {
+        summary: "Choose or change your display name (ADR-046)",
+        description:
+          "Trimmed and lowercased; 3 to 20 of a-z, 0-9, . and _, starting with a letter, not starting with user_. Unique ignoring case. Open before a name is chosen. After it, refresh the session: the new access token lets the account in everywhere.",
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                additionalProperties: false,
+                required: ["displayName"],
+                properties: { displayName: { type: "string" } },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "The user, with displayNameSet true",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/User" } },
+            },
+          },
+          "400": {
+            description: "VALIDATION_ERROR",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "401": {
+            description: "UNAUTHENTICATED or TOKEN_EXPIRED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "409": {
+            description: "DISPLAY_NAME_TAKEN",
             content: {
               "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
             },

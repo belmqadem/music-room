@@ -43,7 +43,10 @@ describe.skipIf(!databaseUrl)("event invitations", () => {
       "INSERT INTO users (display_name, email) VALUES ($1, $2) RETURNING id",
       [`${NAME_PREFIX}${name}`, email],
     );
-    return { id: rows[0].id, token: await signAccessToken(rows[0].id, SECRET) };
+    return {
+      id: rows[0].id,
+      token: await signAccessToken(rows[0].id, SECRET, { displayNameSet: true }),
+    };
   }
   const call = (method: "get" | "post" | "delete", path: string, user?: TestUser) => {
     const req = request(app)[method](`/api/v1${path}`);

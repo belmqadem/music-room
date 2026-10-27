@@ -6,7 +6,7 @@ import { copy } from "@/copy";
 // "Errors"); the words are ours, so a screen never shows a raw server message it did not expect.
 
 export type AuthAction = "signIn" | "signUp" | "verify" | "resend" | "forgot" | "reset";
-export type FieldName = "email" | "password" | "displayName" | "code" | "newPassword";
+export type FieldName = "email" | "password" | "code" | "newPassword";
 
 export interface FormErrors {
   /** Shown above the main button. */
@@ -15,13 +15,7 @@ export interface FormErrors {
   fields: Partial<Record<FieldName, string>>;
 }
 
-const FIELDS: readonly FieldName[] = [
-  "email",
-  "password",
-  "displayName",
-  "code",
-  "newPassword",
-];
+const FIELDS: readonly FieldName[] = ["email", "password", "code", "newPassword"];
 
 export const MESSAGES = {
   network: copy.errors.network,

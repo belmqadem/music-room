@@ -10,7 +10,6 @@ import {
 } from "@/auth/forms/error-messages";
 import { handOff } from "@/auth/forms/handoff";
 import {
-  displayNameError,
   emailError,
   newPasswordError,
   normalizeEmail,
@@ -23,15 +22,14 @@ import { copy } from "@/copy";
 
 const NO_ERRORS: FormErrors = { form: null, fields: {} };
 
-// Display name, email and password. Registering gives no session: the email is confirmed first with
-// the 6-digit code it receives (ADR-022), so the next screen is the code screen.
+// Email and password. Registering gives no session: the email is confirmed first with the 6-digit
+// code it receives (ADR-022), so the next screen is the code screen. The username comes after the
+// first sign-in (ADR-046), the same step as for Google and Facebook.
 export default function SignUpScreen() {
-  const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState<FormErrors>(NO_ERRORS);
   const [submitting, setSubmitting] = useState(false);
-  const emailRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
 
   const edit = (field: FieldName, set: (value: string) => void) => (value: string) => {
@@ -44,7 +42,6 @@ export default function SignUpScreen() {
 
   async function submit() {
     const fields = fieldErrors({
-      displayName: displayNameError(displayName),
       email: emailError(email),
       password: newPasswordError(password),
     });
@@ -56,7 +53,6 @@ export default function SignUpScreen() {
     setSubmitting(true);
     try {
       const result = await auth.register({
-        displayName: displayName.trim(),
         email: normalizeEmail(email),
         password,
       });
@@ -78,20 +74,6 @@ export default function SignUpScreen() {
         />
         <View className="gap-4">
           <Input
-            label={copy.auth.signUp.displayNameLabel}
-            value={displayName}
-            onChangeText={edit("displayName", setDisplayName)}
-            error={errors.fields.displayName}
-            helper={copy.auth.signUp.displayNameHelper}
-            maxLength={50}
-            autoComplete="nickname"
-            textContentType="nickname"
-            returnKeyType="next"
-            submitBehavior="submit"
-            onSubmitEditing={() => emailRef.current?.focus()}
-          />
-          <Input
-            ref={emailRef}
             label={copy.common.emailLabel}
             value={email}
             onChangeText={edit("email", setEmail)}

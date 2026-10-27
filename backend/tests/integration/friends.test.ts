@@ -58,7 +58,11 @@ describe.skipIf(!databaseUrl)("friends", () => {
       [`${RUN}${name}`, `${RUN}${name}@friends.invalid`],
     );
     const id = rows[0].id as string;
-    return { id, name: `${RUN}${name}`, token: await signAccessToken(id, SECRET) };
+    return {
+      id,
+      name: `${RUN}${name}`,
+      token: await signAccessToken(id, SECRET, { displayNameSet: true }),
+    };
   }
   const as = (user: TestUser | null, req: request.Test) =>
     user ? req.set("Authorization", `Bearer ${user.token}`) : req;

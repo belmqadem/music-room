@@ -5,7 +5,6 @@
 import { copy } from "@/copy";
 
 export const EMAIL_MAX_LENGTH = 254;
-export const DISPLAY_NAME_MAX_LENGTH = 50;
 export const PASSWORD_MIN_BYTES = 8;
 // bcrypt ignores everything after 72 bytes, so the backend refuses longer passwords.
 export const PASSWORD_MAX_BYTES = 72;
@@ -97,15 +96,6 @@ export function emailError(raw: string): string | null {
   if (email.length === 0) return copy.auth.validation.enterEmail;
   if (email.length > EMAIL_MAX_LENGTH) return copy.auth.validation.emailTooLong;
   if (!EMAIL_SHAPE.test(email)) return copy.auth.validation.emailShape;
-  return null;
-}
-
-export function displayNameError(raw: string): string | null {
-  const name = raw.trim();
-  if (name.length === 0) return copy.auth.validation.chooseDisplayName;
-  // The backend counts UTF-16 units (JavaScript's .length), so the same count is used here.
-  if (name.length > DISPLAY_NAME_MAX_LENGTH)
-    return copy.auth.validation.displayNameTooLong;
   return null;
 }
 

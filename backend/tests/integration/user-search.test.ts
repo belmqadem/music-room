@@ -31,12 +31,16 @@ describe.skipIf(!databaseUrl)("user search", () => {
     await pool.end();
   });
 
-  async function makeUser(name: string, email: string | null = null) {
+  // A user who has chosen their display name (ADR-046); `chosen: false` keeps it temporary.
+  async function makeUser(name: string, email: string | null = null, chosen = true) {
     const { rows } = await pool.query(
-      "INSERT INTO users (display_name, email) VALUES ($1, $2) RETURNING id",
-      [`${RUN}${name}`, email],
+      "INSERT INTO users (display_name, email, display_name_set) VALUES ($1, $2, $3) RETURNING id",
+      [`${RUN}${name}`, email, chosen],
     );
-    return { id: rows[0].id as string, token: await signAccessToken(rows[0].id, SECRET) };
+    return {
+      id: rows[0].id as string,
+      token: await signAccessToken(rows[0].id, SECRET, { displayNameSet: true }),
+    };
   }
   const search = (
     user: { token: string } | null,
@@ -185,13 +189,23 @@ describe.skipIf(!databaseUrl)("user search", () => {
     ).toBeGreaterThan(0);
   });
 
-  it("walks every page once, even with identical display names", async () => {
+  it("never finds an account that has not chosen its display name yet (ADR-046)", async () => {
+    const me = await makeUser("-caller");
+    await makeUser("-temporary", null, false);
+    const chosen = await makeUser("-temporarily");
+
+    const response = await search(me, q(`${RUN}-temporar`));
+
+    expect(response.body.items.map((u: { id: string }) => u.id)).toEqual([chosen.id]);
+  });
+
+  it("walks every page once", async () => {
     const me = await makeUser("-caller");
     const created = [
       (await makeUser("-page-a")).id,
-      (await makeUser("-page-b")).id,
-      (await makeUser("-page-b")).id, // same name: ties break on id
-      (await makeUser("-page-b")).id,
+      (await makeUser("-page-b1")).id,
+      (await makeUser("-page-b2")).id,
+      (await makeUser("-page-b3")).id,
       (await makeUser("-page-c")).id,
     ];
 

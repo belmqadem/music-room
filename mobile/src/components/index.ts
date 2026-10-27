@@ -5,6 +5,7 @@ export { Button, type ButtonProps } from "./Button";
 export { Card, type CardProps } from "./Card";
 export { ChoiceGroup, type ChoiceGroupProps } from "./ChoiceGroup";
 export { Icon, ICONS, type IconName, type IconProps } from "./Icon";
+export { IconButton, type IconButtonProps } from "./IconButton";
 export { Input, type InputProps } from "./Input";
 export { PersonRow, type PersonRowProps } from "./PersonRow";
 export { PlaylistRow, type PlaylistRowProps } from "./PlaylistRow";

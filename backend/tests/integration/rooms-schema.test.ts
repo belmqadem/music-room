@@ -34,7 +34,7 @@ describe.skipIf(!databaseUrl)("events and playlists schema constraints", () => {
     await client.query("ROLLBACK");
   });
 
-  async function insertUser(displayName = "Test User"): Promise<string> {
+  async function insertUser(displayName = `test ${Math.random()}`): Promise<string> {
     const result = await client.query<{ id: string }>(
       "INSERT INTO users (display_name) VALUES ($1) RETURNING id",
       [displayName],

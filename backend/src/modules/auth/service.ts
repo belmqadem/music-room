@@ -47,7 +47,6 @@ import {
   insertSocialUser,
   insertUser,
   isForeignKeyViolation,
-  isUniqueViolation,
   lockUser,
   markEmailVerified,
   revokeAllRefreshTokens,
@@ -56,6 +55,7 @@ import {
   takeEmailCodeAttempt,
   updatePasswordHash,
   upsertEmailCode,
+  updateDisplayName,
   violatedConstraint,
   type UserRecord,
 } from "./repository.js";
@@ -68,6 +68,7 @@ import type {
   RefreshTokenBody,
   RegisterInput,
   ResetPasswordInput,
+  SetDisplayNameInput,
   VerifyEmailInput,
 } from "./schema.js";
 
@@ -93,6 +94,8 @@ export interface AuthService {
   refresh(input: RefreshTokenBody): Promise<AuthSession>;
   logout(userId: string, input: RefreshTokenBody): Promise<void>;
   getUser(userId: string): Promise<User>;
+  /** Chooses (or changes) the display name (ADR-046). 409 DISPLAY_NAME_TAKEN if someone has it. */
+  setDisplayName(userId: string, input: SetDisplayNameInput): Promise<User>;
   oauthLogin(provider: OAuthProvider, input: OAuthBody): Promise<AuthSession>;
   linkProvider(
     userId: string,
@@ -110,18 +113,7 @@ export interface AuthService {
 const PROVIDER_ACCOUNT_CONSTRAINT = "oauth_identities_provider_account_key";
 const USER_PROVIDER_CONSTRAINT = "oauth_identities_user_provider_key";
 const EMAIL_CONSTRAINT = "users_email_lower_key";
-
-const DISPLAY_NAME_MAX = 50;
-const DEFAULT_DISPLAY_NAME = "Music Room user";
-
-/** The provider's name is untrusted: trim it and cut it to what the database accepts. */
-function displayNameFrom(name: string | null): string {
-  const trimmed = Array.from(name?.trim() ?? "")
-    .slice(0, DISPLAY_NAME_MAX)
-    .join("")
-    .trim();
-  return trimmed === "" ? DEFAULT_DISPLAY_NAME : trimmed;
-}
+const DISPLAY_NAME_CONSTRAINT = "users_display_name_lower_key";
 
 type Queryable = Pick<pg.Pool, "query">;
 
@@ -133,6 +125,7 @@ export function createAuthService(deps: AuthServiceDependencies): AuthService {
     return {
       id: user.id,
       displayName: user.displayName,
+      displayNameSet: user.displayNameSet,
       email: user.email,
       emailVerified: user.emailVerifiedAt !== null,
       linkedProviders: linkedProviders as OAuthProvider[],
@@ -237,7 +230,11 @@ export function createAuthService(deps: AuthServiceDependencies): AuthService {
       expiresAt: refreshTokenExpiry(),
     });
     return {
-      accessToken: await signAccessToken(user.id, jwtSecret),
+      // The claim is read from the database each time a session starts or refreshes, so the
+      // token right after choosing a name (via refresh) lets the user in everywhere.
+      accessToken: await signAccessToken(user.id, jwtSecret, {
+        displayNameSet: user.displayNameSet,
+      }),
       refreshToken: refresh.token,
       expiresIn: ACCESS_TOKEN_TTL_SECONDS,
       user: toApiUser(user, linkedProviders),
@@ -373,9 +370,10 @@ export function createAuthService(deps: AuthServiceDependencies): AuthService {
           );
         }
       }
+      // A temporary display name: the user chooses theirs next (ADR-046). The provider's name is
+      // not used, it is neither unique nor in the handle format.
       const user = await insertSocialUser(client, {
         email: identity.verifiedEmail,
-        displayName: displayNameFrom(identity.displayName),
         emailVerified: identity.verifiedEmail !== null,
       });
       await insertOAuthIdentity(client, {
@@ -403,15 +401,12 @@ export function createAuthService(deps: AuthServiceDependencies): AuthService {
       const passwordHash = await hashPassword(input.password, passwordCost);
       let user: UserRecord;
       try {
-        user = await insertUser(pool, {
-          email: input.email,
-          passwordHash,
-          displayName: input.displayName,
-        });
+        // A temporary display name; the user chooses theirs after verifying the email (ADR-046).
+        user = await insertUser(pool, { email: input.email, passwordHash });
       } catch (error) {
         // Relies on the database's unique index, not a "check then insert":
         // two simultaneous registrations of one email cannot both succeed.
-        if (isUniqueViolation(error)) {
+        if (violatedConstraint(error) === EMAIL_CONSTRAINT) {
           throw new HttpError(
             409,
             "EMAIL_TAKEN",
@@ -551,6 +546,23 @@ export function createAuthService(deps: AuthServiceDependencies): AuthService {
 
     getUser: getUserById,
 
+    async setDisplayName(userId, input) {
+      let user: UserRecord | null;
+      try {
+        // The unique index decides, not a "check then update": two people choosing the same
+        // name at the same moment cannot both get it.
+        user = await updateDisplayName(pool, userId, input.displayName);
+      } catch (error) {
+        if (violatedConstraint(error) === DISPLAY_NAME_CONSTRAINT) {
+          throw new HttpError(409, "DISPLAY_NAME_TAKEN", "That display name is taken.");
+        }
+        throw error;
+      }
+      if (!user) throw new HttpError(401, "UNAUTHENTICATED", "Authentication required.");
+      logger.info({ userId }, "display name set");
+      return toApiUser(user, await findLinkedProviders(pool, user.id));
+    },
+
     async oauthLogin(provider, input) {
       const identity = await verifyWithProvider(provider, input.credential);
       let outcome;
@@ -560,13 +572,15 @@ export function createAuthService(deps: AuthServiceDependencies): AuthService {
         const constraint = violatedConstraint(error);
         if (
           constraint !== PROVIDER_ACCOUNT_CONSTRAINT &&
-          constraint !== EMAIL_CONSTRAINT
+          constraint !== EMAIL_CONSTRAINT &&
+          constraint !== DISPLAY_NAME_CONSTRAINT
         ) {
           throw error;
         }
         // Either two first logins of this provider account ran at once and the
         // other one won the unique index, or someone registered this email in
-        // the meantime. Our transaction rolled back, so run the whole decision
+        // the meantime (or, very rarely, two new accounts drew the same temporary
+        // name: the retry draws a new id). Our transaction rolled back, so run the whole decision
         // once more: it now logs in as the account the winner created, or
         // refuses with EMAIL_TAKEN if the email belongs to someone else.
         try {

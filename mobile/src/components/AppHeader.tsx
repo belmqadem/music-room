@@ -1,7 +1,7 @@
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { copy } from "@/copy";
-import { Icon } from "./Icon";
+import { IconButton } from "./IconButton";
 import { Text } from "./Text";
 
 // The app's own headers, the same on iOS and Android, set as the navigators' `header` (the native
@@ -30,15 +30,12 @@ export function StackHeader({
       style={{ marginTop: insets.top }}
     >
       {onBack ? (
-        <Pressable
-          onPress={onBack}
-          accessibilityRole="button"
+        <IconButton
+          icon="back"
+          size="h3"
           accessibilityLabel={copy.common.back}
-          hitSlop={8}
-          className="h-10 w-10 items-center justify-center rounded-full border border-line-subtle bg-surface-low active:bg-surface-high"
-        >
-          <Icon name="back" size="h3" tone="primary" />
-        </Pressable>
+          onPress={onBack}
+        />
       ) : (
         <View className="h-10 w-10" />
       )}

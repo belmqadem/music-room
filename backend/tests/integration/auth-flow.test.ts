@@ -56,14 +56,12 @@ describe.skipIf(!databaseUrl)("auth flow (register, login, me)", () => {
   const register = (body: object) =>
     request(app).post("/api/v1/auth/register").send(body);
   const login = (body: object) => request(app).post("/api/v1/auth/login").send(body);
-  const registerBob = () =>
-    register({ email: email("bob"), password: PASSWORD, displayName: "Bob" });
+  const registerBob = () => register({ email: email("bob"), password: PASSWORD });
   // Register + confirm the email + log in: the session of a user who is ready to use the app.
   const signUpBob = () =>
     signUpVerified(app, mailer, {
       email: email("bob"),
       password: PASSWORD,
-      displayName: "Bob",
     });
 
   describe("POST /auth/register", () => {
@@ -105,7 +103,13 @@ describe.skipIf(!databaseUrl)("auth flow (register, login, me)", () => {
     });
 
     it("stores only the SHA-256 hash of the refresh token, with a 7 day expiry", async () => {
-      const response = await signUpBob();
+      // Stops at the login: choosing a name refreshes, which would add a second row.
+      const response = await signUpVerified(
+        app,
+        mailer,
+        { email: email("bob"), password: PASSWORD },
+        { chooseName: false },
+      );
 
       const { rows } = await pool.query(
         "SELECT token_hash, expires_at FROM refresh_tokens WHERE user_id = $1",
@@ -125,7 +129,6 @@ describe.skipIf(!databaseUrl)("auth flow (register, login, me)", () => {
       const response = await register({
         email: `  MiXeD${EMAIL_DOMAIN.toUpperCase()} `,
         password: PASSWORD,
-        displayName: "Mixed",
       });
 
       expect(response.status).toBe(201);
@@ -138,7 +141,6 @@ describe.skipIf(!databaseUrl)("auth flow (register, login, me)", () => {
       const response = await register({
         email: email("BOB"),
         password: "Another-Pass-7",
-        displayName: "Impostor",
       });
 
       expect(response.status).toBe(409);
@@ -147,11 +149,10 @@ describe.skipIf(!databaseUrl)("auth flow (register, login, me)", () => {
 
     it("lets exactly one of 8 simultaneous registrations of one email win", async () => {
       const responses = await Promise.all(
-        Array.from({ length: 8 }, (_, i) =>
+        Array.from({ length: 8 }, () =>
           register({
             email: email("race"),
             password: PASSWORD,
-            displayName: `Racer ${i}`,
           }),
         ),
       );
@@ -168,7 +169,7 @@ describe.skipIf(!databaseUrl)("auth flow (register, login, me)", () => {
     it("leaves no user behind when the account cannot be completed (all-or-nothing)", async () => {
       // Second registration fails on the unique index; it must not leave tokens or users.
       await registerBob();
-      await register({ email: email("bob"), password: PASSWORD, displayName: "Again" });
+      await register({ email: email("bob"), password: PASSWORD });
 
       const { rows } = await pool.query(
         `SELECT (SELECT count(*)::int FROM users WHERE email = $1) AS users,
@@ -181,24 +182,16 @@ describe.skipIf(!databaseUrl)("auth flow (register, login, me)", () => {
 
     it.each([
       ["no body fields", {}],
-      ["an invalid email", { email: "nope", password: PASSWORD, displayName: "X" }],
+      ["an invalid email", { email: "nope", password: PASSWORD }],
+      ["a password with no symbol", { email: email("a"), password: "NoSymbol123" }],
+      ["a short password", { email: email("a"), password: "short12" }],
+      ["a 73 byte password", { email: email("a"), password: "a".repeat(73) }],
       [
-        "a password with no symbol",
-        { email: email("a"), password: "NoSymbol123", displayName: "X" },
+        // Chosen after the email is verified now (ADR-046), so an old client is told plainly.
+        "a display name",
+        { email: email("a"), password: PASSWORD, displayName: "bob" },
       ],
-      ["a short password", { email: email("a"), password: "short12", displayName: "X" }],
-      [
-        "a 73 byte password",
-        { email: email("a"), password: "a".repeat(73), displayName: "X" },
-      ],
-      [
-        "an empty display name",
-        { email: email("a"), password: PASSWORD, displayName: "" },
-      ],
-      [
-        "an unknown field",
-        { email: email("a"), password: PASSWORD, displayName: "X", isAdmin: true },
-      ],
+      ["an unknown field", { email: email("a"), password: PASSWORD, isAdmin: true }],
     ])("answers 400 VALIDATION_ERROR for %s", async (_label, body) => {
       const response = await register(body);
 
@@ -215,7 +208,6 @@ describe.skipIf(!databaseUrl)("auth flow (register, login, me)", () => {
       const response = await register({
         email: "nope",
         password: "short12",
-        displayName: "X",
       });
 
       expect(JSON.stringify(response.body)).not.toContain("short12");
@@ -225,7 +217,6 @@ describe.skipIf(!databaseUrl)("auth flow (register, login, me)", () => {
       const response = await register({
         email: email("weak"),
         password: "aaaaaaaa",
-        displayName: "Weak",
       });
 
       expect(response.status).toBe(400);
@@ -239,7 +230,7 @@ describe.skipIf(!databaseUrl)("auth flow (register, login, me)", () => {
     it("still lets an account created before the policy log in with its weak password", async () => {
       const weakHash = await hashPassword("correct horse", 4);
       await pool.query(
-        "INSERT INTO users (email, password_hash, display_name, email_verified_at) VALUES ($1, $2, 'Old', now())",
+        "INSERT INTO users (email, password_hash, display_name, email_verified_at) VALUES ($1, $2, 'old' || md5(random()::text), now())",
         [email("old"), weakHash],
       );
 
@@ -314,9 +305,10 @@ describe.skipIf(!databaseUrl)("auth flow (register, login, me)", () => {
     });
 
     it("refuses password login for a social-only account (no password set)", async () => {
-      await pool.query("INSERT INTO users (email, display_name) VALUES ($1, 'Social')", [
-        email("social"),
-      ]);
+      await pool.query(
+        "INSERT INTO users (email, display_name) VALUES ($1, 'social' || md5(random()::text))",
+        [email("social")],
+      );
 
       const response = await login({ email: email("social"), password: "anything goes" });
 
@@ -329,7 +321,6 @@ describe.skipIf(!databaseUrl)("auth flow (register, login, me)", () => {
       await signUpVerified(app, mailer, {
         email: email("long"),
         password: long,
-        displayName: "Long",
       });
 
       const response = await login({ email: email("long"), password: `${long}EXTRA` });
@@ -377,6 +368,7 @@ describe.skipIf(!databaseUrl)("auth flow (register, login, me)", () => {
       expect(Object.keys(response.body).sort()).toEqual([
         "createdAt",
         "displayName",
+        "displayNameSet",
         "email",
         "emailVerified",
         "hasPassword",
@@ -409,6 +401,7 @@ describe.skipIf(!databaseUrl)("auth flow (register, login, me)", () => {
       const old = await signAccessToken(
         registration.body.user.id,
         SECRET,
+        { displayNameSet: true },
         new Date(Date.now() - 20 * 60 * 1000),
       );
 
@@ -472,7 +465,7 @@ describe.skipIf(!databaseUrl)("auth flow (register, login, me)", () => {
         registerLimit: { windowMs: 60_000, limit: 1 },
         loginLimit: { windowMs: 60_000, limit: 100 },
       });
-      const body = { email: email("one"), password: PASSWORD, displayName: "One" };
+      const body = { email: email("one"), password: PASSWORD };
 
       await request(limited).post("/api/v1/auth/register").send(body);
       const secondRegister = await request(limited)

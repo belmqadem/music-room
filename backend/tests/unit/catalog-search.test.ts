@@ -49,7 +49,10 @@ const search = async (
 ) => {
   const req = request(app).get(`/api/v1/tracks/search?${query}`);
   if (authenticated)
-    req.set("Authorization", `Bearer ${await signAccessToken(USER_ID, SECRET)}`);
+    req.set(
+      "Authorization",
+      `Bearer ${await signAccessToken(USER_ID, SECRET, { displayNameSet: true })}`,
+    );
   return req;
 };
 

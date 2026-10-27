@@ -1,7 +1,7 @@
 import type { Profile } from "@music-room/shared";
 import type { ReactNode } from "react";
-import { Pressable, View } from "react-native";
-import { Card, Icon, type IconName, Text } from "@/components";
+import { View } from "react-native";
+import { Card, Icon, IconButton, type IconName, Text } from "@/components";
 import { copy } from "@/copy";
 import type { ProfileSection } from "./profile-form";
 
@@ -106,15 +106,7 @@ function Section({
           {title}
         </Text>
         {onEdit ? (
-          <Pressable
-            onPress={onEdit}
-            accessibilityRole="button"
-            accessibilityLabel={editLabel}
-            hitSlop={8}
-            className="h-10 w-10 items-center justify-center rounded-full border border-line-subtle bg-surface-low active:bg-surface-high"
-          >
-            <Icon name="edit" tone="primary" />
-          </Pressable>
+          <IconButton icon="edit" accessibilityLabel={editLabel} onPress={onEdit} />
         ) : null}
       </View>
       <Card>{children}</Card>

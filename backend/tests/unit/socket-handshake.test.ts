@@ -67,8 +67,13 @@ function outcome(socket: Socket): Promise<{ connected: true } | { code: unknown 
 
 describe("/live handshake", () => {
   it("accepts a valid access token", async () => {
-    const token = await signAccessToken(USER_ID, SECRET);
+    const token = await signAccessToken(USER_ID, SECRET, { displayNameSet: true });
     expect(await outcome(open({ token }))).toEqual({ connected: true });
+  });
+
+  it("refuses an account that has not chosen its display name (ADR-046)", async () => {
+    const token = await signAccessToken(USER_ID, SECRET, { displayNameSet: false });
+    expect(await outcome(open({ token }))).toEqual({ code: "DISPLAY_NAME_REQUIRED" });
   });
 
   it("refuses a connection with no token", async () => {
@@ -80,17 +85,24 @@ describe("/live handshake", () => {
   });
 
   it("refuses a token signed with another secret", async () => {
-    const token = await signAccessToken(USER_ID, "x".repeat(32));
+    const token = await signAccessToken(USER_ID, "x".repeat(32), {
+      displayNameSet: true,
+    });
     expect(await outcome(open({ token }))).toEqual({ code: "UNAUTHENTICATED" });
   });
 
   it("tells the app to refresh when the token is expired", async () => {
-    const token = await signAccessToken(USER_ID, SECRET, new Date(Date.now() - 3600_000));
+    const token = await signAccessToken(
+      USER_ID,
+      SECRET,
+      { displayNameSet: true },
+      new Date(Date.now() - 3600_000),
+    );
     expect(await outcome(open({ token }))).toEqual({ code: "TOKEN_EXPIRED" });
   });
 
   it("logs platform, device and app version of the connection", async () => {
-    const token = await signAccessToken(USER_ID, SECRET);
+    const token = await signAccessToken(USER_ID, SECRET, { displayNameSet: true });
     await outcome(
       open(
         { token },

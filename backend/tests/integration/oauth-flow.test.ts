@@ -6,7 +6,7 @@ import request from "supertest";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../../src/app.js";
 import { createMemoryMailer } from "../helpers/memory-mailer.js";
-import { signUpVerified } from "../helpers/sign-up.js";
+import { signUpVerified, withDisplayName } from "../helpers/sign-up.js";
 import { createPostgresPool } from "../../src/db/postgres.js";
 import {
   ProviderCredentialError,
@@ -176,16 +176,17 @@ describe.skipIf(!databaseUrl)("social login, link and unlink", () => {
   const me = (accessToken: string) =>
     request(app).get("/api/v1/users/me").set("Authorization", `Bearer ${accessToken}`);
 
+  /** A Google login, then (the first time) a chosen display name, like the app's flow. */
   async function loginWithGoogle(id: string): Promise<Session> {
     const response = await oauthLogin("google", { credential: googleCredential(id) });
     expect(response.status).toBe(200);
-    return response.body as Session;
+    if (response.body.user.displayNameSet) return response.body as Session;
+    return (await withDisplayName(app, response.body)).body as Session;
   }
   async function registerWithPassword(name: string): Promise<Session> {
     const response = await signUpVerified(app, mailer, {
       email: `${name}${EMAIL_DOMAIN}`,
       password: PASSWORD,
-      displayName: name,
     });
     return response.body as Session;
   }
@@ -210,7 +211,9 @@ describe.skipIf(!databaseUrl)("social login, link and unlink", () => {
       expect(response.headers["cache-control"]).toBe("no-store");
       expect(response.body.user).toMatchObject({
         email: `ada${EMAIL_DOMAIN}`,
-        displayName: "Google ada",
+        // A temporary name until the user chooses theirs (ADR-046).
+        displayName: expect.stringMatching(/^user_[0-9a-f]{12}$/),
+        displayNameSet: false,
         linkedProviders: ["google"],
         hasPassword: false,
       });
@@ -247,7 +250,8 @@ describe.skipIf(!databaseUrl)("social login, link and unlink", () => {
       expect(response.status).toBe(200);
       expect(response.body.user).toMatchObject({
         email: null,
-        displayName: "Facebook grace",
+        displayName: expect.stringMatching(/^user_[0-9a-f]{12}$/),
+        displayNameSet: false,
         linkedProviders: ["facebook"],
         hasPassword: false,
       });
@@ -286,7 +290,6 @@ describe.skipIf(!databaseUrl)("social login, link and unlink", () => {
         .send({
           email: `owner${EMAIL_DOMAIN}`,
           password: PASSWORD,
-          displayName: "Squatter",
         });
       expect(squatter.status).toBe(201);
 
@@ -313,7 +316,6 @@ describe.skipIf(!databaseUrl)("social login, link and unlink", () => {
         .send({
           email: `owner${EMAIL_DOMAIN}`,
           password: PASSWORD,
-          displayName: "Pending",
         });
 
       const response = await oauthLogin("google", {
@@ -418,7 +420,7 @@ describe.skipIf(!databaseUrl)("social login, link and unlink", () => {
       expect(response.body.error.code).toBe("VALIDATION_ERROR");
     });
 
-    it("cuts a long provider name to 50 characters and replaces a blank one", async () => {
+    it("ignores the provider's name: the user chooses theirs next (ADR-046)", async () => {
       const long = await oauthLogin("google", {
         credential: googleCredential("long", { displayName: "é".repeat(80) }),
       });
@@ -426,9 +428,28 @@ describe.skipIf(!databaseUrl)("social login, link and unlink", () => {
         credential: googleCredential("blank", { displayName: "   " }),
       });
 
-      expect(long.status).toBe(200);
-      expect(Array.from(long.body.user.displayName)).toHaveLength(50);
-      expect(blank.body.user.displayName).toBe("Music Room user");
+      for (const response of [long, blank]) {
+        expect(response.status).toBe(200);
+        expect(response.body.user.displayName).toMatch(/^user_[0-9a-f]{12}$/);
+        expect(response.body.user.displayNameSet).toBe(false);
+      }
+      expect(long.body.user.displayName).not.toBe(blank.body.user.displayName);
+    });
+
+    it("lets the new account in everywhere only after it chose a name", async () => {
+      const first = await oauthLogin("google", { credential: googleCredential("new") });
+      const friends = (token: string) =>
+        request(app).get("/api/v1/friends").set("Authorization", `Bearer ${token}`);
+
+      expect((await friends(first.body.accessToken)).body.error.code).toBe(
+        "DISPLAY_NAME_REQUIRED",
+      );
+      const named = await withDisplayName(app, first.body);
+      expect((await friends(named.body.accessToken)).status).toBe(200);
+      // And the next Google login already says so.
+      const again = await oauthLogin("google", { credential: googleCredential("new") });
+      expect(again.body.user.displayNameSet).toBe(true);
+      expect((await friends(again.body.accessToken)).status).toBe(200);
     });
 
     it("cannot be used to log in to a social-only account with a password", async () => {
@@ -478,7 +499,7 @@ describe.skipIf(!databaseUrl)("social login, link and unlink", () => {
         try {
           await winner.query("BEGIN");
           const { rows } = await winner.query(
-            "INSERT INTO users (email, display_name) VALUES ($1, 'Winner') RETURNING id",
+            "INSERT INTO users (email, display_name) VALUES ($1, 'winner' || md5(random()::text)) RETURNING id",
             [identity.verifiedEmail],
           );
           await winner.query(
