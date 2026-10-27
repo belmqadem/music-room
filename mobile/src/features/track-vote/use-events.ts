@@ -4,6 +4,6 @@ import { trackVoteErrorMessage } from "./messages";
 
 /** The events tab: what the server lets me see, paged (use-paged-list.ts). */
 export function useEvents() {
-  const { items, ...list } = usePagedList(eventApi.list, trackVoteErrorMessage);
+  const { items, ...list } = usePagedList(eventApi.list, trackVoteErrorMessage, "rooms");
   return { events: items, ...list };
 }

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   draftFromProfile,
   genresFrom,
+  offlineProfile,
   PROFILE_SECTIONS,
   type ProfileDraft,
   profileUpdateFrom,
@@ -275,5 +276,26 @@ describe("the backend's own schema agrees", () => {
       updateProfileSchema.safeParse({ privateInfo: { phone: null, birthDate: null } })
         .success,
     ).toBe(true);
+  });
+});
+
+describe("the profile kept for offline mode (ADR-049)", () => {
+  it("never keeps the private block, and keeps the rest as it is", () => {
+    const profile: Profile = {
+      userId: "u1",
+      displayName: "ada",
+      publicInfo: { bio: "Night owl." },
+      friendsInfo: { fullName: "Ada Lovelace", city: "Paris" },
+      musicPreferences: { genres: ["techno"] },
+      privateInfo: { phone: "+33 6 12 34 56 78", birthDate: "2001-09-14" },
+      friendship: null,
+    };
+
+    const kept = offlineProfile(profile);
+
+    expect(kept).not.toHaveProperty("privateInfo");
+    expect(JSON.stringify(kept)).not.toContain("+33 6 12 34 56 78");
+    expect(JSON.stringify(kept)).not.toContain("2001-09-14");
+    expect(kept.friendsInfo).toEqual(profile.friendsInfo);
   });
 });

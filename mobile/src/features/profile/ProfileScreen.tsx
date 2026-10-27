@@ -3,7 +3,17 @@ import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import { ActivityIndicator, Pressable, View } from "react-native";
 import { auth, useAuth } from "@/auth";
-import { Badge, Button, Card, Icon, type IconName, Screen, Text } from "@/components";
+import {
+  Badge,
+  Button,
+  Card,
+  Icon,
+  OfflineNotice,
+  Screen,
+  Text,
+  type IconName,
+} from "@/components";
+import { isUnreachable, offlineStore } from "@/offline";
 import { copy } from "@/copy";
 import { isPremium } from "@/features/plan/plan";
 import { friendsApi } from "@/features/friends/friends-api";
@@ -11,6 +21,7 @@ import { requestCountLabel } from "@/features/friends/friend-state";
 import { colors } from "@/theme";
 import { profileErrorMessage } from "./messages";
 import { ProfileBlocks } from "./ProfileBlocks";
+import { offlineProfile } from "./profile-form";
 import { ProfileHeader } from "./ProfileHeader";
 import { profileApi } from "./profile-api";
 
@@ -18,6 +29,8 @@ import { profileApi } from "./profile-api";
 // name, email), then the blocks as the server has them, each section with its own edit button, then
 // the account rows: Friends (with the number of requests waiting), Settings, Sign out.
 // Read again each time the tab shows, so an edit or a new request appears on return.
+const PROFILE_CACHE = "profile";
+
 export default function ProfileScreen() {
   const state = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -25,16 +38,28 @@ export default function ProfileScreen() {
   const [signingOut, setSigningOut] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [waiting, setWaiting] = useState<string | null>(null);
+  const [cachedAt, setCachedAt] = useState<string | null>(null);
 
   const load = useCallback(() => {
     let active = true;
     setLoadError(null);
     profileApi.mine().then(
       (loaded) => {
-        if (active) setProfile(loaded);
+        if (!active) return;
+        setProfile(loaded);
+        setCachedAt(null);
+        // Kept for offline mode (ADR-049), without the private block.
+        void offlineStore.write(PROFILE_CACHE, offlineProfile(loaded));
       },
-      (failure: unknown) => {
-        if (active) setLoadError(profileErrorMessage(failure));
+      async (failure: unknown) => {
+        const copy = isUnreachable(failure)
+          ? await offlineStore.read<Profile>(PROFILE_CACHE)
+          : null;
+        if (!active) return;
+        if (copy) {
+          setProfile(copy.data);
+          setCachedAt(copy.savedAt);
+        } else setLoadError(profileErrorMessage(failure));
       },
     );
     // Requests are not pushed live yet: this read is how a new one shows. If it fails the row just
@@ -93,6 +118,7 @@ export default function ProfileScreen() {
           }
         />
 
+        <OfflineNotice cachedAt={cachedAt} />
         {profile ? (
           <ProfileBlocks
             profile={profile}

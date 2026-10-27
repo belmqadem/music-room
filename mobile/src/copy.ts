@@ -383,6 +383,29 @@ export const copy = {
     loadFailed: "Couldn't load your profile.",
   },
 
+  /** Offline mode (ADR-049): what the phone shows without the server, and what syncs after. */
+  offline: {
+    showing: "You're offline.",
+    offline: "You're offline.",
+    pending: (n: number) =>
+      `${plural(n, "change", "changes")} will sync when you're back online.`,
+    synced: (n: number) => `Back online: ${plural(n, "change", "changes")} synced.`,
+    /** Adding searches the music catalog, so it needs the server (ADR-049). */
+    addNeedsConnection:
+      "Adding a track needs a connection. You can still reorder and remove.",
+    /** A change made offline that the server did not take, and why. */
+    dropped: {
+      trackGone: (title: string) => `Couldn't move "${title}": someone removed it.`,
+      anchorGone: (title: string) =>
+        `Couldn't move "${title}": the track it was to follow was removed.`,
+      noAccess: (title: string) =>
+        `Couldn't change "${title}": you can't edit this playlist anymore.`,
+      premium: (title: string) =>
+        `Couldn't change "${title}": editing playlists needs Premium.`,
+      refused: (title: string) => `Couldn't apply your change to "${title}".`,
+    },
+  },
+
   /** Free and Premium (ADR-048). Payment is simulated: the text never says otherwise. */
   plan: {
     title: "Plans",

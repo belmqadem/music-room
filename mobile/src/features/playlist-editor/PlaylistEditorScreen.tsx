@@ -5,11 +5,13 @@ import { ActivityIndicator, FlatList, View } from "react-native";
 import { useAuth } from "@/auth";
 import { TrackSearchSheet } from "@/catalog/TrackSearchSheet";
 import { playlistEditing } from "@/features/plan/plan";
-import { Button, PlaylistRow, Text } from "@/components";
+import { Button, OfflineNotice, PlaylistRow, Text } from "@/components";
+import { isUnreachable, offlineStore, useOnline } from "@/offline";
 import { LiveBadge } from "@/sockets/LiveBadge";
 import { colors } from "@/theme";
 import { editLicenseLabel, playlistErrorMessage } from "./messages";
 import { playlistApi } from "./playlist-api";
+import { SyncSummaryNotice } from "./SyncSummaryNotice";
 import { usePlaylist } from "./use-playlist";
 import { copy } from "@/copy";
 
@@ -22,16 +24,26 @@ export default function PlaylistEditorScreen() {
   const [playlistError, setPlaylistError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const editor = usePlaylist(id);
+  const online = useOnline();
   const auth = useAuth();
 
   useEffect(() => {
     let active = true;
+    // Kept for offline mode (ADR-049): its name and what you may do with it, as last seen.
+    const cacheName = `playlist:${id}`;
     playlistApi.get(id).then(
       (loaded) => {
-        if (active) setPlaylist(loaded);
+        if (!active) return;
+        setPlaylist(loaded);
+        void offlineStore.write(cacheName, loaded);
       },
-      (error: unknown) => {
-        if (active) setPlaylistError(playlistErrorMessage(error));
+      async (error: unknown) => {
+        const copy = isUnreachable(error)
+          ? await offlineStore.read<Playlist>(cacheName)
+          : null;
+        if (!active) return;
+        if (copy) setPlaylist(copy.data);
+        else setPlaylistError(playlistErrorMessage(error));
       },
     );
     return () => {
@@ -92,6 +104,8 @@ export default function PlaylistEditorScreen() {
         )}
         ListHeaderComponent={
           <View className="gap-4 pb-1">
+            <OfflineNotice cachedAt={editor.cachedAt} pending={editor.pendingCount} />
+            <SyncSummaryNotice />
             <View className="flex-row items-center justify-between gap-3">
               <Text variant="caption" tone="secondary" className="flex-1">
                 {editLicenseLabel(playlist.editLicense)}
@@ -101,11 +115,19 @@ export default function PlaylistEditorScreen() {
               <LiveBadge />
             </View>
             {canAct ? (
-              <Button
-                title={copy.playlistEditor.addTrack}
-                fullWidth
-                onPress={() => setAdding(true)}
-              />
+              <View className="gap-2">
+                <Button
+                  title={copy.playlistEditor.addTrack}
+                  fullWidth
+                  disabled={!online}
+                  onPress={() => setAdding(true)}
+                />
+                {online ? null : (
+                  <Text variant="caption" tone="secondary">
+                    {copy.offline.addNeedsConnection}
+                  </Text>
+                )}
+              </View>
             ) : editing === "needs-premium" ? (
               <View className="gap-2">
                 <Text variant="caption" tone="secondary">

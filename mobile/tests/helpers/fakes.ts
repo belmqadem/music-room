@@ -132,6 +132,8 @@ export function setup(
   options: {
     storedRefreshToken?: string | null;
     lock?: <T>(task: () => Promise<T>) => Promise<T>;
+    /** Offline mode's saved user (ADR-049); with it, the controller keeps one. */
+    savedUser?: unknown;
   } = {},
 ) {
   const events: string[] = [];
@@ -143,10 +145,18 @@ export function setup(
     getClientHeaders: () => CLIENT_HEADERS,
     timeoutMs: 1000,
   });
+  const saved = { user: (options.savedUser ?? null) as AuthSession["user"] | null };
   const auth = createAuthController({
     http,
     storage: fakeStorage.storage,
     ...(options.lock && { runExclusiveRefresh: options.lock }),
+    ...("savedUser" in options && {
+      savedUser: {
+        read: async () => saved.user,
+        write: async (u: AuthSession["user"]) => void (saved.user = u),
+        clear: async () => void (saved.user = null),
+      },
+    }),
   });
-  return { auth, backend, storage: fakeStorage, events, http };
+  return { auth, backend, storage: fakeStorage, events, http, saved };
 }

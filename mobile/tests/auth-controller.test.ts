@@ -665,3 +665,96 @@ describe("observing the state", () => {
     expect(auth.getState()).toBe(auth.getState());
   });
 });
+
+describe("offline mode: starting without the server (ADR-049)", () => {
+  it("with a saved user, opens signed in on it instead of the sign-in screen", async () => {
+    const { auth, backend, storage } = setup({
+      storedRefreshToken: "refresh-0",
+      savedUser: user,
+    });
+    backend.on("POST /auth/refresh", networkDown());
+
+    await auth.restore();
+
+    expect(auth.getState()).toEqual({ status: "signedIn", user });
+    expect(auth.getAccessToken()).toBeNull();
+    expect(storage.value()).toBe("refresh-0");
+  });
+
+  it("without a saved user, stays signed out (and keeps the token for next time)", async () => {
+    const { auth, backend, storage } = setup({
+      storedRefreshToken: "refresh-0",
+      savedUser: null,
+    });
+    backend.on("POST /auth/refresh", networkDown());
+
+    await auth.restore();
+
+    expect(auth.getState().status).toBe("signedOut");
+    expect(storage.value()).toBe("refresh-0");
+  });
+
+  it("a session the server refuses is never opened from the saved user", async () => {
+    const { auth, backend, saved } = setup({
+      storedRefreshToken: "refresh-0",
+      savedUser: user,
+    });
+    backend.on("POST /auth/refresh", fail(401, "INVALID_REFRESH_TOKEN"));
+
+    await auth.restore();
+
+    expect(auth.getState().status).toBe("signedOut");
+    expect(saved.user).toBeNull();
+  });
+
+  it("the first call once the server is back gets a token first, then goes through", async () => {
+    const { auth, backend } = setup({ storedRefreshToken: "refresh-0", savedUser: user });
+    backend.on("POST /auth/refresh", networkDown(), ok(session(1)));
+    backend.on("GET /events", ok({ items: [], nextCursor: null }));
+    await auth.restore();
+
+    await auth.request("GET", "/events");
+
+    const call = backend.requests.find((r) => r.path === "/events")!;
+    expect(call.headers["authorization"]).toBe("Bearer access-1");
+  });
+
+  it("still offline, that call fails with NETWORK_ERROR and nothing is lost", async () => {
+    const { auth, backend } = setup({ storedRefreshToken: "refresh-0", savedUser: user });
+    backend.on("POST /auth/refresh", networkDown());
+    await auth.restore();
+
+    const error = await auth.request("GET", "/events").catch((e: unknown) => e);
+
+    expect((error as { code: string }).code).toBe("NETWORK_ERROR");
+    expect(auth.getState().status).toBe("signedIn");
+  });
+
+  it("if the server ended the session meanwhile, that call signs out and forgets the saved user", async () => {
+    const { auth, backend, saved } = setup({
+      storedRefreshToken: "refresh-0",
+      savedUser: user,
+    });
+    backend.on("POST /auth/refresh", networkDown(), fail(401, "INVALID_REFRESH_TOKEN"));
+    await auth.restore();
+
+    const error = await auth.request("GET", "/events").catch((e: unknown) => e);
+
+    expect((error as { code: string }).code).toBe("UNAUTHENTICATED");
+    expect(auth.getState().status).toBe("signedOut");
+    expect(saved.user).toBeNull();
+  });
+
+  it("keeps the user whenever it is signed in, and forgets it on sign-out", async () => {
+    const { auth, backend, saved } = setup({ savedUser: null });
+    backend.on("POST /auth/login", ok(session(1)));
+    backend.on("POST /auth/logout", ok());
+
+    await auth.signIn({ email: "ada@example.invalid", password: "pw" });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(saved.user?.id).toBe(user.id);
+
+    await auth.signOut();
+    expect(saved.user).toBeNull();
+  });
+});
