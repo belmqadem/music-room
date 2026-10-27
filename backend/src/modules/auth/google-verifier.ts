@@ -15,6 +15,9 @@ import {
 const GOOGLE_KEYS_URL = new URL("https://www.googleapis.com/oauth2/v3/certs");
 // Google documents both spellings of the issuer.
 const GOOGLE_ISSUERS = ["https://accounts.google.com", "accounts.google.com"];
+// An ID token is valid for about an hour, but the app sends it seconds after the sign-in: one
+// issued longer ago than this is refused, so a stolen token stops being useful quickly (ADR-047).
+export const GOOGLE_TOKEN_MAX_AGE = "10m";
 
 export interface GoogleVerifierOptions {
   /** Accepted audiences: our iOS, Android and Web OAuth client ids. */
@@ -26,8 +29,8 @@ export interface GoogleVerifierOptions {
 /**
  * Verifies a Google ID token (a JWT) locally: signature against Google's public
  * keys, issuer, audience (must be one of OUR client ids, otherwise a token
- * issued to another app could log in here), expiry. RS256 only, so a token
- * claiming HS256 or "none" is rejected.
+ * issued to another app could log in here), expiry, and age (issued at most 10
+ * minutes ago). RS256 only, so a token claiming HS256 or "none" is rejected.
  */
 export function createGoogleVerifier(options: GoogleVerifierOptions): ProviderVerifier {
   const getKey = options.getKey ?? createRemoteJWKSet(GOOGLE_KEYS_URL);
@@ -41,6 +44,7 @@ export function createGoogleVerifier(options: GoogleVerifierOptions): ProviderVe
           issuer: GOOGLE_ISSUERS,
           audience: options.clientIds,
           requiredClaims: ["sub", "exp", "iat"],
+          maxTokenAge: GOOGLE_TOKEN_MAX_AGE,
         }));
       } catch (error) {
         // jose's own errors mean "this token is bad"; anything else (such as the
@@ -72,5 +76,7 @@ function toIdentity(payload: JWTPayload): ProviderIdentity {
     providerUserId: payload.sub,
     displayName: typeof name === "string" ? name : null,
     verifiedEmail: email && verified ? email : null,
+    // requiredClaims guarantees exp.
+    expiresAt: new Date((payload.exp ?? 0) * 1000),
   };
 }

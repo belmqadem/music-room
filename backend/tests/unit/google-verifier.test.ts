@@ -34,6 +34,8 @@ interface TokenOptions {
   issuer?: string;
   audience?: string;
   expiresAt?: number;
+  /** Unix seconds; now by default. */
+  issuedAt?: number;
   claims?: Record<string, unknown>;
   subject?: string | null;
 }
@@ -48,7 +50,7 @@ async function idToken(options: TokenOptions = {}): Promise<string> {
     .setProtectedHeader({ alg: "RS256", kid: "k1" })
     .setIssuer(options.issuer ?? "https://accounts.google.com")
     .setAudience(options.audience ?? CLIENT_ID)
-    .setIssuedAt()
+    .setIssuedAt(options.issuedAt)
     .setExpirationTime(options.expiresAt ?? Math.floor(Date.now() / 1000) + 600);
   if (options.subject !== null) jwt.setSubject(options.subject ?? "google-user-1");
   return jwt.sign(options.key ?? privateKey);
@@ -58,12 +60,23 @@ const verifier = () =>
   createGoogleVerifier({ clientIds: [CLIENT_ID, OTHER_CLIENT_ID], getKey });
 
 describe("Google ID token verifier", () => {
-  it("returns the identity of a valid token", async () => {
-    expect(await verifier().verify(await idToken())).toEqual({
+  it("returns the identity of a valid token, and when it expires", async () => {
+    const expiresAt = Math.floor(Date.now() / 1000) + 600;
+    expect(await verifier().verify(await idToken({ expiresAt }))).toEqual({
       providerUserId: "google-user-1",
       displayName: "Ada Lovelace",
       verifiedEmail: "ada@example.com",
+      expiresAt: new Date(expiresAt * 1000),
     });
+  });
+
+  it("refuses a token issued more than 10 minutes ago, even if not expired (ADR-047)", async () => {
+    const now = Math.floor(Date.now() / 1000);
+    const old = await idToken({ issuedAt: now - 11 * 60, expiresAt: now + 3000 });
+    const recent = await idToken({ issuedAt: now - 9 * 60, expiresAt: now + 3000 });
+
+    await expect(verifier().verify(old)).rejects.toBeInstanceOf(ProviderCredentialError);
+    expect((await verifier().verify(recent)).providerUserId).toBe("google-user-1");
   });
 
   it("accepts any of our client ids and both issuer spellings", async () => {

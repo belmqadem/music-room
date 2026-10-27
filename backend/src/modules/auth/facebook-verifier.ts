@@ -39,7 +39,13 @@ export interface FacebookVerifierOptions {
 }
 
 interface DebugTokenResponse {
-  data?: { is_valid?: boolean; app_id?: string; user_id?: string };
+  data?: {
+    is_valid?: boolean;
+    app_id?: string;
+    user_id?: string;
+    /** Unix seconds; 0 when the token does not expire. */
+    expires_at?: number;
+  };
 }
 
 interface MeResponse {
@@ -95,6 +101,7 @@ export function createFacebookVerifier(
       displayName: typeof name === "string" ? name : null,
       // The token may carry an email; it is ignored for the same reason as below (ADR-011).
       verifiedEmail: null,
+      expiresAt: new Date((payload.exp ?? 0) * 1000),
     };
   }
 
@@ -142,7 +149,19 @@ export function createFacebookVerifier(
         providerUserId: data.user_id,
         displayName: typeof me.name === "string" ? me.name : null,
         verifiedEmail: null,
+        expiresAt: classicTokenExpiry(data.expires_at),
       };
     },
   };
+}
+
+/**
+ * A classic access token can live about 60 days (the mobile SDK's are long-lived), and Facebook
+ * says 0 for one that does not expire. Its use is remembered until then, at most 90 days.
+ */
+export const CLASSIC_TOKEN_MAX_REMEMBERED_MS = 90 * 24 * 60 * 60 * 1000;
+function classicTokenExpiry(expiresAt: number | undefined, now = Date.now()): Date {
+  const cap = now + CLASSIC_TOKEN_MAX_REMEMBERED_MS;
+  if (!expiresAt) return new Date(cap);
+  return new Date(Math.min(expiresAt * 1000, cap));
 }

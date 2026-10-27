@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { Writable } from "node:stream";
 import type { Express } from "express";
 import pg from "pg";
@@ -46,6 +47,7 @@ const google = (id: string, extra: Partial<ProviderIdentity> = {}): ProviderIden
   providerUserId: `${ID_PREFIX}g-${id}`,
   displayName: `Google ${id}`,
   verifiedEmail: `${id}${EMAIL_DOMAIN}`,
+  expiresAt: new Date(Date.now() + 3600_000),
   ...extra,
 });
 const facebook = (
@@ -55,6 +57,7 @@ const facebook = (
   providerUserId: `${ID_PREFIX}f-${id}`,
   displayName: `Facebook ${id}`,
   verifiedEmail: null,
+  expiresAt: new Date(Date.now() + 3600_000),
   ...extra,
 });
 
@@ -126,13 +129,20 @@ describe.skipIf(!databaseUrl)("social login, link and unlink", () => {
   }
 
   /** Registers a credential with the fake Google and returns it. */
+  // Each call is a new sign-in with the SDK, so a new credential for the same account: a
+  // credential works once (ADR-047), and spent ones are remembered in the shared test database,
+  // so they also differ from one run to the next.
+  const run = Math.random().toString(36).slice(2, 10);
+  let issued = 0;
   function googleCredential(id: string, extra: Partial<ProviderIdentity> = {}): string {
-    const credential = `google-token-${id}`;
+    issued += 1;
+    const credential = `google-token-${run}-${id}-${issued}`;
     googleAccounts[credential] = google(id, extra);
     return credential;
   }
   function facebookCredential(id: string, extra: Partial<ProviderIdentity> = {}): string {
-    const credential = `facebook-token-${id}`;
+    issued += 1;
+    const credential = `facebook-token-${run}-${id}-${issued}`;
     facebookAccounts[credential] = facebook(id, extra);
     return credential;
   }
@@ -200,6 +210,91 @@ describe.skipIf(!databaseUrl)("social login, link and unlink", () => {
         )
       ).rows[0].count,
     );
+
+  describe("a provider credential works once (ADR-047)", () => {
+    const hashOf = (provider: string, credential: string) =>
+      createHash("sha256").update(`${provider}:${credential}`).digest("hex");
+    const stored = async (hash: string) =>
+      (
+        await pool.query(
+          "SELECT count(*)::int AS n FROM used_provider_credentials WHERE credential_hash = $1",
+          [hash],
+        )
+      ).rows[0].n as number;
+
+    it("a second login with the same credential is refused like a bad one", async () => {
+      const credential = googleCredential("replayed");
+
+      const first = await oauthLogin("google", { credential });
+      const replay = await oauthLogin("google", { credential });
+
+      expect(first.status).toBe(200);
+      expect(replay.status).toBe(401);
+      expect(replay.body.error.code).toBe("INVALID_PROVIDER_CREDENTIAL");
+    });
+
+    it("of 8 logins with one credential at the same moment, exactly one works", async () => {
+      const credential = googleCredential("replayed-together");
+
+      const responses = await Promise.all(
+        Array.from({ length: 8 }, () => oauthLogin("google", { credential })),
+      );
+
+      expect(responses.filter((r) => r.status === 200)).toHaveLength(1);
+      expect(responses.filter((r) => r.status === 401)).toHaveLength(7);
+    });
+
+    it("a credential spent on a login cannot be the proof for linking, and the other way round", async () => {
+      const owner = await loginWithGoogle("proof-owner");
+      const spentOnLogin = googleCredential("proof-owner");
+      await oauthLogin("google", { credential: spentOnLogin });
+
+      const asProof = await link(
+        owner.accessToken,
+        "facebook",
+        { credential: facebookCredential("proof-fb") },
+        { method: "provider", provider: "google", credential: spentOnLogin },
+      );
+      expect(asProof.status).toBe(403);
+      expect(asProof.body.error.code).toBe("REAUTH_FAILED");
+
+      const proof = googleCredential("proof-owner");
+      const linked = await link(
+        owner.accessToken,
+        "facebook",
+        { credential: facebookCredential("proof-fb") },
+        { method: "provider", provider: "google", credential: proof },
+      );
+      expect(linked.status).toBe(200);
+      expect((await oauthLogin("google", { credential: proof })).status).toBe(401);
+    });
+
+    it("keeps only a hash of credentials it accepted, never a refused one", async () => {
+      const credential = googleCredential("hashed");
+      await oauthLogin("google", { credential });
+      await oauthLogin("google", { credential: "bad" });
+
+      expect(await stored(hashOf("google", credential))).toBe(1);
+      expect(await stored(hashOf("google", "bad"))).toBe(0);
+      const { rows } = await pool.query(
+        "SELECT count(*)::int AS n FROM used_provider_credentials WHERE credential_hash LIKE $1",
+        [`%${credential}%`],
+      );
+      expect(rows[0].n).toBe(0);
+    });
+
+    it("forgets a credential once it has expired at the provider", async () => {
+      const old = googleCredential("old", { expiresAt: new Date(Date.now() - 1000) });
+      await pool.query(
+        "INSERT INTO used_provider_credentials (credential_hash, expires_at) VALUES ($1, now() - interval '1 second')",
+        [hashOf("google", `expired-${run}`)],
+      );
+
+      await oauthLogin("google", { credential: old });
+
+      expect(await stored(hashOf("google", `expired-${run}`))).toBe(0);
+    });
+  });
 
   describe("POST /auth/oauth/{provider}", () => {
     it("creates a social-only account on the first Google login", async () => {
@@ -468,10 +563,11 @@ describe.skipIf(!databaseUrl)("social login, link and unlink", () => {
     // wrong EMAIL_TAKEN for the owner of the very account being created.
     it("lets exactly one account be created when the first logins arrive together", async () => {
       for (let round = 0; round < 20; round++) {
-        const credential = googleCredential(`racer-${round}`);
-
+        // Eight sign-ins of the same Google account, each with its own credential.
         const responses = await Promise.all(
-          Array.from({ length: 8 }, () => oauthLogin("google", { credential })),
+          Array.from({ length: 8 }, () =>
+            oauthLogin("google", { credential: googleCredential(`racer-${round}`) }),
+          ),
         );
 
         expect(
@@ -612,11 +708,9 @@ describe.skipIf(!databaseUrl)("social login, link and unlink", () => {
     it("lets only one of two users win a provider account claimed at the same time", async () => {
       const a = await registerWithPassword("claim-a");
       const b = await registerWithPassword("claim-b");
-      const credential = googleCredential("contested");
-
       const [first, second] = await Promise.all([
-        link(a.accessToken, "google", { credential }),
-        link(b.accessToken, "google", { credential }),
+        link(a.accessToken, "google", { credential: googleCredential("contested") }),
+        link(b.accessToken, "google", { credential: googleCredential("contested") }),
       ]);
 
       expect([first.status, second.status].sort()).toEqual([200, 409]);
@@ -772,18 +866,19 @@ describe.skipIf(!databaseUrl)("social login, link and unlink", () => {
 
     it("a stolen access token cannot link the thief's social account, and the thief cannot then log in as the victim", async () => {
       const victim = await registerWithPassword("victim");
-      const thiefCredential = googleCredential("thief-google");
+      // Fresh credentials for the thief's own Google account each time (each works once).
+      const thiefCredential = () => googleCredential("thief-google");
 
       const guesses = [
         { method: "password", password: "not-the-password" },
-        { method: "provider", provider: "google", credential: thiefCredential },
+        { method: "provider", provider: "google", credential: thiefCredential() },
         { method: "provider", provider: "facebook", credential: "bad" },
       ];
       for (const guess of guesses) {
         const response = await link(
           victim.accessToken,
           "google",
-          { credential: thiefCredential },
+          { credential: thiefCredential() },
           guess,
         );
         expect(response.status, JSON.stringify(guess)).toBe(403);
@@ -791,7 +886,7 @@ describe.skipIf(!databaseUrl)("social login, link and unlink", () => {
       }
 
       expect(await providersOf(victim.user.id)).toEqual([]);
-      const thiefLogin = await oauthLogin("google", { credential: thiefCredential });
+      const thiefLogin = await oauthLogin("google", { credential: thiefCredential() });
       expect(thiefLogin.body.user.id).not.toBe(victim.user.id);
     });
 

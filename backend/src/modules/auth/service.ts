@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type {
   AuthSession,
   OAuthProvider,
@@ -54,6 +54,7 @@ import {
   revokeFamilyOfUsersToken,
   takeEmailCodeAttempt,
   updatePasswordHash,
+  spendProviderCredential,
   upsertEmailCode,
   updateDisplayName,
   violatedConstraint,
@@ -289,14 +290,22 @@ export function createAuthService(deps: AuthServiceDependencies): AuthService {
     }
   }
 
-  // Asks the provider who the credential belongs to. Done OUTSIDE any database
-  // transaction: it is a network call and must not hold a connection.
+  // Asks the provider who the credential belongs to, then spends it: SECURITY (ADR-047) a
+  // credential works once, for login, linking and the proof alike, so a captured one cannot be
+  // replayed. Done OUTSIDE any database transaction: the provider call is a network call and must
+  // not hold a connection, and a spent credential stays spent even if what follows fails.
   async function verifyWithProvider(
     provider: OAuthProvider,
     credential: string,
   ): Promise<ProviderIdentity> {
     try {
-      return await verifiers[provider].verify(credential);
+      const identity = await verifiers[provider].verify(credential);
+      const hash = createHash("sha256").update(`${provider}:${credential}`).digest("hex");
+      if (!(await spendProviderCredential(pool, hash, identity.expiresAt))) {
+        logger.warn({ provider }, "social credential used a second time");
+        throw new ProviderCredentialError();
+      }
+      return identity;
     } catch (error) {
       // Never log the credential. One generic message, whatever the reason.
       if (error instanceof ProviderCredentialError) {

@@ -7,6 +7,11 @@ export interface ProviderIdentity {
   displayName: string | null;
   /** Only an email the provider vouches for; otherwise null (ADR-011). */
   verifiedEmail: string | null;
+  /**
+   * When the credential stops being valid at the provider. The server remembers a credential it
+   * accepted until then, so it can be used only once (ADR-047).
+   */
+  expiresAt: Date;
 }
 
 /** Checks a credential sent by the app WITH the provider. Never trusts the client's claims. */
