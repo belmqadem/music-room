@@ -29,7 +29,7 @@ export default function PickUsernameScreen() {
   }
 
   return (
-    <Screen scroll topInset background={<BrandBackground />}>
+    <Screen scroll topInset background={<BrandBackground faint />}>
       <View className="gap-8">
         <ScreenTitle
           title={copy.username.pickTitle}

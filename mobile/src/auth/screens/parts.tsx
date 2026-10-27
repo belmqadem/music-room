@@ -10,13 +10,14 @@ const BRAND_PICTURE = require("../../../assets/images/welcome-background.jpg");
 /**
  * The brand picture, for a Screen's `background`: at 40% over the canvas, so the text on it stays
  * readable. Only on the screens that are about arriving, not on forms (inputs and their errors
- * need the plain canvas).
+ * need the plain canvas). `faint` (20%) is for a screen whose text sits over the busy top of the
+ * picture, like Pick your username.
  */
-export function BrandBackground() {
+export function BrandBackground({ faint = false }: { faint?: boolean }) {
   return (
     <Image
       source={BRAND_PICTURE}
-      className="h-full w-full opacity-40"
+      className={`h-full w-full ${faint ? "opacity-20" : "opacity-40"}`}
       resizeMode="cover"
       accessible={false}
     />
