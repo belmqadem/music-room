@@ -40,6 +40,11 @@ export const copy = {
     catalogDown: "Can't reach the music catalog right now. Try again in a moment.",
   },
 
+  app: {
+    /** The app's name, in its own header. */
+    name: "Music Room",
+  },
+
   tabs: {
     rooms: "Rooms",
     playlists: "Playlists",

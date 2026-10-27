@@ -2,11 +2,12 @@ import { router } from "expo-router";
 import { View } from "react-native";
 import { Button, Screen, Text } from "@/components";
 import { copy } from "@/copy";
+import { BrandBackground } from "./parts";
 
 // The first screen when signed out: what the app is, and the two ways in. One primary action.
 export default function WelcomeScreen() {
   return (
-    <Screen scroll topInset>
+    <Screen scroll topInset background={<BrandBackground />}>
       <View className="flex-1 justify-center gap-4 py-12">
         <Text variant="hero">{copy.welcome.headline}</Text>
         <Text variant="bodyLarge" tone="secondary">

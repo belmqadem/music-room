@@ -1,4 +1,4 @@
-import { View } from "react-native";
+import { Image, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { copy } from "@/copy";
 import { IconButton } from "./IconButton";
@@ -12,6 +12,32 @@ import { Text } from "./Text";
 export function StatusBarSpace() {
   const insets = useSafeAreaInsets();
   return <View className="bg-canvas" style={{ height: insets.top }} />;
+}
+
+const BRAND_MARK = require("../../assets/images/brand-mark.png");
+
+/**
+ * The main lists (Rooms, Playlists): the logo's rings and the app's name, centered on a band one
+ * surface tier above the canvas (depth from surfaces, DESIGN.md rule 2) that runs under the status
+ * bar and rounds off at the bottom. The name is in the display font, like the welcome headline.
+ */
+export function BrandHeader() {
+  const insets = useSafeAreaInsets();
+  return (
+    <View className="bg-canvas pb-2">
+      <View
+        className="flex-row items-center justify-center gap-3 rounded-b-2xl bg-surface-low pb-4"
+        style={{ paddingTop: insets.top + 12 }}
+        accessibilityRole="header"
+        accessibilityLabel={copy.app.name}
+      >
+        <Image source={BRAND_MARK} className="h-9 w-9" accessible={false} />
+        <Text variant="h1" numberOfLines={1}>
+          {copy.app.name}
+        </Text>
+      </View>
+    </View>
+  );
 }
 
 /** Pushed screens: a round back button and the title, centered and kept to one line. */

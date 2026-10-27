@@ -667,6 +667,7 @@ Each decision must be defensible in detail at the defense. Copy the template for
   - `Icon` wraps `expo-symbols` with one list of names (SF Symbols on iOS, Material Symbols on Android and web); icons are decorative, the text next to them carries the meaning.
 - Consequences: a new screen gets its header by being in one of the stacks. Tab screens start right under the status bar with their main action (Create room, Create playlist, the profile's avatar).
 - Partly superseded by ADR-041: the profile's sections and edit buttons, and where Create room and Create playlist sit.
+- Update (2026-10-27): Rooms and Playlists now carry the app's logo and name (`BrandHeader`: the logo's rings from `scripts/generate-icons.mjs` and "Music Room" in the display font, centered on a surface-low band that rounds off at the bottom); Profile still only leaves room for the status bar.
 
 ### ADR-041: Profile sections named by what they hold, each with its own edit; create buttons at the bottom
 

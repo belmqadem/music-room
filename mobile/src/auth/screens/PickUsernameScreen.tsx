@@ -4,7 +4,7 @@ import { View } from "react-native";
 import { auth } from "@/auth";
 import { Button, Screen } from "@/components";
 import { copy } from "@/copy";
-import { FormMessage, ScreenTitle } from "./parts";
+import { BrandBackground, FormMessage, ScreenTitle } from "./parts";
 import { UsernameForm } from "./UsernameForm";
 
 // The step every account goes through once, right after its first sign-in (ADR-046): by email
@@ -29,7 +29,7 @@ export default function PickUsernameScreen() {
   }
 
   return (
-    <Screen scroll topInset>
+    <Screen scroll topInset background={<BrandBackground faint />}>
       <View className="gap-8">
         <ScreenTitle
           title={copy.username.pickTitle}

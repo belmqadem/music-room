@@ -1,12 +1,13 @@
 import { SymbolView, type SymbolViewProps } from "expo-symbols";
 import { Tabs } from "expo-router";
 import type { ColorValue } from "react-native";
-import { StatusBarSpace } from "@/components";
+import { BrandHeader, StatusBarSpace } from "@/components";
 import { colors, typography } from "@/theme";
 import { copy } from "@/copy";
 
-// Tab screens have no title: the tab bar already says where you are, so the header is only room for
-// the status bar. The bar is a surface tier with a hairline on top. The active tab (icon and label) reads as
+// Tab screens have no title: the tab bar already says where you are. Rooms and Playlists, the main
+// lists, carry the app's logo and name instead (BrandHeader); Profile only leaves room for the
+// status bar, its avatar and name lead. The bar is a surface tier with a hairline on top. The active tab (icon and label) reads as
 // primary text and the others as tertiary, the token for inactive icons. Icons are SF Symbols on
 // iOS and Material Symbols on Android and web (expo-symbols); the bar gives their size and color.
 export default function TabsLayout() {
@@ -26,6 +27,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="events"
         options={{
+          header: () => <BrandHeader />,
           title: copy.tabs.rooms,
           tabBarIcon: tabIcon({ ios: "calendar", android: "event", web: "event" }),
         }}
@@ -33,6 +35,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="playlists"
         options={{
+          header: () => <BrandHeader />,
           title: copy.tabs.playlists,
           tabBarIcon: tabIcon({
             ios: "music.note.list",
