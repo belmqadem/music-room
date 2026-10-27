@@ -403,6 +403,39 @@ export const copy = {
     },
   },
 
+  /**
+   * Rooms near you (ADR-052): a notification when you get near a public room that takes votes
+   * at its venue. Off until you turn it on in Settings. Permission text stays literal.
+   */
+  nearby: {
+    title: "Rooms near you",
+    explain:
+      "Get a notification when you're near a public room that takes votes at its venue.",
+    openSettings: "Open settings",
+    errors: {
+      servicesOff: "Turn on location on your phone first.",
+      locationDenied: "Allow location to get rooms near you.",
+      alwaysDenied:
+        'Rooms near you needs location set to "Allow all the time". You can change it in your phone\'s settings.',
+      notificationsDenied:
+        "Rooms near you needs notifications. You can allow them in your phone's settings.",
+      noPosition: "Can't find your position right now. Try again in a moment.",
+      noConnection:
+        "Can't reach the server to find rooms near you. Try again in a moment.",
+    },
+    /** The Android notification channel, as listed in the phone's settings. */
+    channel: "Rooms near you",
+    notification: {
+      onNow: (name: string) => `${name} is on near you`,
+      startsAt: (name: string, time: string) => `${name} starts at ${time} near you`,
+      /** One to three artists: "A", "A and B", "A, B and C". */
+      music: (artists: string[]) =>
+        `Music from ${artists.length > 1 ? `${artists.slice(0, -1).join(", ")} and ${artists.at(-1)}` : artists[0]}.`,
+      emptyQueue: "The queue's empty so far.",
+      tapToOpen: "Tap to open the room and vote.",
+    },
+  },
+
   /** Free and Premium (ADR-048). Payment is simulated: the text never says otherwise. */
   plan: {
     title: "Plans",

@@ -11,6 +11,7 @@ export { OfflineNotice } from "./OfflineNotice";
 export { PersonRow, type PersonRowProps } from "./PersonRow";
 export { PlaylistRow, type PlaylistRowProps } from "./PlaylistRow";
 export { Screen, type ScreenProps } from "./Screen";
+export { Switch, type SwitchProps } from "./Switch";
 export { Text, type AppTextProps } from "./Text";
 export { TrackPickRow, type TrackPickRowProps } from "./TrackPickRow";
 export { TrackRow, type TrackRowProps } from "./TrackRow";

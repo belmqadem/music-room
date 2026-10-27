@@ -3,11 +3,12 @@ import { View } from "react-native";
 import { useAuth } from "@/auth";
 import { Card, IconButton, Screen, Text } from "@/components";
 import { copy } from "@/copy";
+import { NearbyRoomsSetting } from "@/features/nearby/NearbyRoomsSetting";
 import { isPremium } from "@/features/plan/plan";
 import { SignInMethods } from "./SignInMethods";
 
-// Settings while signed in: your username (ADR-046) and your sign-in methods (link and unlink
-// Google or Facebook). The server address is set while signed out (Welcome, Server address).
+// Settings while signed in: your username (ADR-046), your plan, rooms near you (ADR-052) and your
+// sign-in methods (link and unlink Google or Facebook). The server address is set while signed out (Welcome, Server address).
 export default function SettingsScreen() {
   const state = useAuth();
   const user = state.status === "signedIn" ? state.user : null;
@@ -45,6 +46,7 @@ export default function SettingsScreen() {
             />
           </Card>
         ) : null}
+        {user ? <NearbyRoomsSetting /> : null}
         {user ? <SignInMethods user={user} /> : null}
       </View>
     </Screen>

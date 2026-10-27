@@ -39,7 +39,17 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Music Room uses your position only when you vote in an event that takes votes at its venue, to check that you are there."
+          "locationWhenInUsePermission": "Music Room uses your position only when you vote in an event that takes votes at its venue, to check that you are there.",
+          "locationAlwaysAndWhenInUsePermission": "Music Room uses your position in the background only if you turn on Rooms near you in Settings, to tell you when you're near a public room. The server uses it to find those rooms and doesn't keep it.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": false
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/android-icon-monochrome.png",
+          "color": "#FF5A36"
         }
       ]
     ],

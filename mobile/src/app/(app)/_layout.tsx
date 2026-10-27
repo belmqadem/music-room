@@ -1,6 +1,7 @@
 import { Stack } from "expo-router";
 import { useEffect } from "react";
 import { StackHeader } from "@/components";
+import { useNearbyRooms } from "@/features/nearby/use-nearby-rooms";
 import { syncPlaylistChanges } from "@/features/playlist-editor/offline-edits";
 
 // Signed-in app: the tabs, with the other screens pushed on top of them. Pushed screens get the
@@ -12,6 +13,8 @@ export const unstable_settings = { initialRouteName: "(tabs)" };
 export default function AppLayout() {
   // Changes made offline in an earlier session are sent as soon as the app opens online (ADR-049).
   useEffect(syncPlaylistChanges, []);
+  // Rooms near you (ADR-052): a fresh list on opening, and a tapped notification opens its room.
+  useNearbyRooms();
   return (
     <Stack
       screenOptions={{
