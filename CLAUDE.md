@@ -117,6 +117,8 @@ and permission or privacy text say exactly what happens.
   **Confirm it's you**.
 - The unique name people find you by is the **username** (the code and the API say `displayName`,
   ADR-046): **Pick your username** after sign-up, **Change username** in Settings.
+- The two offers (ADR-048) are **Free** and **Premium**, on the **Plans** screen; switching is
+  **Upgrade to Premium** / **Switch to Free**. Payment is simulated, and the text says so plainly.
 
 **Rules for new text:**
 
