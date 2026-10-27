@@ -4,6 +4,7 @@ import { RequestError } from "@/api/api-error";
 import { enableProblemMessage, needsPhoneSettings } from "@/features/nearby/messages";
 import {
   artistsOf,
+  isNewTap,
   isWithin,
   markNotified,
   MAX_ROOM_REGIONS,
@@ -231,6 +232,22 @@ describe("opening a room from a tapped notification", () => {
     ["a number", { eventId: 42 }],
   ])("opens nothing for %s", (_label, data) => {
     expect(roomToOpen(data)).toBeNull();
+  });
+});
+
+describe("each tap opens its room once", () => {
+  it("opens a notification shown after the last one handled", () => {
+    expect(isNewTap(2_000, 1_000)).toBe(true);
+    expect(isNewTap(1_000, 0)).toBe(true);
+  });
+
+  it("ignores the same tap handed back again, or an older one", () => {
+    expect(isNewTap(1_000, 1_000)).toBe(false);
+    expect(isNewTap(500, 1_000)).toBe(false);
+  });
+
+  it("ignores a tap without a time", () => {
+    expect(isNewTap(Number.NaN, 0)).toBe(false);
   });
 });
 

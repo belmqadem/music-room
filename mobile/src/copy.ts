@@ -409,15 +409,9 @@ export const copy = {
    */
   nearby: {
     title: "Rooms near you",
-    on: "On",
-    off: "Off",
     explain:
-      "Get a notification when you're near a public room that takes votes at its venue. Your phone checks your position in the background to find them. The server uses it to look them up and doesn't keep it.",
-    turnOn: "Turn on",
-    turnOff: "Turn off",
+      "Get a notification when you're near a public room that takes votes at its venue.",
     openSettings: "Open settings",
-    /** Android 11+ opens the system page for "Allow all the time": say so before it happens. */
-    askAlways: 'Next, choose "Allow all the time" so this works while the app is closed.',
     errors: {
       servicesOff: "Turn on location on your phone first.",
       locationDenied: "Allow location to get rooms near you.",

@@ -879,9 +879,9 @@ Each decision must be defensible in detail at the defense. Copy the template for
   - Authorization is the visibility rule itself: the query reads public rooms only, and every signed-in user may see a public room.
   - The endpoint reveals nothing new: public rooms and their venues are already listed by `GET /events`.
   - The point the app sends is a precise location, so it is used for this one query. It is not stored, and the request log never writes query strings (a test checks this endpoint's log line). Validation errors name the field, never the value.
-- Decision (app): **Settings, Rooms near you**, off by default (`features/nearby`).
+- Decision (app): **Settings, Rooms near you**, a switch, off by default (`features/nearby`; a `Switch` component in the tokens: Ember when on).
   - **Turning it on** asks, in order:
-    - location, then location "all the time" (the system won't give the second without the first; Android 11+ opens its own page, so the card says beforehand what to pick);
+    - location, then location "all the time" (the system won't give the second without the first; Android 11+ opens its own settings page for it);
     - notifications (Android 13 asks only once a channel exists, so the channel is made first).
 
     It then fetches the rooms near you and only then counts as on. Anything refused leaves it off and says exactly what is missing, with Open settings when only the phone's settings can fix it.
@@ -898,7 +898,7 @@ Each decision must be defensible in detail at the defense. Copy the template for
     - Android may deliver an entry a few minutes late to save battery.
     - On the emulator, positions only reach the system while some app keeps GPS on (it has no Wi-Fi or cell location), so the test ran with Google Maps open in front: the real case of our app in the background.
   - Tests:
-    - App: 35 tests of the circles watched (19 + 1, the minimum size), notify-once per room and window, the notification text, the room a tap may open, the messages when turning it on fails, and the watcher (turning on and off, a room you're already in, entering a venue with a fresh list, a room no longer listed, the offline fallback, a refusal without fallback, two venues at once, leaving the area, a region after sign-out).
+    - App: 38 tests of the circles watched (19 + 1, the minimum size), notify-once per room and window, the notification text, the room a tap may open (and only once: the phone can hand the same tap back after signing in again, so the time of the last tap handled is kept, without the room), the messages when turning it on fails, and the watcher (turning on and off, a room you're already in, entering a venue with a fresh list, a room no longer listed, the offline fallback, a refusal without fallback, two venues at once, leaving the area, a region after sign-out).
     - On the Android emulator:
       - turned on 5.7 km from a public room;
       - moved to the venue with the app in the background: notified within seconds, "Rooftop at 42 is on near you", "Music from Daft Punk, Justice and Kavinsky";

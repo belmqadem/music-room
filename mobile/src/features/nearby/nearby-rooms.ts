@@ -151,3 +151,8 @@ export function roomToOpen(data: unknown): string | null {
   const id: unknown = (data as Record<string, unknown>)["eventId"];
   return typeof id === "string" && EVENT_ID.test(id) ? id : null;
 }
+
+/** A tap opens its room once: only a notification shown after the last one handled counts. */
+export function isNewTap(shownAt: number, lastOpenedAt: number): boolean {
+  return Number.isFinite(shownAt) && shownAt > lastOpenedAt;
+}

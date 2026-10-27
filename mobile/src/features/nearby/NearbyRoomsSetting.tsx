@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { Linking, Platform, View } from "react-native";
-import { Button, Card, Text } from "@/components";
+import { Linking, View } from "react-native";
+import { Button, Card, Switch, Text } from "@/components";
 import { copy } from "@/copy";
 import { enableProblemMessage, needsPhoneSettings } from "./messages";
 import { enableNearby, nearbySupported, nearbyWatcher } from "./nearby-native";
@@ -65,26 +65,19 @@ export function NearbyRoomsSetting() {
 
   return (
     <View className="gap-3">
-      <Text variant="h3">{text.title}</Text>
       <Card className="gap-3">
         <View className="min-h-12 flex-row items-center gap-3">
-          <Text className="flex-1">{enabled ? text.on : text.off}</Text>
-          <Button
-            title={enabled ? text.turnOff : text.turnOn}
-            variant={enabled ? "ghost" : "secondary"}
-            loading={busy}
-            onPress={() => void (enabled ? turnOff() : turnOn())}
+          <Text className="flex-1">{text.title}</Text>
+          <Switch
+            value={enabled}
+            onValueChange={(on) => void (on ? turnOn() : turnOff())}
+            disabled={busy}
+            accessibilityLabel={text.title}
           />
         </View>
         <Text variant="caption" tone="secondary">
           {text.explain}
         </Text>
-        {/* Android 11+ opens a system page for "all the time": say what to pick before it does. */}
-        {!enabled && Platform.OS === "android" ? (
-          <Text variant="caption" tone="secondary">
-            {text.askAlways}
-          </Text>
-        ) : null}
       </Card>
       {problem ? (
         <View className="gap-2">
