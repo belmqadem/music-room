@@ -124,9 +124,23 @@ function buildFonts(typography) {
   return roles;
 }
 
-function buildTypography(typography, fonts) {
+/** Our text styles are added to the export's scale. A style that already exists is an error. */
+function mergeScale(scale, extensions) {
+  const merged = { ...scale };
+  for (const [variant, style] of Object.entries(extensions?.typography?.scale ?? {})) {
+    if (variant in merged) {
+      throw new Error(
+        `design-tokens.extensions.json: typography.scale.${variant} already exists in design-tokens.json`,
+      );
+    }
+    merged[variant] = style;
+  }
+  return merged;
+}
+
+function buildTypography(scaleTokens, fonts) {
   const scale = {};
-  for (const [variant, style] of Object.entries(typography.scale)) {
+  for (const [variant, style] of Object.entries(scaleTokens)) {
     const role = fonts[style.fontFamily];
     if (!role)
       throw new Error(
@@ -320,7 +334,7 @@ export function generateTheme(tokens, extensions = {}) {
     radius: buildRadius(tokens.borderRadius),
     maxWidth: buildMaxWidth(extensions.maxWidth),
     fonts,
-    typography: buildTypography(tokens.typography, fonts),
+    typography: buildTypography(mergeScale(tokens.typography.scale, extensions), fonts),
   };
   return {
     ...theme,
