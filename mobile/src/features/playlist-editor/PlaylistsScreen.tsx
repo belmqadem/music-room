@@ -26,7 +26,7 @@ export default function PlaylistsScreen() {
       ) : (
         <FlatList
           className="flex-1"
-          contentContainerClassName="gap-3 px-5 py-6"
+          contentContainerClassName="flex-grow gap-3 px-5 py-6"
           data={playlists}
           keyExtractor={(playlist) => playlist.id}
           renderItem={({ item }) => <PlaylistListRow playlist={item} />}
@@ -46,7 +46,14 @@ export default function PlaylistsScreen() {
             ) : null
           }
           ListEmptyComponent={
-            error ? null : <Text tone="secondary">{copy.playlists.empty}</Text>
+            // The list grows to the space above the button, so this sits in its middle.
+            error ? null : (
+              <View className="flex-1 items-center justify-center">
+                <Text tone="secondary" className="text-center">
+                  {copy.playlists.empty}
+                </Text>
+              </View>
+            )
           }
         />
       )}

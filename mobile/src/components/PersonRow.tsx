@@ -17,7 +17,7 @@ export interface PersonRowProps {
   actionsBelow?: boolean;
 }
 
-/** One person. Names are not unique: the start of the id tells two people with the same name apart. */
+/** One person, by their username: unique (ADR-046), so it alone tells people apart. */
 export function PersonRow({
   user,
   onPress,
@@ -26,12 +26,9 @@ export function PersonRow({
   actionsBelow = false,
 }: PersonRowProps) {
   const who = (
-    <View className="flex-1 gap-1">
+    <View className="flex-1">
       <Text variant="h3" numberOfLines={1}>
         {user.displayName}
-      </Text>
-      <Text variant="caption" tone="secondary">
-        #{user.id.slice(0, 8)}
       </Text>
     </View>
   );
