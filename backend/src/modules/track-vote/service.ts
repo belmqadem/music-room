@@ -1,4 +1,10 @@
-import type { Invitation, MusicEvent, Page, VoteLicense } from "@music-room/shared";
+import type {
+  Invitation,
+  MusicEvent,
+  NearbyEventsResponse,
+  Page,
+  VoteLicense,
+} from "@music-room/shared";
 import { requirePremium } from "../access/plans.js";
 import type pg from "pg";
 import { withTransaction } from "../../db/postgres.js";
@@ -16,15 +22,18 @@ import {
   insertEvent,
   insertInvitation,
   listInvitations,
+  listNearbyEvents,
   listVisibleEvents,
   updateEvent,
   type EventRecord,
   type InvitationRecord,
 } from "./repository.js";
+import { readTopTracks } from "./queue-repository.js";
 import type {
   CreateEventInput,
   InviteInput,
   ListQuery,
+  NearbyQuery,
   UpdateEventInput,
 } from "./schema.js";
 
@@ -32,6 +41,7 @@ export interface EventService {
   create(userId: string, input: CreateEventInput): Promise<MusicEvent>;
   list(userId: string, query: ListQuery): Promise<Page<MusicEvent>>;
   get(userId: string, eventId: string): Promise<MusicEvent>;
+  nearby(userId: string, query: NearbyQuery): Promise<NearbyEventsResponse>;
   update(userId: string, eventId: string, input: UpdateEventInput): Promise<MusicEvent>;
   remove(userId: string, eventId: string): Promise<void>;
   listInvitations(
@@ -54,6 +64,13 @@ const toApiInvitation = (record: InvitationRecord): Invitation => ({
 const INVITATION_PRIMARY_KEY = "event_invitations_pkey";
 const INVITATION_EVENT_FK = "event_invitations_event_id_fkey";
 const INVITATION_USER_FK = "event_invitations_user_id_fkey";
+
+// "Rooms near me" (ADR-052). The app watches each returned venue as a region; iOS watches at
+// most 20 per app, so more would never be used.
+const NEARBY_WITHIN_METERS = 10_000;
+const NEARBY_HORIZON_MS = 12 * 60 * 60 * 1000;
+const NEARBY_LIMIT = 20;
+const NEARBY_TRACKS = 3;
 
 /** API license (ISO strings) -> the engine's license (Dates). */
 function toAccessLicense(license: VoteLicense): AccessLicense {
@@ -139,6 +156,37 @@ export function createEventService(deps: {
       const { resource, subject } = accessOf(record, userId);
       requireView("event", resource, subject);
       return toApiEvent(record, userId);
+    },
+
+    // Authorization: only public rooms are ever returned (the query's own condition), and every
+    // signed-in user may see a public room. The point is used for this query only: it is not
+    // stored, and the request log never writes query strings (request-logger.ts).
+    async nearby(userId, query) {
+      const now = Date.now();
+      const records = await listNearbyEvents(pool, userId, query, {
+        withinMeters: NEARBY_WITHIN_METERS,
+        from: new Date(now),
+        until: new Date(now + NEARBY_HORIZON_MS),
+        limit: NEARBY_LIMIT,
+      });
+      const tracks = await readTopTracks(
+        pool,
+        records.map((record) => record.id),
+        NEARBY_TRACKS,
+      );
+      return {
+        items: records.map((record) => ({
+          event: toApiEvent(record, userId),
+          distanceMeters: Math.round(record.distanceMeters),
+          tracks: (tracks.get(record.id) ?? []).map((track) => ({
+            providerTrackId: track.providerTrackId,
+            title: track.title,
+            artist: track.artist,
+            durationSeconds: track.durationSeconds,
+            coverUrl: track.coverUrl,
+          })),
+        })),
+      };
     },
 
     async update(userId, eventId, input) {

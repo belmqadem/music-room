@@ -4,6 +4,7 @@ import {
   createEventSchema,
   eventIdSchema,
   listQuerySchema,
+  nearbyQuerySchema,
   updateEventSchema,
 } from "../../src/modules/track-vote/schema.js";
 
@@ -195,5 +196,41 @@ describe("list cursors", () => {
     expect(() => decodeCursor(raw)).toThrowError(
       expect.objectContaining({ status: 400, code: "VALIDATION_ERROR" }),
     );
+  });
+});
+
+describe("nearbyQuerySchema", () => {
+  it("turns the query strings into numbers", () => {
+    expect(nearbyQuerySchema.parse({ latitude: "48.8566", longitude: "-2.35" })).toEqual({
+      latitude: 48.8566,
+      longitude: -2.35,
+    });
+  });
+
+  it("accepts the edges of the map and zero", () => {
+    expect(nearbyQuerySchema.parse({ latitude: "-90", longitude: "180" })).toEqual({
+      latitude: -90,
+      longitude: 180,
+    });
+    expect(nearbyQuerySchema.parse({ latitude: "0", longitude: "0" })).toEqual({
+      latitude: 0,
+      longitude: 0,
+    });
+  });
+
+  it.each([
+    ["missing latitude", { longitude: "2" }],
+    ["missing longitude", { latitude: "48" }],
+    // An empty value must not become 0, which is a real place.
+    ["empty latitude", { latitude: "", longitude: "2" }],
+    ["blank longitude", { latitude: "48", longitude: "  " }],
+    ["not a number", { latitude: "north", longitude: "2" }],
+    ["latitude past the pole", { latitude: "90.1", longitude: "2" }],
+    ["longitude past the date line", { latitude: "48", longitude: "-180.5" }],
+    ["infinity", { latitude: "Infinity", longitude: "2" }],
+    // ?latitude=1&latitude=2 arrives as an array.
+    ["a repeated parameter", { latitude: ["1", "2"], longitude: "2" }],
+  ])("refuses %s", (_label, query) => {
+    expect(nearbyQuerySchema.safeParse(query).success).toBe(false);
   });
 });

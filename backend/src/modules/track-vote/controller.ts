@@ -5,6 +5,7 @@ import {
   eventIdSchema,
   inviteSchema,
   listQuerySchema,
+  nearbyQuerySchema,
   updateEventSchema,
   userIdSchema,
 } from "./schema.js";
@@ -43,6 +44,13 @@ export function createEventController(service: EventService) {
       noStore(res)
         .status(200)
         .json(await service.get(userId, eventId(req)));
+    },
+
+    async nearby(req: Request, res: Response): Promise<void> {
+      const userId = requireUserId(req);
+      noStore(res)
+        .status(200)
+        .json(await service.nearby(userId, nearbyQuerySchema.parse(req.query)));
     },
 
     async update(req: Request, res: Response): Promise<void> {

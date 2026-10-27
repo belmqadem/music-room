@@ -38,7 +38,13 @@ export type {
 } from "./license";
 export type { Invitation, InviteRequest } from "./invitation";
 export type { Track } from "./track";
-export type { MusicEvent, CreateEventRequest, UpdateEventRequest } from "./event";
+export type {
+  MusicEvent,
+  CreateEventRequest,
+  UpdateEventRequest,
+  NearbyEvent,
+  NearbyEventsResponse,
+} from "./event";
 export type {
   EventTrack,
   SuggestTrackRequest,

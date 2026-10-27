@@ -1206,6 +1206,75 @@ export const openApiDocument = {
         },
       },
     },
+    "/api/v1/events/nearby": {
+      get: {
+        summary: "Public 'At the venue' rooms near a point (ADR-052)",
+        description:
+          "Public location_time rooms whose circle comes within 10 km of the point and whose window is on now or starts within 12 hours. Never private rooms (even when invited) and never your own. Rooms you are in come first, then by distance to their edge; at most 20. Each comes with the top of its queue (the playing track, then Up next; at most 3). The point is used for this query only: it is not stored or logged.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "latitude",
+            in: "query",
+            required: true,
+            schema: { type: "number", minimum: -90, maximum: 90 },
+          },
+          {
+            name: "longitude",
+            in: "query",
+            required: true,
+            schema: { type: "number", minimum: -180, maximum: 180 },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "The nearest rooms first",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["items"],
+                  properties: {
+                    items: {
+                      type: "array",
+                      maxItems: 20,
+                      items: {
+                        type: "object",
+                        required: ["event", "distanceMeters", "tracks"],
+                        properties: {
+                          event: { $ref: "#/components/schemas/MusicEvent" },
+                          distanceMeters: {
+                            type: "integer",
+                            description: "From the point to the venue's center.",
+                          },
+                          tracks: {
+                            type: "array",
+                            maxItems: 3,
+                            items: { $ref: "#/components/schemas/Track" },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "400": {
+            description: "VALIDATION_ERROR (missing or impossible latitude or longitude)",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "401": {
+            description: "UNAUTHENTICATED or TOKEN_EXPIRED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+        },
+      },
+    },
     "/api/v1/events/{eventId}": {
       get: {
         summary: "One event",

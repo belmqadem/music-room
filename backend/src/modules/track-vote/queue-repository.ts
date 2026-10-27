@@ -91,6 +91,42 @@ export async function readQueue(
   };
 }
 
+/**
+ * The top of each event's queue, for showing what kind of music a room plays: the `playing`
+ * track first, then the `queued` ones in the queue's order (the ORDER BY of readQueue).
+ * At most `perEvent` tracks per event; an event with none is simply absent from the map.
+ */
+export async function readTopTracks(
+  db: Queryable,
+  eventIds: string[],
+  perEvent: number,
+): Promise<Map<string, TrackRecord[]>> {
+  const top = new Map<string, TrackRecord[]>();
+  if (eventIds.length === 0) return top;
+  const { rows } = await db.query<TrackRow>(
+    `SELECT * FROM (
+       SELECT t.id, t.event_id, t.provider_track_id, t.title, t.artist, t.duration_seconds,
+              t.cover_url, t.suggested_by, t.status, t.vote_count, t.suggested_at,
+              false AS voted_by_me,
+              row_number() OVER (
+                PARTITION BY t.event_id
+                ORDER BY (t.status = 'playing') DESC, t.vote_count DESC, t.suggested_at, t.id
+              ) AS place
+       FROM event_tracks t
+       WHERE t.event_id = ANY($1::uuid[]) AND t.status IN ('playing', 'queued')
+     ) ranked
+     WHERE place <= $2
+     ORDER BY event_id, place`,
+    [eventIds, perEvent],
+  );
+  for (const row of rows) {
+    const tracks = top.get(row.event_id) ?? [];
+    tracks.push(toTrack(row));
+    top.set(row.event_id, tracks);
+  }
+  return top;
+}
+
 /** One track of THIS event (a track id of another event is simply not found). */
 export async function findTrack(
   db: Queryable,
