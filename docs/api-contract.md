@@ -34,7 +34,7 @@ Every non-2xx response has this body (type `ApiError`):
 | ---- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 400  | Malformed or invalid request                                 | `VALIDATION_ERROR`, `INVALID_CODE`, `LOCATION_REQUIRED`                                                                                                                                                                                               |
 | 401  | Not authenticated                                            | `UNAUTHENTICATED`, `TOKEN_EXPIRED`, `INVALID_CREDENTIALS`, `INVALID_REFRESH_TOKEN`, `INVALID_PROVIDER_CREDENTIAL`                                                                                                                                     |
-| 403  | You can see it, but may not do this                          | `EMAIL_NOT_VERIFIED`, `REAUTH_FAILED`, `DISPLAY_NAME_REQUIRED`, `FORBIDDEN`, `NOT_INVITED`, `OUTSIDE_VOTING_AREA`, `OUTSIDE_VOTING_TIME`                                                                                                              |
+| 403  | You can see it, but may not do this                          | `EMAIL_NOT_VERIFIED`, `REAUTH_FAILED`, `DISPLAY_NAME_REQUIRED`, `PREMIUM_REQUIRED`, `FORBIDDEN`, `NOT_INVITED`, `OUTSIDE_VOTING_AREA`, `OUTSIDE_VOTING_TIME`                                                                                          |
 | 404  | Does not exist **or you may not know it exists**             | `USER_NOT_FOUND`, `FRIENDSHIP_NOT_FOUND`, `EVENT_NOT_FOUND`, `PLAYLIST_NOT_FOUND`, `TRACK_NOT_FOUND`, `NOT_FOUND` (unknown route)                                                                                                                     |
 | 409  | Conflicts with current state                                 | `EMAIL_TAKEN`, `DISPLAY_NAME_TAKEN`, `FRIEND_REQUEST_EXISTS`, `ALREADY_FRIENDS`, `PROVIDER_ACCOUNT_LINKED`, `LAST_LOGIN_METHOD`, `ALREADY_INVITED`, `TRACK_ALREADY_QUEUED`, `TRACK_NOT_VOTABLE`, `QUEUE_CHANGED`, `ANCHOR_NOT_FOUND`, `PLAYLIST_FULL` |
 | 429  | Rate limited                                                 | `RATE_LIMITED`                                                                                                                                                                                                                                        |
@@ -86,6 +86,7 @@ rejects the request; values are stripped of unsafe characters and capped at 64 c
 | POST   | `/auth/logout`                   | bearer | Revoke the session of `{ refreshToken }` (always 204)                 | 204                       | 401                                                                    |
 | GET    | `/users/me`                      | bearer | The signed-in user, incl. linked providers                            | 200 `User`                | 401                                                                    |
 | PUT    | `/users/me/display-name`         | bearer | Choose or change your display name (`{ displayName }`, ADR-046)       | 200 `User`                | 400, 401, 409 `DISPLAY_NAME_TAKEN`                                     |
+| PUT    | `/users/me/plan`                 | bearer | Switch Free / Premium (`{ plan }`, ADR-048; payment simulated)        | 200 `User`                | 400, 401                                                               |
 | GET    | `/users`                         | bearer | Search users by display name prefix (`?query=`, see Finding users)    | 200 page of `UserSummary` | 400, 401, 429                                                          |
 | POST   | `/users/me/providers/{provider}` | bearer | Link a Google/Facebook account (body: `credential` + `reauth`)        | 200 `User`                | 400, 401, 403 `REAUTH_FAILED`, 409 `PROVIDER_ACCOUNT_LINKED`, 429, 502 |
 | DELETE | `/users/me/providers/{provider}` | bearer | Unlink a provider (body: `reauth`)                                    | 200 `User`                | 400, 403 `REAUTH_FAILED`, 404, 409 `LAST_LOGIN_METHOD`, 429            |
@@ -248,6 +249,28 @@ the owner's `userId`. Only the two people concerned ever see it, so it reveals n
   `birthDate` must be a real date between 1900-01-01 and today. `phone` is digits with `+ ( ) . -` and spaces.
 - Responses are `Cache-Control: no-store`: what a profile shows depends on who asks.
 - Your own id in `/users/{userId}/profile` gives the same answer as `/users/me/profile`.
+
+## Plans: Free and Premium (Decided: ADR-048)
+
+The subject's bonus: two offers, and some features only on the paid one. **Payment is simulated**: `PUT
+/users/me/plan { plan: "free" | "premium" }` switches at once, and `User.plan` says which one a user is on. Everyone
+starts on Free. Every switch is logged (`plan_changes`, with the client's platform, device and app version);
+switching to the plan you already have changes nothing.
+
+| Needs Premium                                                                             | Free for everyone                                                        |
+| ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `POST /playlists`, `PATCH /playlists/{id}`, `POST /playlists/{id}/invitations`            | Seeing playlists, rooms, profiles; friends; search                       |
+| `POST /playlists/{id}/tracks`, `.../tracks/{entryId}/move`, `DELETE .../tracks/{entryId}` | Creating rooms for everyone or for invited people; suggesting and voting |
+| `POST /events` and `PATCH /events/{id}` with a `location_time` license ("At the venue")   | `DELETE` of your own playlist or room, removing invitations              |
+
+- Refused with `403 PREMIUM_REQUIRED`, checked by the server on every request (the app only hides what a free user
+  cannot do). The plan is read at the moment of the request, so a switch counts from the very next one.
+- The check comes after the visibility and permission checks: a playlist you may not see is still `404`, and one you
+  may not edit by its license is still `403 NOT_INVITED`.
+- **After a downgrade** nothing is deleted. Your playlists stay, read-only for you; collaborators on Premium can still
+  edit them. Your "At the venue" rooms keep working (others still vote there by location); you can rename them or make
+  them free to vote in, not set a new venue.
+- Live updates (`/live`) are not gated: following a playlist or a room is reading.
 
 ## Access rules (Decided: ADR-005)
 
@@ -503,3 +526,4 @@ ANCHOR_NOT_FOUND`. Moving an entry after itself, or to the place it already has,
 | 2026-10-26 | Auth: `User.hasPassword` (boolean), whether the account can sign in with a password; always present; additive for readers (ADR-044)                                                                                                                                                                                                                                | belmqadem | pending     |
 | 2026-10-27 | Unique display names (ADR-046): `RegisterRequest` loses `displayName` (**breaking** for register); new `PUT /users/me/display-name` (`SetDisplayNameRequest`), `User.displayNameSet`, error codes `DISPLAY_NAME_TAKEN` (409) and `DISPLAY_NAME_REQUIRED` (403, every bearer route and the socket handshake until a name is chosen); search finds only chosen names | belmqadem | pending     |
 | 2026-10-27 | Provider credentials work once, Google ID tokens older than 10 minutes are refused (ADR-047); no new type or code, same errors                                                                                                                                                                                                                                     | belmqadem | pending     |
+| 2026-10-27 | Plans (ADR-048): `User.plan` (`Plan`: `free` \| `premium`), `PUT /users/me/plan` (`SetPlanRequest`), error code `PREMIUM_REQUIRED` (403) on creating and editing playlists and on `location_time` rooms; additive for readers, but those writes now need Premium                                                                                                   | belmqadem | pending     |

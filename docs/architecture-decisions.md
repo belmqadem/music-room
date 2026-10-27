@@ -785,6 +785,21 @@ Each decision must be defensible in detail at the defense. Copy the template for
 - Not changed: access tokens stay valid until they expire (at most 15 minutes) after logout. A Redis deny-list would close it at the price of a read on every request and every socket handshake; ADR-003's stateless tokens are kept and the risk stays accepted in `docs/security.md`.
 - Consequences: every login, link or proof needs a fresh credential from the SDK, which the app already does (it signs the SDK out right after taking a token, ADR-033). To check on devices: that Facebook hands out a new classic token at each sign-in after that sign-out. Tests: unit (the Google age limit, the Facebook expiry and its 90-day cap) and integration (a replayed login, 8 simultaneous uses with exactly one winner, a credential spent on login refused as a proof and the other way round, only hashes stored and never a refused credential, expired rows forgotten); four mutations each fail a test.
 
+### ADR-048: Free and Premium: the Playlist Editor and "At the venue" rooms are paid
+
+- Status: accepted
+- Date: 2026-10-27
+- Deciders: belmqadem, kaoutharrr (contract change: both review)
+- Context: the subject's bonus asks for two offers, a free limited one and a paid one, a way to switch between them, and some features only on the paid one ("Music Playlist Editor for instance"). The mandatory part is closed.
+- Options considered:
+  - **What is paid**: the Playlist Editor only (the subject's example); or **the Playlist Editor and "At the venue" rooms** (chosen): two modules gated shows the rule is general, and Track Vote stays free where new people arrive (a friend invites you to a room).
+  - **Payment**: a real provider (store billing, or Stripe test mode with keys and webhooks), or **simulated** (chosen): the subject asks for switching between offers, not for payments, and a real flow adds accounts and secrets to defend for nothing graded. The switch is an explicit, confirmed action, recorded like a purchase would be.
+  - **Where the plan is checked**: in the access token (stale until refresh, as with ADR-046's claim) or **read from the database on the gated writes only** (chosen): a switch counts from the next request, and reads, by far the most frequent calls, cost nothing more.
+  - **After a downgrade**: delete or hide what was made on Premium; or **keep everything, read-only for the free owner** (chosen), with Premium collaborators still able to edit and a free owner still able to shrink what they own (delete, remove invitations).
+- Decision: `users.plan` (`free` default, `premium`) with `plan_changed_at`, and `plan_changes` logging every switch with the client's platform, device and app version (one locked transaction, so simultaneous switches log only what really changed). `PUT /users/me/plan`. `requirePremium` (access module) on creating a playlist, changing its settings, inviting to it, and adding, moving and removing its tracks; on creating a room with, or switching a room to, a `location_time` license. It runs after the visibility and permission checks, so a hidden playlist still answers 404. `403 PREMIUM_REQUIRED` otherwise.
+- Security: the server decides on every request; the app only hides buttons. The plan cannot be set by any other route (strict bodies). A known window: a write whose plan check ran just before a downgrade can still complete; the next one is refused.
+- Consequences: test users that create playlists or venue rooms are created on Premium. Tests: every gated route on Free and Premium, a downgrade with each kind of edit, a Premium collaborator after the owner's downgrade, what stays free (rooms, voting, deleting, removing invitations), the 404-before-403 order, an upgrade counting at once, the log and simultaneous switches; six mutations each fail a test.
+
 ## Still to decide (record each as an ADR)
 
 TODO:
