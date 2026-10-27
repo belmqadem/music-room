@@ -32,7 +32,9 @@ async function currentPoint(): Promise<Point | null> {
     const reading =
       last ??
       (await withTimeout(
-        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+        // One fix, not a stream: high accuracy uses GPS when there is no Wi-Fi or cell position
+        // (and on the emulator, whose only source is GPS).
+        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }),
         POSITION_TIMEOUT_MS,
       ));
     return { latitude: reading.coords.latitude, longitude: reading.coords.longitude };

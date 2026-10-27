@@ -860,7 +860,7 @@ Each decision must be defensible in detail at the defense. Copy the template for
 
 ### ADR-052: Rooms near you, by geofencing instead of Bluetooth beacons
 
-- Status: accepted (backend); the app part follows in its own PR
+- Status: accepted
 - Date: 2026-10-27
 - Deciders: belmqadem, kaoutharrr
 - Context: the subject's IoT bonus suggests "a mechanism such as iBeacon": people who get near a public room receive its details automatically (how to get in, the kind of music). "At the venue" rooms already store a venue (a circle) and a time window (ADR-005).
@@ -879,8 +879,35 @@ Each decision must be defensible in detail at the defense. Copy the template for
   - Authorization is the visibility rule itself: the query reads public rooms only, and every signed-in user may see a public room.
   - The endpoint reveals nothing new: public rooms and their venues are already listed by `GET /events`.
   - The point the app sends is a precise location, so it is used for this one query. It is not stored, and the request log never writes query strings (a test checks this endpoint's log line). Validation errors name the field, never the value.
-- Decision (app, next PR): a Settings switch, off by default. Turning it on asks for location "all the time" and notifications. With it on, the app fetches the nearby rooms and registers their circles with the system (`expo-location` geofencing, `expo-task-manager`). Entering a circle shows a local notification (`expo-notifications`) with the room's name, when it is on and its music; tapping it opens the room, where the server checks voting rights as usual. No push server and no keys.
+- Decision (app): **Settings, Rooms near you**, off by default (`features/nearby`).
+  - **Turning it on** asks, in order:
+    - location, then location "all the time" (the system won't give the second without the first; Android 11+ opens its own page, so the card says beforehand what to pick);
+    - notifications (Android 13 asks only once a channel exists, so the channel is made first).
+
+    It then fetches the rooms near you and only then counts as on. Anything refused leaves it off and says exactly what is missing, with Open settings when only the phone's settings can fix it.
+
+  - **Watching**: the phone watches up to 19 venue circles (at least 150 m wide: phones notice smaller ones late) plus a 5 km circle around where the list was fetched. Leaving that circle fetches the list again from where you are, so the 20 regions iOS allows follow you. The list is also fetched again on opening the app, and a room you are already within is notified at once.
+  - **Entering a venue** asks the server again from the venue, so a room deleted, made private or over since the last list is not announced. Only when the server can't be reached does it use the last list, which was public when fetched; a refusal is the server's last word.
+  - **The notification** is local (`expo-notifications`; no push server and no keys). It says the room's name, "is on near you" or "starts at 21:00 near you" in the phone's time, up to three artists from the queue, and that a tap opens the room. One per room and window. A tap opens the room, where the server checks access and voting rights as usual. Only a room id from our own notifications is opened.
+  - **Stopping**: turning it off, or signing out, stops watching. The switch, the list and the record of rooms notified live in the offline store, which sign-out wipes (ADR-049), so the next person to sign in on the phone starts with it off. A region still reported after that is ignored and stopped.
+  - Not on the web: browsers have no background geofencing, so the card is not shown there.
 - Consequences: one migration (an index only). Rooms that change after the app fetched them are corrected the next time it fetches, and opening the room always shows the server's current state. Tests: the query's validation, and against Postgres: authentication, every room left out and why, the time and distance limits, the order, the limit of 20, the queue's top, the log line, and the SQL distance against the access rules'.
+  - App: two native modules, `expo-task-manager` and `expo-notifications`, installed from the lockfile (only the new packages were added, and expo-constants moved to 57.0.22, which expo-notifications needs). The dev builds were rebuilt once. Android declares background location but no foreground service: geofencing doesn't need one.
+  - Limits, from the systems:
+    - Android doesn't restart an app the user swiped away for a geofence; iOS does.
+    - Android may deliver an entry a few minutes late to save battery.
+    - On the emulator, positions only reach the system while some app keeps GPS on (it has no Wi-Fi or cell location), so the test ran with Google Maps open in front: the real case of our app in the background.
+  - Tests:
+    - App: 35 tests of the circles watched (19 + 1, the minimum size), notify-once per room and window, the notification text, the room a tap may open, the messages when turning it on fails, and the watcher (turning on and off, a room you're already in, entering a venue with a fresh list, a room no longer listed, the offline fallback, a refusal without fallback, two venues at once, leaving the area, a region after sign-out).
+    - On the Android emulator:
+      - turned on 5.7 km from a public room;
+      - moved to the venue with the app in the background: notified within seconds, "Rooftop at 42 is on near you", "Music from Daft Punk, Justice and Kavinsky";
+      - the tap opened the room;
+      - leaving and coming back said nothing new;
+      - turning off cleared the switch and the list;
+      - turning on inside another venue notified it at once ("The queue's empty so far");
+      - sign-out wiped every stored copy, and the venue said nothing after.
+    - The web loads unchanged and shows no card. Not checked on iOS.
 
 ## Still to decide (record each as an ADR)
 
