@@ -371,6 +371,7 @@ export const openApiDocument = {
           "emailVerified",
           "linkedProviders",
           "displayNameSet",
+          "plan",
           "hasPassword",
           "createdAt",
         ],
@@ -385,6 +386,12 @@ export const openApiDocument = {
             type: "boolean",
             description:
               "False until the user chose their display name; until then every signed-in route except GET /users/me, PUT /users/me/display-name and POST /auth/logout answers 403 DISPLAY_NAME_REQUIRED.",
+          },
+          plan: {
+            type: "string",
+            enum: ["free", "premium"],
+            description:
+              'Free or Premium (ADR-048). Premium unlocks creating and editing playlists and "At the venue" rooms; otherwise 403 PREMIUM_REQUIRED.',
           },
           email: { type: "string", nullable: true },
           emailVerified: { type: "boolean" },
@@ -789,6 +796,47 @@ export const openApiDocument = {
             description: "The user",
             content: {
               "application/json": { schema: { $ref: "#/components/schemas/User" } },
+            },
+          },
+          "401": {
+            description: "UNAUTHENTICATED or TOKEN_EXPIRED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+        },
+      },
+    },
+    "/api/v1/users/me/plan": {
+      put: {
+        summary: "Switch between Free and Premium (ADR-048, payment simulated)",
+        description:
+          "Switching to the plan you already have changes nothing. Every switch is logged with the client's platform, device and app version.",
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                additionalProperties: false,
+                required: ["plan"],
+                properties: { plan: { type: "string", enum: ["free", "premium"] } },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "The user, with the new plan",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/User" } },
+            },
+          },
+          "400": {
+            description: "VALIDATION_ERROR",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
             },
           },
           "401": {

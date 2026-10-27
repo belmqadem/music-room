@@ -56,6 +56,7 @@ import {
   updatePasswordHash,
   spendProviderCredential,
   upsertEmailCode,
+  switchPlan,
   updateDisplayName,
   violatedConstraint,
   type UserRecord,
@@ -70,6 +71,7 @@ import type {
   RegisterInput,
   ResetPasswordInput,
   SetDisplayNameInput,
+  SetPlanInput,
   VerifyEmailInput,
 } from "./schema.js";
 
@@ -97,6 +99,12 @@ export interface AuthService {
   getUser(userId: string): Promise<User>;
   /** Chooses (or changes) the display name (ADR-046). 409 DISPLAY_NAME_TAKEN if someone has it. */
   setDisplayName(userId: string, input: SetDisplayNameInput): Promise<User>;
+  /** Switches Free/Premium (ADR-048; payment simulated) and logs where the switch came from. */
+  setPlan(
+    userId: string,
+    input: SetPlanInput,
+    client: { platform: string; device: string; appVersion: string },
+  ): Promise<User>;
   oauthLogin(provider: OAuthProvider, input: OAuthBody): Promise<AuthSession>;
   linkProvider(
     userId: string,
@@ -127,6 +135,7 @@ export function createAuthService(deps: AuthServiceDependencies): AuthService {
       id: user.id,
       displayName: user.displayName,
       displayNameSet: user.displayNameSet,
+      plan: user.plan,
       email: user.email,
       emailVerified: user.emailVerifiedAt !== null,
       linkedProviders: linkedProviders as OAuthProvider[],
@@ -554,6 +563,15 @@ export function createAuthService(deps: AuthServiceDependencies): AuthService {
     },
 
     getUser: getUserById,
+
+    async setPlan(userId, input, client) {
+      const user = await withTransaction(pool, (db) =>
+        switchPlan(db, userId, input.plan, client),
+      );
+      if (!user) throw new HttpError(401, "UNAUTHENTICATED", "Authentication required.");
+      logger.info({ userId, plan: user.plan, client }, "plan set");
+      return toApiUser(user, await findLinkedProviders(pool, user.id));
+    },
 
     async setDisplayName(userId, input) {
       let user: UserRecord | null;

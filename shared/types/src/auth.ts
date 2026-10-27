@@ -1,6 +1,6 @@
 // API contract: authentication. Owner: belmqadem (Core & Infra). Changes need review from BOTH developers.
 // See docs/api-contract.md ("Authentication") and ADR-003.
-import type { OAuthProvider, User } from "./user";
+import type { OAuthProvider, Plan, User } from "./user";
 
 /** The display name is chosen after the email is verified (ADR-046), not here. */
 export interface RegisterRequest {
@@ -15,6 +15,11 @@ export interface RegisterRequest {
  */
 export interface SetDisplayNameRequest {
   displayName: string;
+}
+
+/** Body of PUT /users/me/plan (ADR-048): switch offer. Payment is simulated. */
+export interface SetPlanRequest {
+  plan: Plan;
 }
 
 export interface LoginRequest {

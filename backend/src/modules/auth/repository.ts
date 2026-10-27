@@ -11,6 +11,8 @@ export interface UserRecord {
   displayName: string;
   /** False until the user chose their display name (ADR-046); the name is temporary until then. */
   displayNameSet: boolean;
+  /** Free or Premium (ADR-048). */
+  plan: "free" | "premium";
   createdAt: Date;
   /** When the email address was proven to belong to the user; null = never. */
   emailVerifiedAt: Date | null;
@@ -22,12 +24,13 @@ interface UserRow {
   password_hash: string | null;
   display_name: string;
   display_name_set: boolean;
+  plan: "free" | "premium";
   created_at: Date;
   email_verified_at: Date | null;
 }
 
 const USER_COLUMNS =
-  "id, email, password_hash, display_name, display_name_set, created_at, email_verified_at";
+  "id, email, password_hash, display_name, display_name_set, plan, created_at, email_verified_at";
 
 /**
  * A new account's temporary display name (ADR-046): `user_` and the first 12 hex digits of its
@@ -44,6 +47,7 @@ function toUserRecord(row: UserRow): UserRecord {
     passwordHash: row.password_hash,
     displayName: row.display_name,
     displayNameSet: row.display_name_set,
+    plan: row.plan,
     createdAt: row.created_at,
     emailVerifiedAt: row.email_verified_at,
   };
@@ -128,8 +132,8 @@ export async function findUserByIdentity(
   providerUserId: string,
 ): Promise<UserRecord | null> {
   const { rows } = await db.query<UserRow>(
-    `SELECT u.id, u.email, u.password_hash, u.display_name, u.display_name_set, u.created_at,
-            u.email_verified_at
+    `SELECT u.id, u.email, u.password_hash, u.display_name, u.display_name_set, u.plan,
+            u.created_at, u.email_verified_at
      FROM oauth_identities i JOIN users u ON u.id = i.user_id
      WHERE i.provider = $1 AND i.provider_user_id = $2`,
     [provider, providerUserId],
@@ -414,4 +418,30 @@ export async function spendProviderCredential(
     [credentialHash, expiresAt],
   );
   return rowCount === 1;
+}
+
+/**
+ * Switches the user's plan and records the switch (ADR-048), on the transaction's client: the
+ * row is locked first, so two simultaneous switches run one after the other and each logs what
+ * really changed. Null when the user no longer exists; the unchanged user when it is already on
+ * that plan (nothing is logged then).
+ */
+export async function switchPlan(
+  db: Queryable,
+  id: string,
+  plan: "free" | "premium",
+  client: { platform: string; device: string; appVersion: string },
+): Promise<UserRecord | null> {
+  const current = await lockUser(db, id);
+  if (!current || current.plan === plan) return current;
+  const { rows } = await db.query<UserRow>(
+    `UPDATE users SET plan = $2, plan_changed_at = now() WHERE id = $1 RETURNING ${USER_COLUMNS}`,
+    [id, plan],
+  );
+  await db.query(
+    `INSERT INTO plan_changes (user_id, from_plan, to_plan, platform, device, app_version)
+     VALUES ($1, $2, $3, $4, $5, $6)`,
+    [id, current.plan, plan, client.platform, client.device, client.appVersion],
+  );
+  return rows[0] ? toUserRecord(rows[0]) : null;
 }

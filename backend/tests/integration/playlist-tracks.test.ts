@@ -98,7 +98,7 @@ describe.skipIf(!databaseUrl)("playlist tracks: read, add, move, remove", () => 
 
   async function makeUser(name: string): Promise<TestUser> {
     const { rows } = await pool.query(
-      "INSERT INTO users (display_name) VALUES ($1) RETURNING id",
+      "INSERT INTO users (display_name, plan) VALUES ($1, 'premium') RETURNING id",
       [`${NAME_PREFIX}${name}`],
     );
     return {

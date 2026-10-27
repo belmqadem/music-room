@@ -1,4 +1,5 @@
 import type { PlaylistEntry, PlaylistSnapshot } from "@music-room/shared";
+import { requirePremium } from "../access/plans.js";
 import type pg from "pg";
 import type { Logger } from "pino";
 import { withTransaction } from "../../db/postgres.js";
@@ -112,7 +113,10 @@ export function createEntryService(deps: {
   const events = deps.events ?? noRealtime;
   const context = () => ({ now: new Date() }); // playlists have no time or place rule
 
-  /** The playlist as `userId` is allowed to edit it, or the HTTP error that says why not. */
+  /**
+   * The playlist as `userId` is allowed to edit it, or the HTTP error that says why not: hidden
+   * (404), not allowed by its license (403), or not on Premium (403 PREMIUM_REQUIRED, ADR-048).
+   */
   async function requireEditable(
     db: Pick<pg.Pool, "query">,
     userId: string,
@@ -123,6 +127,7 @@ export function createEntryService(deps: {
     if (!playlist) throw toHttpError("playlist", "NOT_FOUND");
     const { resource, subject } = accessOf(playlist, userId);
     requireAct("playlist", resource, subject, context());
+    await requirePremium(db, userId);
   }
 
   async function currentSnapshot(db: Pick<pg.Pool, "query">, playlistId: string) {

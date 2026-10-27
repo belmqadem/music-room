@@ -10,6 +10,7 @@ import {
   registerSchema,
   resetPasswordSchema,
   setDisplayNameSchema,
+  setPlanSchema,
   unlinkProviderSchema,
   verifyEmailSchema,
 } from "./schema.js";
@@ -91,6 +92,20 @@ export function createAuthController(service: AuthService) {
       }
       const input = setDisplayNameSchema.parse(req.body);
       res.status(200).json(await service.setDisplayName(req.auth.userId, input));
+    },
+
+    async setPlan(req: Request, res: Response): Promise<void> {
+      if (!req.auth) {
+        // Only reachable if the route was wired without the authenticate middleware.
+        throw new HttpError(401, "UNAUTHENTICATED", "Authentication required.");
+      }
+      const input = setPlanSchema.parse(req.body);
+      const client = req.client ?? {
+        platform: "unknown",
+        device: "unknown",
+        appVersion: "unknown",
+      };
+      res.status(200).json(await service.setPlan(req.auth.userId, input, client));
     },
 
     async oauthLogin(req: Request, res: Response): Promise<void> {

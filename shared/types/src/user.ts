@@ -3,6 +3,12 @@
 
 export type OAuthProvider = "google" | "facebook";
 
+/**
+ * The two offers (ADR-048). Premium unlocks the Playlist Editor (creating and editing playlists)
+ * and "At the venue" rooms; everything else is free. Payment is simulated.
+ */
+export type Plan = "free" | "premium";
+
 /** A user. Never contains secrets (no password hash, no tokens). */
 export interface User {
   id: string; // UUID
@@ -20,6 +26,8 @@ export interface User {
   email: string | null;
   /** True once the address was proven (a code from the email, or a provider that vouches for it). */
   emailVerified: boolean;
+  /** The user's offer; switched with PUT /users/me/plan. */
+  plan: Plan;
   /** Social accounts linked to this user. */
   linkedProviders: OAuthProvider[];
   /**
