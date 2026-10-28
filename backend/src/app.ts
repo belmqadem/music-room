@@ -59,6 +59,7 @@ export interface AppDependencies {
   userSearchLimit?: RateLimitSettings;
   friendRequestLimit?: RateLimitSettings;
   catalogSearchLimit?: RateLimitSettings;
+  trackPreviewLimit?: RateLimitSettings;
   suggestLimit?: RateLimitSettings;
   playlistAddLimit?: RateLimitSettings;
   /** Tests only: the server clock the location_time window is judged by. */
@@ -194,6 +195,7 @@ export function createApp(deps: AppDependencies): Express {
       jwtSecret: deps.jwtSecret,
       ...(deps.redis && { redis: deps.redis }),
       ...(deps.catalogSearchLimit && { searchLimit: deps.catalogSearchLimit }),
+      ...(deps.trackPreviewLimit && { previewLimit: deps.trackPreviewLimit }),
     }),
   );
 

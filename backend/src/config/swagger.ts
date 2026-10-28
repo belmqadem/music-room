@@ -2062,6 +2062,67 @@ export const openApiDocument = {
         },
       },
     },
+    "/api/v1/tracks/{providerTrackId}/preview": {
+      get: {
+        summary: "A fresh link to a track's 30-second sample (ADR-053)",
+        description:
+          "Deezer signs sample links and they expire within minutes: ask when the person presses play, never store it. Only https links on Deezer's audio host are returned. Any signed-in person may ask (public catalog data). Rate limited: each call is a request to Deezer.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "providerTrackId",
+            in: "path",
+            required: true,
+            schema: { type: "string", maxLength: 64, pattern: "^[A-Za-z0-9_-]+$" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "The sample's link",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["url"],
+                  properties: { url: { type: "string", format: "uri" } },
+                },
+              },
+            },
+          },
+          "400": {
+            description: "VALIDATION_ERROR",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "401": {
+            description: "UNAUTHENTICATED or TOKEN_EXPIRED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "404": {
+            description:
+              "TRACK_NOT_FOUND (unknown track) or PREVIEW_UNAVAILABLE (no sample)",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "429": {
+            description: "RATE_LIMITED",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+          "502": {
+            description: "PROVIDER_UNAVAILABLE: the catalog could not be reached",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ApiError" } },
+            },
+          },
+        },
+      },
+    },
     "/api/v1/events/{eventId}/tracks": {
       get: {
         summary: "The queue: playing track first, then queued tracks in ranking order",

@@ -37,7 +37,7 @@ export type {
   GeoPoint,
 } from "./license";
 export type { Invitation, InviteRequest } from "./invitation";
-export type { Track } from "./track";
+export type { Track, TrackPreview } from "./track";
 export type {
   MusicEvent,
   CreateEventRequest,

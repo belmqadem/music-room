@@ -67,6 +67,7 @@ describe.skipIf(!databaseUrl)("playlist tracks: read, add, move, remove", () => 
       if (id === "404") return Promise.resolve(null);
       return Promise.resolve(song(id));
     },
+    getPreview: () => Promise.resolve({ kind: "noPreview" }),
   };
 
   beforeAll(() => {

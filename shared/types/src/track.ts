@@ -10,3 +10,12 @@ export interface Track {
   durationSeconds: number;
   coverUrl: string | null;
 }
+
+/**
+ * GET /tracks/{providerTrackId}/preview: a 30-second sample of the track (ADR-053). The link is
+ * signed by the catalog and expires within minutes, so fetch it when the person presses play,
+ * never store it. Only https links on the catalog's own audio host are ever returned.
+ */
+export interface TrackPreview {
+  url: string;
+}
