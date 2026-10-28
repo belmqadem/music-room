@@ -440,6 +440,50 @@ describe("when the phone reports a region", () => {
     expect(deps.notify).toHaveBeenCalledTimes(1);
   });
 
+  it("standing at a venue: the phone's repeated 'entered' asks the server again but hands the same circles only once", async () => {
+    const venue = room({ distanceMeters: 0 });
+    const { deps, watcher } = setup([venue]);
+    await watcher.enable(HERE);
+    expect(deps.geofences.watch).toHaveBeenCalledTimes(1);
+
+    // iOS reports "entered" again each time it is handed circles you're already in.
+    await watcher.handleRegionEvent(enter(regionOf(venue)));
+    await watcher.handleRegionEvent(enter(regionOf(venue)));
+    await watcher.handleRegionEvent(enter(regionOf(venue)));
+
+    // From the venue the area to leave is centered there: handed once, then never again.
+    expect(deps.geofences.watch).toHaveBeenCalledTimes(2);
+    expect(deps.geofences.watch).toHaveBeenLastCalledWith(
+      regionsFor([venue], regionOf(venue)),
+    );
+    expect(deps.notify).toHaveBeenCalledTimes(1);
+  });
+
+  it("hands the circles again when the list changes", async () => {
+    const venue = room({ distanceMeters: 0 });
+    const other = room({ distanceMeters: 2_000 });
+    const { deps, setList, watcher } = setup([venue]);
+    await watcher.enable(HERE);
+    await watcher.handleRegionEvent(enter(regionOf(venue)));
+    setList([venue, other]);
+
+    await watcher.handleRegionEvent(enter(regionOf(venue)));
+
+    expect(deps.geofences.watch).toHaveBeenLastCalledWith(
+      regionsFor([venue, other], regionOf(venue)),
+    );
+  });
+
+  it("after turning off and on, hands the circles again even if they are the same", async () => {
+    const { deps, watcher } = setup([room({ distanceMeters: 3_000 })]);
+    await watcher.enable(HERE);
+    await watcher.disable();
+
+    await watcher.enable(HERE);
+
+    expect(deps.geofences.watch).toHaveBeenCalledTimes(2);
+  });
+
   it("two venues entered at the same moment are both notified", async () => {
     const a = room({ distanceMeters: 0 });
     const b = room({ distanceMeters: 0 });
