@@ -35,7 +35,7 @@ Every non-2xx response has this body (type `ApiError`):
 | 400  | Malformed or invalid request                                 | `VALIDATION_ERROR`, `INVALID_CODE`, `LOCATION_REQUIRED`                                                                                                                                                                                               |
 | 401  | Not authenticated                                            | `UNAUTHENTICATED`, `TOKEN_EXPIRED`, `INVALID_CREDENTIALS`, `INVALID_REFRESH_TOKEN`, `INVALID_PROVIDER_CREDENTIAL`                                                                                                                                     |
 | 403  | You can see it, but may not do this                          | `EMAIL_NOT_VERIFIED`, `REAUTH_FAILED`, `DISPLAY_NAME_REQUIRED`, `PREMIUM_REQUIRED`, `FORBIDDEN`, `NOT_INVITED`, `OUTSIDE_VOTING_AREA`, `OUTSIDE_VOTING_TIME`                                                                                          |
-| 404  | Does not exist **or you may not know it exists**             | `USER_NOT_FOUND`, `FRIENDSHIP_NOT_FOUND`, `EVENT_NOT_FOUND`, `PLAYLIST_NOT_FOUND`, `TRACK_NOT_FOUND`, `NOT_FOUND` (unknown route)                                                                                                                     |
+| 404  | Does not exist **or you may not know it exists**             | `USER_NOT_FOUND`, `FRIENDSHIP_NOT_FOUND`, `EVENT_NOT_FOUND`, `PLAYLIST_NOT_FOUND`, `TRACK_NOT_FOUND`, `PREVIEW_UNAVAILABLE`, `NOT_FOUND` (unknown route)                                                                                              |
 | 409  | Conflicts with current state                                 | `EMAIL_TAKEN`, `DISPLAY_NAME_TAKEN`, `FRIEND_REQUEST_EXISTS`, `ALREADY_FRIENDS`, `PROVIDER_ACCOUNT_LINKED`, `LAST_LOGIN_METHOD`, `ALREADY_INVITED`, `TRACK_ALREADY_QUEUED`, `TRACK_NOT_VOTABLE`, `QUEUE_CHANGED`, `ANCHOR_NOT_FOUND`, `PLAYLIST_FULL` |
 | 429  | Rate limited                                                 | `RATE_LIMITED`                                                                                                                                                                                                                                        |
 | 502  | The social provider or music catalog could not be reached    | `PROVIDER_UNAVAILABLE`                                                                                                                                                                                                                                |
@@ -374,9 +374,10 @@ All endpoints are bearer-authenticated and check the access rules above on every
 
 ### Music catalog and track search (Decided: ADR-015)
 
-| Method | Path             | Auth   | Purpose                                   | Success           | Errors             |
-| ------ | ---------------- | ------ | ----------------------------------------- | ----------------- | ------------------ |
-| GET    | `/tracks/search` | bearer | Search the catalog (`?query=`, `?limit=`) | 200 `Page<Track>` | 400, 401, 429, 502 |
+| Method | Path                                | Auth   | Purpose                                      | Success            | Errors                                                          |
+| ------ | ----------------------------------- | ------ | -------------------------------------------- | ------------------ | --------------------------------------------------------------- |
+| GET    | `/tracks/search`                    | bearer | Search the catalog (`?query=`, `?limit=`)    | 200 `Page<Track>`  | 400, 401, 429, 502                                              |
+| GET    | `/tracks/{providerTrackId}/preview` | bearer | A fresh link to the track's 30-second sample | 200 `TrackPreview` | 400, 401, 404 `TRACK_NOT_FOUND` `PREVIEW_UNAVAILABLE`, 429, 502 |
 
 - Tracks come from Deezer's public catalog. The app finds tracks with `GET /tracks/search?query=daft+punk&limit=10`
   (bearer): it returns `Page<Track>` (`nextCursor` is always `null`: one page, at most 25 results; `query` is 2 to 100
@@ -386,7 +387,14 @@ All endpoints are bearer-authenticated and check the access rules above on every
   if the catalog cannot be reached it is `502 PROVIDER_UNAVAILABLE` (retry later). Search is rate limited like user
   search (**Proposed**: 30 per minute per IP).
 - Titles, artists and cover URLs come from a third party: never render them as HTML. `Track` has no audio link:
-  Deezer's preview links expire, so playback is the app's concern.
+  Deezer's preview links expire, so they are never stored.
+- Previews (ADR-053): `GET /tracks/{providerTrackId}/preview` returns `TrackPreview` `{ url }`, a link to Deezer's
+  30-second sample, signed and valid for minutes. Ask for it when the person presses play and never store it. Only
+  `https` links on Deezer's own CDN (`*.dzcdn.net`) are returned. Any signed-in person may ask for any catalog track:
+  it is public catalog data, tied to no room or playlist. A track the catalog does not know is `404 TRACK_NOT_FOUND`;
+  one without a sample is `404 PREVIEW_UNAVAILABLE`. Not cached (`Cache-Control: no-store`). Rate limited (60 per
+  minute per IP): each call is a request to Deezer. Playing is the app's own: nothing is shared or synced between
+  phones, and the owner still advances the queue.
 
 ### Queue states and advancing (Decided: ADR-016)
 
@@ -538,3 +546,4 @@ ANCHOR_NOT_FOUND`. Moving an entry after itself, or to the place it already has,
 | 2026-10-27 | Provider credentials work once, Google ID tokens older than 10 minutes are refused (ADR-047); no new type or code, same errors                                                                                                                                                                                                                                     | belmqadem | kaoutharrr  |
 | 2026-10-27 | Plans (ADR-048): `User.plan` (`Plan`: `free` \| `premium`), `PUT /users/me/plan` (`SetPlanRequest`), error code `PREMIUM_REQUIRED` (403) on creating and editing playlists and on `location_time` rooms; additive for readers, but those writes now need Premium                                                                                                   | belmqadem | kaoutharrr  |
 | 2026-10-27 | Rooms near a point (ADR-052): `GET /events/nearby?latitude=&longitude=`, types `NearbyEvent` and `NearbyEventsResponse`; additive                                                                                                                                                                                                                                  | belmqadem | kaoutharrr  |
+| 2026-10-28 | Track previews (ADR-053): `GET /tracks/{providerTrackId}/preview`, type `TrackPreview`, error code `PREVIEW_UNAVAILABLE` (404); additive                                                                                                                                                                                                                           | belmqadem | pending     |

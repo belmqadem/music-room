@@ -59,6 +59,7 @@ describe.skipIf(!databaseUrl)("event queue: suggest, vote, withdraw", () => {
       if (id === "404") return Promise.resolve(null);
       return Promise.resolve(songs(id));
     },
+    getPreview: () => Promise.resolve({ kind: "noPreview" }),
   };
 
   beforeAll(() => {

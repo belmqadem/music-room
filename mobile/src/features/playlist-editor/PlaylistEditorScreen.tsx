@@ -2,6 +2,7 @@ import type { Playlist } from "@music-room/shared";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, FlatList, View } from "react-native";
+import { useStopPreviewOnLeave } from "@/audio/use-preview";
 import { useAuth } from "@/auth";
 import { TrackSearchSheet } from "@/catalog/TrackSearchSheet";
 import { playlistEditing } from "@/features/plan/plan";
@@ -20,6 +21,7 @@ import { copy } from "@/copy";
 // show; the server checks every edit again.
 export default function PlaylistEditorScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  useStopPreviewOnLeave();
   const [playlist, setPlaylist] = useState<Playlist | null>(null);
   const [playlistError, setPlaylistError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);

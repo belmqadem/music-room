@@ -34,6 +34,7 @@ const catalog: CatalogProvider = {
       durationSeconds: 180,
       coverUrl: null,
     }),
+  getPreview: () => Promise.resolve({ kind: "noPreview" }),
 };
 
 const venue = {

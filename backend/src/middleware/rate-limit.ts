@@ -54,6 +54,13 @@ export const DEFAULT_CATALOG_SEARCH_LIMIT: RateLimitSettings = {
   limit: 30,
 };
 
+// Track previews (ADR-053): one catalog request each, pressed play by play. A person listening
+// through a queue or a search presses play a few times a minute, rarely more than 60.
+export const DEFAULT_TRACK_PREVIEW_LIMIT: RateLimitSettings = {
+  windowMs: 60 * 1000,
+  limit: 60,
+};
+
 // Suggesting a track (one catalog request each). Voting is not limited here: a vote is
 // idempotent and cheap; a per-user vote limit belongs to the load-test work.
 export const DEFAULT_SUGGEST_LIMIT: RateLimitSettings = {

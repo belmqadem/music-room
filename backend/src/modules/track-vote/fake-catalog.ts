@@ -33,5 +33,14 @@ export function createFakeCatalog(): CatalogProvider {
         throw new CatalogUnavailableError("fake outage");
       return TRACK_ID.test(providerTrackId) ? trackFor(providerTrackId) : null;
     },
+
+    // No audio without the network: a known track simply has no sample.
+    async getPreview(providerTrackId) {
+      if (providerTrackId === "999999999")
+        throw new CatalogUnavailableError("fake outage");
+      if (providerTrackId === "0" || !TRACK_ID.test(providerTrackId))
+        return { kind: "unknownTrack" };
+      return { kind: "noPreview" };
+    },
   };
 }

@@ -1,4 +1,4 @@
-import type { Page, Track } from "@music-room/shared";
+import type { Page, Track, TrackPreview } from "@music-room/shared";
 import { auth } from "@/auth";
 
 // The music catalog (Deezer, through the backend: docs/api-contract.md, "Music catalog", ADR-015).
@@ -11,4 +11,10 @@ export const catalogApi = {
     auth.request<Page<Track>>("GET", "/tracks/search", {
       query: { query, limit: SEARCH_LIMIT },
     }),
+  /** A fresh link to the track's 30-second sample (ADR-053). Never stored: it expires. */
+  preview: (providerTrackId: string) =>
+    auth.request<TrackPreview>(
+      "GET",
+      `/tracks/${encodeURIComponent(providerTrackId)}/preview`,
+    ),
 };

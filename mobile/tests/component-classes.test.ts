@@ -29,6 +29,7 @@ import { TEXT_TONE_CLASS } from "@/components/text-styles";
 import {
   iconButtonLook,
   TRACK_COVER_CLASS,
+  TRACK_COVER_OVERLAY_CLASS,
   TRACK_ROW_CLASS,
   TRACK_TEXT_CLASS,
   voteLook,
@@ -75,6 +76,7 @@ function classesFromStyles(): string[] {
     choiceLook(false).container,
     TRACK_ROW_CLASS,
     TRACK_COVER_CLASS,
+    TRACK_COVER_OVERLAY_CLASS,
     TRACK_TEXT_CLASS,
     voteLook(true, false).container,
     voteLook(false, false).container,

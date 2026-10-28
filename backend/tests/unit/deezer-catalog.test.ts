@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { CatalogUnavailableError } from "../../src/modules/track-vote/catalog.js";
 import {
   cleanCoverUrl,
+  cleanPreviewUrl,
   createDeezerCatalog,
 } from "../../src/modules/track-vote/deezer-catalog.js";
 
@@ -223,6 +224,74 @@ describe("cleanCoverUrl: only Deezer's own https image hosts", () => {
 
   it("drops a missing value", () => {
     expect(cleanCoverUrl(undefined)).toBeNull();
+  });
+});
+
+const PREVIEW =
+  "https://cdnt-preview.dzcdn.net/api/1/1/6/a/2/0/6a2c.mp3?hdnea=exp=1793151181~acl=/api/1/1/6a2c.mp3*~data=user_id=0~hmac=abc";
+
+describe("getPreview", () => {
+  it("returns a fresh link to the sample, asking for the track itself", async () => {
+    const { catalog, requested } = fakeDeezer(() => json(rawTrack({ preview: PREVIEW })));
+
+    expect(await catalog.getPreview("3135556")).toEqual({ kind: "found", url: PREVIEW });
+    expect(requested.map((url) => url.pathname)).toEqual(["/track/3135556"]);
+  });
+
+  it.each([
+    ["an empty preview", { preview: "" }],
+    ["no preview field", {}],
+    ["a link on another host", { preview: "https://evil.example/a.mp3" }],
+    ["a plain http link", { preview: "http://cdnt-preview.dzcdn.net/a.mp3" }],
+  ])("says there is no sample for %s", async (_label, fields) => {
+    const { catalog } = fakeDeezer(() => json(rawTrack(fields)));
+
+    expect(await catalog.getPreview("3135556")).toEqual({ kind: "noPreview" });
+  });
+
+  it("says the track is unknown for Deezer's error 800, and for an id that cannot exist without asking", async () => {
+    const { catalog, requested } = fakeDeezer(() =>
+      json({ error: { type: "DataException", code: 800 } }),
+    );
+
+    expect(await catalog.getPreview("1")).toEqual({ kind: "unknownTrack" });
+    expect(await catalog.getPreview("../search")).toEqual({ kind: "unknownTrack" });
+    expect(requested).toHaveLength(1);
+  });
+
+  it("reports an outage, a quota error and an odd preview field as unavailable", async () => {
+    const down = fakeDeezer(() => json({}, 503)).catalog;
+    const quota = fakeDeezer(() => json({ error: { code: 4 } })).catalog;
+    const odd = fakeDeezer(() => json(rawTrack({ preview: 42 }))).catalog;
+
+    for (const catalog of [down, quota, odd])
+      await expect(catalog.getPreview("3135556")).rejects.toBeInstanceOf(
+        CatalogUnavailableError,
+      );
+  });
+});
+
+describe("cleanPreviewUrl: only Deezer's own https audio hosts", () => {
+  it("keeps a signed sample link", () => {
+    expect(cleanPreviewUrl(PREVIEW)).toBe(PREVIEW);
+  });
+
+  it.each([
+    ["another host", "https://evil.example/a.mp3"],
+    ["plain http", "http://cdnt-preview.dzcdn.net/a.mp3"],
+    [
+      "Deezer's name inside another domain",
+      "https://cdnt-preview.dzcdn.net.evil.example/a.mp3",
+    ],
+    [
+      "credentials that hide the real host",
+      "https://cdnt-preview.dzcdn.net@evil.example/a.mp3",
+    ],
+    ["a javascript: URL", "javascript:alert(1)"],
+    ["an empty string", ""],
+    ["a URL over 2048 characters", `https://cdnt-preview.dzcdn.net/${"a".repeat(2100)}`],
+  ])("drops %s", (_label, url) => {
+    expect(cleanPreviewUrl(url)).toBeNull();
   });
 });
 

@@ -55,6 +55,7 @@ describe.skipIf(!databaseUrl)("advancing the queue", () => {
   const catalog: CatalogProvider = {
     search: () => Promise.resolve([]),
     getTrack: (id) => Promise.resolve(song(id)),
+    getPreview: () => Promise.resolve({ kind: "noPreview" }),
   };
 
   beforeAll(() => {

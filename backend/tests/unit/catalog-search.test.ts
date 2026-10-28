@@ -9,6 +9,7 @@ import { signAccessToken } from "../../src/modules/auth/access-token.js";
 import {
   CatalogUnavailableError,
   type CatalogProvider,
+  type PreviewLookup,
 } from "../../src/modules/track-vote/catalog.js";
 
 // GET /tracks/search through the real app with a FAKE catalog. The search touches no
@@ -64,6 +65,7 @@ function recordingCatalog(result: Track[] = [track("1"), track("2")]) {
       return Promise.resolve(result);
     },
     getTrack: () => Promise.resolve(null),
+    getPreview: () => Promise.resolve({ kind: "noPreview" }),
   };
   return { catalog, calls };
 }
@@ -135,6 +137,7 @@ describe("GET /tracks/search", () => {
     const failing: CatalogProvider = {
       search: () => Promise.reject(new CatalogUnavailableError("Deezer answered 500")),
       getTrack: () => Promise.resolve(null),
+      getPreview: () => Promise.resolve({ kind: "noPreview" }),
     };
     const { app, logLines } = build(failing);
 
@@ -159,6 +162,7 @@ describe("GET /tracks/search", () => {
     const broken: CatalogProvider = {
       search: () => Promise.reject(new Error("bug")),
       getTrack: () => Promise.resolve(null),
+      getPreview: () => Promise.resolve({ kind: "noPreview" }),
     };
     const { app } = build(broken);
 
@@ -173,6 +177,115 @@ describe("GET /tracks/search", () => {
 
     const statuses = [];
     for (let i = 0; i < 3; i++) statuses.push((await search(app, "query=daft")).status);
+
+    expect(statuses).toEqual([200, 200, 429]);
+    expect(calls).toHaveLength(2);
+  });
+});
+
+const PREVIEW_URL = "https://cdnt-preview.dzcdn.net/api/1/1/a.mp3?hdnea=exp=1~hmac=x";
+
+function previewCatalog(answer: PreviewLookup | Error) {
+  const calls: string[] = [];
+  const catalog: CatalogProvider = {
+    search: () => Promise.resolve([]),
+    getTrack: () => Promise.resolve(null),
+    getPreview: (id) => {
+      calls.push(id);
+      return answer instanceof Error ? Promise.reject(answer) : Promise.resolve(answer);
+    },
+  };
+  return { catalog, calls };
+}
+
+const preview = async (
+  app: ReturnType<typeof build>["app"],
+  id: string,
+  authenticated = true,
+) => {
+  const req = request(app).get(`/api/v1/tracks/${id}/preview`);
+  if (authenticated)
+    req.set(
+      "Authorization",
+      `Bearer ${await signAccessToken(USER_ID, SECRET, { displayNameSet: true })}`,
+    );
+  return req;
+};
+
+describe("GET /tracks/{providerTrackId}/preview", () => {
+  it("requires authentication and never reaches the catalog without it", async () => {
+    const { catalog, calls } = previewCatalog({ kind: "found", url: PREVIEW_URL });
+    const { app } = build(catalog);
+
+    expect((await preview(app, "3135556", false)).status).toBe(401);
+    expect(calls).toEqual([]);
+  });
+
+  it("returns a fresh link that nothing may cache", async () => {
+    const { catalog, calls } = previewCatalog({ kind: "found", url: PREVIEW_URL });
+    const { app } = build(catalog);
+
+    const response = await preview(app, "3135556");
+
+    expect(response.status).toBe(200);
+    expect(response.headers["cache-control"]).toBe("no-store");
+    expect(response.body).toEqual({ url: PREVIEW_URL });
+    expect(calls).toEqual(["3135556"]);
+  });
+
+  it("answers 404 PREVIEW_UNAVAILABLE for a track without a sample", async () => {
+    const { app } = build(previewCatalog({ kind: "noPreview" }).catalog);
+
+    const response = await preview(app, "3135556");
+
+    expect(response.status).toBe(404);
+    expect(response.body.error.code).toBe("PREVIEW_UNAVAILABLE");
+  });
+
+  it("answers 404 TRACK_NOT_FOUND for a track the catalog does not know", async () => {
+    const { app } = build(previewCatalog({ kind: "unknownTrack" }).catalog);
+
+    const response = await preview(app, "1");
+
+    expect(response.status).toBe(404);
+    expect(response.body.error.code).toBe("TRACK_NOT_FOUND");
+  });
+
+  it.each([
+    ["dots", "1.5"],
+    ["an encoded slash", "1%2F2"],
+    ["65 characters", "1".repeat(65)],
+  ])("answers 400 for an id with %s without asking the catalog", async (_label, id) => {
+    const { catalog, calls } = previewCatalog({ kind: "found", url: PREVIEW_URL });
+    const { app } = build(catalog);
+
+    const response = await preview(app, id);
+
+    expect(response.status).toBe(400);
+    expect(response.body.error.code).toBe("VALIDATION_ERROR");
+    expect(calls).toEqual([]);
+  });
+
+  it("answers 502 PROVIDER_UNAVAILABLE with a generic message when the catalog fails", async () => {
+    const { catalog } = previewCatalog(
+      new CatalogUnavailableError("Deezer answered 500"),
+    );
+    const { app, logLines } = build(catalog);
+
+    const response = await preview(app, "424242");
+
+    expect(response.status).toBe(502);
+    expect(response.body.error.code).toBe("PROVIDER_UNAVAILABLE");
+    expect(JSON.stringify(response.body)).not.toContain("Deezer");
+    expect(logLines.join("")).toContain("music catalog unavailable");
+  });
+
+  it("is rate limited, and a rejected request does not reach the catalog", async () => {
+    const { catalog, calls } = previewCatalog({ kind: "found", url: PREVIEW_URL });
+    const { app } = build(catalog, { trackPreviewLimit: { windowMs: 60_000, limit: 2 } });
+
+    const statuses = [];
+    for (let i = 0; i < 3; i++) statuses.push((await preview(app, "3135556")).status);
 
     expect(statuses).toEqual([200, 200, 429]);
     expect(calls).toHaveLength(2);
