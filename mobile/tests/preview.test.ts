@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { RequestError } from "@/api/api-error";
+import type { EventQueueUpdate, EventTrack } from "@music-room/shared";
 import { classifyPreviewError } from "@/audio/preview-errors";
+import { followPlayingTrack } from "@/features/track-vote/owner-playback";
 import {
   createPreviewPlayer,
   phaseOf,
@@ -272,5 +274,105 @@ describe("why a preview didn't play", () => {
     [new Error("bug"), "unknown"],
   ])("%s is %s", (error, expected) => {
     expect(classifyPreviewError(error)).toBe(expected);
+  });
+});
+
+describe("play: the owner asked for music, so it sounds whatever it was doing", () => {
+  it("starts a track nothing was playing", async () => {
+    const { player, output, links } = setup();
+
+    void player.play("1");
+    await links.answer("1");
+
+    expect(output.load).toHaveBeenCalledWith(URL_OF("1"));
+    expect(output.play).toHaveBeenCalled();
+  });
+
+  it("leaves a track that is already playing alone: no pause, no new link", async () => {
+    const { player, output, report, links } = setup();
+    void player.toggle("1");
+    await links.answer("1");
+    report({ playing: true });
+    output.pause.mockClear();
+
+    await player.play("1");
+
+    expect(output.pause).not.toHaveBeenCalled();
+    expect(links.fetchPreviewUrl).toHaveBeenCalledTimes(1);
+    expect(player.getState().phase).toBe("playing");
+  });
+
+  it("resumes a paused track without a new link", async () => {
+    const { player, links, report } = setup();
+    void player.toggle("1");
+    await links.answer("1");
+    report({ playing: true });
+    await player.toggle("1");
+
+    await player.play("1");
+
+    expect(player.getState().phase).toBe("playing");
+    expect(links.fetchPreviewUrl).toHaveBeenCalledTimes(1);
+  });
+
+  it("switches from another track's sample", async () => {
+    const { player, output, report, links } = setup();
+    void player.toggle("1");
+    await links.answer("1");
+    report({ playing: true });
+
+    void player.play("2");
+
+    expect(output.pause).toHaveBeenCalled();
+    expect(player.getState()).toEqual({ trackId: "2", phase: "loading", failure: null });
+  });
+
+  it("tries again after a failure", async () => {
+    const { player, links } = setup();
+    void player.play("1");
+    await links.fail("1", new RequestError(0, "NETWORK_ERROR", "x"));
+
+    void player.play("1");
+
+    expect(links.fetchPreviewUrl).toHaveBeenCalledTimes(2);
+    expect(player.getState().phase).toBe("loading");
+  });
+});
+
+describe("the owner's phone follows the playing track after Start playing / Next track", () => {
+  const entry = (id: string, status: EventTrack["status"]): EventTrack =>
+    ({
+      id: `entry-${id}`,
+      status,
+      track: {
+        providerTrackId: id,
+        title: id,
+        artist: "a",
+        durationSeconds: 1,
+        coverUrl: null,
+      },
+    }) as EventTrack;
+  const update = (tracks: EventTrack[]): EventQueueUpdate => ({
+    eventId: "e",
+    version: 2,
+    tracks,
+  });
+
+  it("plays the track the server now says is playing", () => {
+    const player = { play: vi.fn(async () => {}), stop: vi.fn() };
+
+    followPlayingTrack(update([entry("7", "playing"), entry("8", "queued")]), player);
+
+    expect(player.play).toHaveBeenCalledWith("7");
+    expect(player.stop).not.toHaveBeenCalled();
+  });
+
+  it("falls silent when the queue ran out", () => {
+    const player = { play: vi.fn(async () => {}), stop: vi.fn() };
+
+    followPlayingTrack(update([]), player);
+
+    expect(player.stop).toHaveBeenCalled();
+    expect(player.play).not.toHaveBeenCalled();
   });
 });

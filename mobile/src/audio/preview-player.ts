@@ -114,6 +114,20 @@ export function createPreviewPlayer(deps: PreviewPlayerDeps) {
     }
   }
 
+  /**
+   * Make this track's sample sound, whatever it was doing: start it, resume it, or leave it
+   * playing. For the owner's Start playing / Next track, which asks for music, not a toggle.
+   */
+  async function play(trackId: string): Promise<void> {
+    if (
+      state.trackId === trackId &&
+      (state.phase === "playing" || state.phase === "loading")
+    )
+      return;
+    if (state.trackId === trackId && state.phase === "paused") return toggle(trackId);
+    return start(trackId);
+  }
+
   /** Silence: leaving the screen, closing the search, signing out. */
   function stop(): void {
     generation++;
@@ -124,6 +138,7 @@ export function createPreviewPlayer(deps: PreviewPlayerDeps) {
 
   return {
     toggle,
+    play,
     stop,
     getState: (): PreviewState => state,
     subscribe(listener: () => void): () => void {
