@@ -7,3 +7,4 @@ mobile/assets
 mobile/expo-env.d.ts
 mobile/nativewind-env.d.ts
 LICENSE
+mobile/src/theme/*.generated.*

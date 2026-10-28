@@ -1,0 +1,12 @@
+# The build context is the repository root (see backend/Dockerfile). Keep it small and never
+# send local secrets or other people's dependencies into an image.
+.git
+.env
+.env.*
+!.env.example
+**/node_modules
+**/dist
+mobile
+docs
+*.md
+.github

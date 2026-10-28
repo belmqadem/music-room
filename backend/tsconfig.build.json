@@ -1,0 +1,13 @@
+{
+  // Compiles the server to plain JavaScript for production and the load-test container.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": "dist",
+    // The repository root, because the shared types live in ../shared/types. They are
+    // type-only, so they leave no JavaScript behind that the server needs at runtime.
+    "rootDir": "..",
+    "sourceMap": true
+  },
+  "include": ["src"]
+}

@@ -2,7 +2,7 @@
 # Dependencies are installed from lockfiles (npm ci); nothing third-party is committed.
 
 .DEFAULT_GOAL := help
-.PHONY: help install dev dev-mobile db-up db-down migrate lint typecheck test format format-check clean
+.PHONY: help install dev dev-mobile web theme icons db-up db-down loadtest-up loadtest-down loadtest migrate lint typecheck test test-integration format format-check clean
 
 # Loads the root .env into the environment of a command (used by `migrate`).
 LOAD_ENV = set -a; . ./.env; set +a;
@@ -20,14 +20,32 @@ install: ## Install all dependencies (root, backend, mobile, shared) and enable 
 dev: ## Run the backend in watch mode (needs `make db-up` and a .env)
 	npm run dev --prefix backend
 
-dev-mobile: ## Start the Expo dev server (interactive)
+theme: ## Regenerate the mobile theme from design-tokens.json (+ design-tokens.extensions.json); `make test` fails if it is out of date
+	node mobile/scripts/generate-theme.mjs
+
+icons: ## Regenerate the app's icon files from mobile/assets/images/logo.png (check them before committing)
+	node mobile/scripts/generate-icons.mjs
+
+dev-mobile: ## Start the Expo dev server for the development build (interactive; Expo Go: `npx expo start --go` in mobile/)
 	npm run start --prefix mobile
+
+web: ## Start the web version of the app on http://localhost:8081 (needs `make dev`; that address is in ALLOWED_ORIGINS)
+	npm run web --prefix mobile
 
 db-up: ## Start Postgres + Redis and wait until healthy
 	docker compose up -d --wait
 
 db-down: ## Stop Postgres + Redis (data volumes are kept)
 	docker compose down
+
+loadtest-up: ## Build and start the backend CONTAINER with fixed resources (BACKEND_CPUS / BACKEND_MEMORY in .env) plus Postgres + Redis, for load tests
+	docker compose --profile loadtest up -d --build --wait
+
+loadtest: ## Run the ramp-up load test against the container (needs loadtest-up + migrate). LOAD_STEPS, LOAD_HOLD_SECONDS, LOAD_OUT: see backend/tests/load/README.md
+	$(LOAD_ENV) npm run loadtest --prefix backend
+
+loadtest-down: ## Stop the load-test backend (Postgres + Redis keep running; use db-down to stop them)
+	docker compose --profile loadtest stop backend
 
 migrate: ## Apply pending database migrations (needs db-up)
 	$(LOAD_ENV) npm run migrate --prefix backend -- up
@@ -41,8 +59,13 @@ typecheck: ## Type-check shared, backend and mobile
 	npm run typecheck --prefix backend
 	npm run typecheck --prefix mobile
 
-test: ## Run backend tests (load tests are not included)
+test: ## Run backend tests (database/Redis tests are skipped unless TEST_DATABASE_URL / TEST_REDIS_URL are set) and the app's logic tests
 	npm run test --prefix backend
+	npm run test --prefix mobile
+
+test-integration: ## Run all backend tests incl. database + Redis tests (needs db-up + migrate; uses .env)
+	$(LOAD_ENV) TEST_DATABASE_URL="$$DATABASE_URL" TEST_REDIS_URL="$$REDIS_URL" npm run test --prefix backend
+	npm run test --prefix mobile
 
 format: ## Format the whole repo with Prettier
 	npx prettier --write .

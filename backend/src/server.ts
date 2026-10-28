@@ -1,10 +1,14 @@
 import { createServer } from "node:http";
-import { app } from "./app.js";
-import { loadConfig, loadEnvFileIfPresent } from "./config/env.js";
+import { createApp } from "./app.js";
+import { docsEnabled, loadConfig, loadEnvFileIfPresent } from "./config/env.js";
 import { createLogger } from "./config/logger.js";
 import { assertPostgresReachable, createPostgresPool } from "./db/postgres.js";
 import { createRedisClient } from "./db/redis.js";
-import { attachSockets } from "./sockets/index.js";
+import { createDeezerCatalog } from "./modules/track-vote/deezer-catalog.js";
+import { createFakeCatalog } from "./modules/track-vote/fake-catalog.js";
+import { createConsoleMailer, createSmtpMailer } from "./modules/auth/mailer.js";
+import { createProviderVerifiers } from "./modules/auth/providers.js";
+import { createRealtime } from "./sockets/index.js";
 
 // Entry point: the only place that reads the environment, opens connections
 // and listens. Any failure during startup exits the process with code 1.
@@ -18,8 +22,33 @@ async function main(): Promise<void> {
   await assertPostgresReachable(pool);
   await redis.connect();
 
+  // Sockets first (without a server yet): the app's services announce changes to them.
+  const realtime = createRealtime({
+    jwtSecret: config.JWT_ACCESS_SECRET,
+    logger,
+    pool,
+    allowedOrigins: config.ALLOWED_ORIGINS,
+  });
+  const app = createApp({
+    pool,
+    redis,
+    logger,
+    jwtSecret: config.JWT_ACCESS_SECRET,
+    allowedOrigins: config.ALLOWED_ORIGINS,
+    providerVerifiers: createProviderVerifiers(config, logger),
+    mailer:
+      config.MAIL_TRANSPORT === "smtp"
+        ? createSmtpMailer({ url: config.SMTP_URL!, from: config.MAIL_FROM })
+        : createConsoleMailer(logger),
+    catalog:
+      config.CATALOG_PROVIDER === "fake" ? createFakeCatalog() : createDeezerCatalog(),
+    trustProxy: config.TRUST_PROXY,
+    docsEnabled: docsEnabled(config),
+    realtime: realtime.events,
+  });
   const httpServer = createServer(app);
-  const io = attachSockets(httpServer);
+  const io = realtime.io;
+  io.attach(httpServer);
 
   httpServer.listen(config.PORT, () => {
     logger.info({ port: config.PORT }, "server listening");

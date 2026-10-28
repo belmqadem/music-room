@@ -1,0 +1,124 @@
+import { router } from "expo-router";
+import { useRef, useState } from "react";
+import { type TextInput, View } from "react-native";
+import { auth } from "@/auth";
+import {
+  fieldErrors,
+  formErrorsFrom,
+  type FieldName,
+  type FormErrors,
+} from "@/auth/forms/error-messages";
+import { handOff } from "@/auth/forms/handoff";
+import {
+  emailError,
+  newPasswordError,
+  normalizeEmail,
+  PASSWORD_POLICY_HINT,
+} from "@/auth/forms/validation";
+import { Button, Input, Screen } from "@/components";
+import { FormMessage, ScreenTitle } from "./parts";
+import { SocialSignIn } from "./SocialSignIn";
+import { copy } from "@/copy";
+
+const NO_ERRORS: FormErrors = { form: null, fields: {} };
+
+// Email and password. Registering gives no session: the email is confirmed first with the 6-digit
+// code it receives (ADR-022), so the next screen is the code screen. The username comes after the
+// first sign-in (ADR-046), the same step as for Google and Facebook.
+export default function SignUpScreen() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [errors, setErrors] = useState<FormErrors>(NO_ERRORS);
+  const [submitting, setSubmitting] = useState(false);
+  const passwordRef = useRef<TextInput>(null);
+
+  const edit = (field: FieldName, set: (value: string) => void) => (value: string) => {
+    set(value);
+    setErrors((current) => ({
+      form: null,
+      fields: { ...current.fields, [field]: undefined },
+    }));
+  };
+
+  async function submit() {
+    const fields = fieldErrors({
+      email: emailError(email),
+      password: newPasswordError(password),
+    });
+    if (Object.keys(fields).length > 0) {
+      setErrors({ form: null, fields });
+      return;
+    }
+    setErrors(NO_ERRORS);
+    setSubmitting(true);
+    try {
+      const result = await auth.register({
+        email: normalizeEmail(email),
+        password,
+      });
+      handOff({ email: result.email, codeSentAt: Date.now() });
+      router.push("/verify-email");
+    } catch (error) {
+      setErrors(formErrorsFrom(error, "signUp"));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <Screen scroll>
+      <View className="gap-6">
+        <ScreenTitle
+          title={copy.auth.signUp.title}
+          subtitle={copy.auth.signUp.subtitle}
+        />
+        <View className="gap-4">
+          <Input
+            label={copy.common.emailLabel}
+            value={email}
+            onChangeText={edit("email", setEmail)}
+            error={errors.fields.email}
+            placeholder={copy.common.emailPlaceholder}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoComplete="email"
+            textContentType="emailAddress"
+            returnKeyType="next"
+            submitBehavior="submit"
+            onSubmitEditing={() => passwordRef.current?.focus()}
+          />
+          <Input
+            ref={passwordRef}
+            label={copy.auth.signUp.passwordLabel}
+            value={password}
+            onChangeText={edit("password", setPassword)}
+            error={errors.fields.password}
+            helper={PASSWORD_POLICY_HINT}
+            secureTextEntry
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoComplete="new-password"
+            textContentType="newPassword"
+            returnKeyType="go"
+            onSubmitEditing={submit}
+          />
+        </View>
+        {errors.form ? <FormMessage tone="error">{errors.form}</FormMessage> : null}
+        <Button
+          title={copy.auth.signUp.submit}
+          fullWidth
+          loading={submitting}
+          onPress={submit}
+        />
+        <SocialSignIn />
+        <Button
+          title={copy.auth.signUp.haveAccount}
+          variant="ghost"
+          fullWidth
+          onPress={() => router.replace("/sign-in")}
+        />
+      </View>
+    </Screen>
+  );
+}

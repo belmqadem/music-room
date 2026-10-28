@@ -1,17 +1,23 @@
-import { getBackendUrl } from "@/settings/backend-url";
-import { buildClientHeaders } from "./client-headers";
+import { auth } from "@/auth";
+import type { RequestOptions } from "@/auth/auth-controller";
 
-/**
- * fetch wrapper for the REST API: resolves the base URL at call time (so a
- * runtime change applies immediately) and adds the client-info headers.
- * `path` must start with "/", e.g. apiFetch("/health").
- * TODO(auth): attach the access token once the auth flow exists.
- */
-export async function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
-  const baseUrl = await getBackendUrl();
-  const headers = new Headers(init.headers);
-  for (const [name, value] of Object.entries(buildClientHeaders())) {
-    headers.set(name, value);
-  }
-  return fetch(`${baseUrl}${path}`, { ...init, headers });
-}
+// The backend as the screens use it. Every call carries the X-Platform / X-Device / X-App-Version
+// headers and the access token; an expired token is refreshed once, transparently. Failures are
+// RequestError (api/api-error.ts). Public endpoints (login, register, ...) are on `auth` instead.
+//
+//   const events = await api.get<Page<MusicEvent>>("/events", { query: { limit: 20 } });
+//   await api.put(`/events/${id}/tracks/${trackId}/vote`, { body: {} });
+export const api = {
+  get: <T>(path: string, options?: Omit<RequestOptions, "body" | "auth">) =>
+    auth.request<T>("GET", path, options),
+  post: <T = void>(path: string, options?: Omit<RequestOptions, "auth">) =>
+    auth.request<T>("POST", path, options),
+  put: <T = void>(path: string, options?: Omit<RequestOptions, "auth">) =>
+    auth.request<T>("PUT", path, options),
+  patch: <T = void>(path: string, options?: Omit<RequestOptions, "auth">) =>
+    auth.request<T>("PATCH", path, options),
+  delete: <T = void>(path: string, options?: Omit<RequestOptions, "auth">) =>
+    auth.request<T>("DELETE", path, options),
+};
+
+export { isRequestError, RequestError } from "./api-error";
