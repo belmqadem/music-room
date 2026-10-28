@@ -426,8 +426,9 @@ class VirtualUser {
 async function createUsers(db: pg.Pool, count: number): Promise<VirtualUser[]> {
   const names = Array.from({ length: count }, (_, i) => `${USER_PREFIX}${i}`);
   const { rows } = await db.query(
-    `INSERT INTO users (display_name, email, email_verified_at)
-     SELECT n, n || '@loadtest.invalid', now() FROM unnest($1::text[]) AS n
+    // Premium: every user edits the room's playlist, and editing playlists is Premium (ADR-048).
+    `INSERT INTO users (display_name, email, email_verified_at, plan)
+     SELECT n, n || '@loadtest.invalid', now(), 'premium' FROM unnest($1::text[]) AS n
      RETURNING id, display_name`,
     [names],
   );

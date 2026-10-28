@@ -88,6 +88,25 @@ at 3000 users the load generator is close to its own limit, so the 3000-user row
 - **Correctness held at every load, including overload**: no lost or double-counted votes and no socket left behind, in
   every step of every run. Overload showed up as latency, not as wrong results.
 
+## Re-run on the final code (2026-10-28)
+
+Same harness, steps and container (1 CPU / 512 MB), run from a fresh clone of `main` with `make install`, `make db-up`,
+`make migrate`, `make loadtest-up`, `make loadtest`. The harness now creates its users as Premium: since ADR-048,
+creating and editing playlists is Premium, and the first try failed on creating the first room's playlist (`403`).
+
+| Users | Requests/s | Vote p50 / p95 / p99 | Vote reaches another socket p50 / p95 / p99 | Server CPU | Server memory |
+| ----: | ---------: | -------------------- | ------------------------------------------- | ---------: | ------------: |
+|    50 |         10 | 10 / 19 / 21         | 10 / 20 / 22                                |       7.1% |        51 MiB |
+|   200 |         38 | 5 / 12 / 20          | 7 / 16 / 24                                 |      10.2% |        59 MiB |
+|   400 |         75 | 5 / 11 / 18          | 6 / 22 / 65                                 |      17.1% |        64 MiB |
+|   600 |        112 | 4 / 12 / 21          | 6 / 31 / 65                                 |      23.2% |        72 MiB |
+|   800 |        151 | 4 / 16 / 34          | 7 / 35 / 53                                 |      36.9% |        81 MiB |
+|  1000 |        187 | 5 / 31 / 72          | 9 / 66 / 142                                |      56.8% |        89 MiB |
+
+Every step passed: 0 errors, 0 dropped sockets, 0 vote-count mismatches, 0 sockets out of sync (event and playlist).
+At 1000 users the playlist broadcast was p95 112 ms, p99 247 ms. The conclusion above holds: 1 CPU / 512 MB carries 1000
+users with headroom, CPU is the limit, memory stays under 100 MiB.
+
 ## Limits of these measurements
 
 - One run per configuration; the CPU figure is one sample per step, not an average. Treat differences of a few
