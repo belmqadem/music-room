@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import postcss from "postcss";
 import tailwind from "@tailwindcss/postcss";
 import { describe, expect, it } from "vitest";
+import { avatarLook } from "@/components/avatar-styles";
 import { badgeLook, type BadgeTone } from "@/components/badge-styles";
 import {
   BUTTON_LABEL_HIDDEN,
@@ -80,6 +81,8 @@ function classesFromStyles(): string[] {
     voteLook(false, true).container,
     iconButtonLook(true).container,
     iconButtonLook(false).container,
+    avatarLook("sm").container,
+    avatarLook("lg").container,
   ];
   for (const variant of ["primary", "secondary", "ghost"] as ButtonVariant[]) {
     for (const state of ["idle", "pressed", "disabled"] as ButtonState[]) {

@@ -1,4 +1,5 @@
 // The shared components. Screens are built from these, never from raw View/Text with their own colors.
+export { Avatar, type AvatarProps } from "./Avatar";
 export { BrandHeader, StackHeader, StatusBarSpace } from "./AppHeader";
 export { Badge, type BadgeProps } from "./Badge";
 export { Button, type ButtonProps } from "./Button";
