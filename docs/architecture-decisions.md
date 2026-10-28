@@ -886,19 +886,19 @@ Each decision must be defensible in detail at the defense. Copy the template for
 
     It then fetches the rooms near you and only then counts as on. Anything refused leaves it off and says exactly what is missing, with Open settings when only the phone's settings can fix it.
 
-  - **Watching**: the phone watches up to 19 venue circles (at least 150 m wide: phones notice smaller ones late) plus a 5 km circle around where the list was fetched. Leaving that circle fetches the list again from where you are, so the 20 regions iOS allows follow you. The list is also fetched again on opening the app, and a room you are already within is notified at once.
+  - **Watching**: the phone watches up to 19 venue circles (at least 150 m wide: phones notice smaller ones late) plus a 5 km circle around where the list was fetched. Leaving that circle fetches the list again from where you are, so the 20 regions iOS allows follow you. The list is also fetched again on opening the app, and a room you are already within is notified at once. The circles are handed to the phone again only when they change: iOS reports "entered" anew for every circle you're in each time it is handed them, so handing them on every entry looped (found on the iOS simulator: 226 requests in 2 minutes at a venue).
   - **Entering a venue** asks the server again from the venue, so a room deleted, made private or over since the last list is not announced. Only when the server can't be reached does it use the last list, which was public when fetched; a refusal is the server's last word.
   - **The notification** is local (`expo-notifications`; no push server and no keys). It says the room's name, "is on near you" or "starts at 21:00 near you" in the phone's time, up to three artists from the queue, and that a tap opens the room. One per room and window. A tap opens the room, where the server checks access and voting rights as usual. Only a room id from our own notifications is opened.
   - **Stopping**: turning it off, or signing out, stops watching. The switch, the list and the record of rooms notified live in the offline store, which sign-out wipes (ADR-049), so the next person to sign in on the phone starts with it off. A region still reported after that is ignored and stopped.
   - Not on the web: browsers have no background geofencing, so the card is not shown there.
 - Consequences: one migration (an index only). Rooms that change after the app fetched them are corrected the next time it fetches, and opening the room always shows the server's current state. Tests: the query's validation, and against Postgres: authentication, every room left out and why, the time and distance limits, the order, the limit of 20, the queue's top, the log line, and the SQL distance against the access rules'.
-  - App: two native modules, `expo-task-manager` and `expo-notifications`, installed from the lockfile (only the new packages were added, and expo-constants moved to 57.0.22, which expo-notifications needs). The dev builds were rebuilt once. Android declares background location but no foreground service: geofencing doesn't need one.
+  - App: two native modules, `expo-task-manager` and `expo-notifications`, installed from the lockfile (only the new packages were added, and expo-constants moved to 57.0.22, which expo-notifications needs). The dev builds were rebuilt once. Android declares background location but no foreground service: geofencing doesn't need one. iOS needs background location declared too (`isIosBackgroundLocationEnabled`, which adds `location` to `UIBackgroundModes`); without it, turning it on failed there.
   - Limits, from the systems:
     - Android doesn't restart an app the user swiped away for a geofence; iOS does.
     - Android may deliver an entry a few minutes late to save battery.
     - On the emulator, positions only reach the system while some app keeps GPS on (it has no Wi-Fi or cell location), so the test ran with Google Maps open in front: the real case of our app in the background.
   - Tests:
-    - App: 38 tests of the circles watched (19 + 1, the minimum size), notify-once per room and window, the notification text, the room a tap may open (and only once: the phone can hand the same tap back after signing in again, so the time of the last tap handled is kept, without the room), the messages when turning it on fails, and the watcher (turning on and off, a room you're already in, entering a venue with a fresh list, a room no longer listed, the offline fallback, a refusal without fallback, two venues at once, leaving the area, a region after sign-out).
+    - App: 41 tests of the circles watched (19 + 1, the minimum size), notify-once per room and window, the notification text, the room a tap may open (and only once: the phone can hand the same tap back after signing in again, so the time of the last tap handled is kept, without the room), the messages when turning it on fails, and the watcher (turning on and off, a room you're already in, entering a venue with a fresh list, a room no longer listed, the offline fallback, a refusal without fallback, two venues at once, leaving the area, a region after sign-out, the same circles handed only once while you stand at a venue, and again when the list changes or after turning it back on).
     - On the Android emulator:
       - turned on 5.7 km from a public room;
       - moved to the venue with the app in the background: notified within seconds, "Rooftop at 42 is on near you", "Music from Daft Punk, Justice and Kavinsky";
@@ -907,7 +907,8 @@ Each decision must be defensible in detail at the defense. Copy the template for
       - turning off cleared the switch and the list;
       - turning on inside another venue notified it at once ("The queue's empty so far");
       - sign-out wiped every stored copy, and the venue said nothing after.
-    - The web loads unchanged and shows no card. Not checked on iOS.
+    - On the iOS simulator (dev build rebuilt with background location): turned on about 5 km away; moved to the venue with the app in the background: iOS woke the app and showed "Rooftop at 42 is on near you", "Music from Daft Punk, Justice and Kavinsky" within seconds; arriving made 3 requests at once (the venue entered, the area left, the last re-check) and then none for a minute, not a loop; the tap opened the room.
+    - The web loads unchanged and shows no card.
 
 ## Still to decide (record each as an ADR)
 

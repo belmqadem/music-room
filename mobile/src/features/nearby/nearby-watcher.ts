@@ -51,6 +51,23 @@ export function createNearbyWatcher(deps: NearbyWatcherDeps) {
   // Two regions can be entered at the same moment: notifying one after the other keeps the
   // "already notified" record from losing one of them.
   let notifying: Promise<unknown> = Promise.resolve();
+  // The circles handed to the phone last, as text. Handing the phone circles again makes iOS report
+  // "entered" once more for every circle you're in, and an entry asks the server and hands them
+  // again: without this, standing at a venue repeats that forever. Kept in memory only: after a
+  // restart, or if the phone lost them, they are handed again once.
+  let watched: string | null = null;
+
+  async function watch(regions: WatchedRegion[]): Promise<void> {
+    const key = JSON.stringify(regions);
+    if (key === watched) return;
+    await deps.geofences.watch(regions);
+    watched = key;
+  }
+
+  async function stopWatching(): Promise<void> {
+    watched = null;
+    await deps.geofences.stop();
+  }
 
   function notifyOnce(item: NearbyEvent): Promise<void> {
     const run = async () => {
@@ -69,7 +86,7 @@ export function createNearbyWatcher(deps: NearbyWatcherDeps) {
   async function refreshAt(point: Point): Promise<NearbyEvent[]> {
     const items = await deps.fetchNearby(point);
     await deps.store.write(ROOMS, items);
-    await deps.geofences.watch(regionsFor(items, point));
+    await watch(regionsFor(items, point));
     for (const item of items) if (isWithin(item)) await notifyOnce(item);
     return items;
   }
@@ -85,7 +102,7 @@ export function createNearbyWatcher(deps: NearbyWatcherDeps) {
   }
 
   async function disable(): Promise<void> {
-    await deps.geofences.stop();
+    await stopWatching();
     await deps.store.remove(ENABLED);
     await deps.store.remove(ROOMS);
   }
@@ -102,7 +119,7 @@ export function createNearbyWatcher(deps: NearbyWatcherDeps) {
   async function handleRegionEvent(event: RegionEvent): Promise<void> {
     // Turned off, or signed out, while the phone still watched: stop, and say nothing.
     if (!(await isEnabled())) {
-      await deps.geofences.stop();
+      await stopWatching();
       return;
     }
     const { region } = event;
