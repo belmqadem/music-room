@@ -2,6 +2,7 @@ import type { MusicEvent } from "@music-room/shared";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, FlatList, View } from "react-native";
+import { useStopPreviewOnLeave } from "@/audio/use-preview";
 import { Button, Card, OfflineNotice, Text, TrackRow } from "@/components";
 import { isUnreachable, offlineStore } from "@/offline";
 import { LiveBadge } from "@/sockets/LiveBadge";
@@ -19,6 +20,7 @@ import { copy } from "@/copy";
 // `myPermissions` only decides what to show; the server checks every vote again.
 export default function TrackVoteScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  useStopPreviewOnLeave();
   const [event, setEvent] = useState<MusicEvent | null>(null);
   const [eventError, setEventError] = useState<string | null>(null);
   const queue = useEventQueue(id);

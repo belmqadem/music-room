@@ -47,6 +47,14 @@
         }
       ],
       [
+        "expo-audio",
+        {
+          "microphonePermission": false,
+          "recordAudioAndroid": false,
+          "enableBackgroundPlayback": false
+        }
+      ],
+      [
         "expo-notifications",
         {
           "icon": "./assets/images/android-icon-monochrome.png",
