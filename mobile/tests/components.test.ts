@@ -5,6 +5,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { avatarLook, type AvatarSize } from "@/components/avatar-styles";
 import { badgeLook, type BadgeTone } from "@/components/badge-styles";
 import {
   buttonContentClass,
@@ -70,6 +71,7 @@ const BADGE_TONES: BadgeTone[] = [
   "error",
 ];
 const CARD_TONES: CardTone[] = ["low", "elevated", "selected"];
+const AVATAR_SIZES: AvatarSize[] = ["sm", "lg"];
 const INPUT_STATES: InputState[] = ["idle", "focused", "error"];
 
 describe("Text", () => {
@@ -262,6 +264,30 @@ describe("Badge", () => {
   });
 });
 
+describe("Avatar", () => {
+  it("is round, with a hairline border, at every size", () => {
+    for (const size of AVATAR_SIZES)
+      expect(classesOf(avatarLook(size).container), size).toEqual(
+        expect.arrayContaining(["rounded-full", "border", "border-line-subtle"]),
+      );
+  });
+
+  it("is a neutral surface tier, not a brand color, and its initials read at least 4.5:1", () => {
+    for (const size of AVATAR_SIZES) {
+      const fill = colorOf(fillOf(avatarLook(size).container)!)!;
+      expect(fill, size).toBe(colors.surfaceElevated);
+      expect(contrast(toneColor("primary"), fill), size).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it("is small beside a name in a row and large at the top of a profile", () => {
+    expect(avatarLook("sm")).toMatchObject({ lettersVariant: "h3" });
+    expect(avatarLook("sm").container).toContain("h-10 w-10");
+    expect(avatarLook("lg")).toMatchObject({ lettersVariant: "hero" });
+    expect(avatarLook("lg").container).toContain("h-24 w-24");
+  });
+});
+
 describe("Chartreuse is reserved for live / realtime (DESIGN.md rule 4)", () => {
   it("appears only in the live badge, in no other component and no other state", () => {
     const users: string[] = [];
@@ -275,6 +301,7 @@ describe("Chartreuse is reserved for live / realtime (DESIGN.md rule 4)", () => 
     for (const state of INPUT_STATES) note(`input ${state}`, inputClasses(state));
     for (const tone of CARD_TONES) note(`card ${tone}`, cardClasses(tone));
     for (const tone of BADGE_TONES) note(`badge ${tone}`, badgeLook(tone).container);
+    for (const size of AVATAR_SIZES) note(`avatar ${size}`, avatarLook(size).container);
     for (const tone of Object.keys(TEXT_TONE_CLASS) as TextTone[])
       note(`text ${tone}`, TEXT_TONE_CLASS[tone]);
 

@@ -1,6 +1,7 @@
 import type { UserSummary } from "@music-room/shared";
 import type { ReactNode } from "react";
 import { Pressable, View } from "react-native";
+import { Avatar } from "./Avatar";
 import { Card } from "./Card";
 import { Icon } from "./Icon";
 import { Text } from "./Text";
@@ -17,7 +18,7 @@ export interface PersonRowProps {
   actionsBelow?: boolean;
 }
 
-/** One person, by their username: unique (ADR-046), so it alone tells people apart. */
+/** One person, by their username: unique (ADR-046), so it alone tells people apart. Their avatar leads. */
 export function PersonRow({
   user,
   onPress,
@@ -34,6 +35,7 @@ export function PersonRow({
   );
   const top = (
     <View className="flex-row items-center gap-3">
+      <Avatar name={user.displayName} />
       {who}
       {actionsBelow ? null : children}
       {onPress ? <Icon name="chevronRight" tone="tertiary" /> : null}

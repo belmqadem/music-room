@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { initialsOf } from "@/features/profile/initials";
+import { initialsOf } from "@/components/initials";
 
 // The letters in the profile's avatar.
 describe("the avatar's initials", () => {
