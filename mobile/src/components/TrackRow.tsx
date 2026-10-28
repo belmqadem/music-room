@@ -1,14 +1,10 @@
 import type { Track } from "@music-room/shared";
-import { ActivityIndicator, Image, Pressable, View } from "react-native";
+import { ActivityIndicator, Pressable, View } from "react-native";
 import { colors } from "@/theme/tokens.generated";
 import { Badge } from "./Badge";
 import { Text } from "./Text";
-import {
-  TRACK_COVER_CLASS,
-  TRACK_ROW_CLASS,
-  TRACK_TEXT_CLASS,
-  voteLook,
-} from "./track-row-styles";
+import { TrackCover, TrackPreviewProblem } from "./TrackCover";
+import { TRACK_ROW_CLASS, TRACK_TEXT_CLASS, voteLook } from "./track-row-styles";
 import { copy } from "@/copy";
 
 export interface TrackRowProps {
@@ -38,15 +34,7 @@ export function TrackRow({
 
   return (
     <View className={TRACK_ROW_CLASS}>
-      {track.coverUrl ? (
-        <Image
-          source={{ uri: track.coverUrl }}
-          className={TRACK_COVER_CLASS}
-          accessible={false}
-        />
-      ) : (
-        <View className={TRACK_COVER_CLASS} />
-      )}
+      <TrackCover track={track} />
       <View className={TRACK_TEXT_CLASS}>
         <Text variant="h3" numberOfLines={1}>
           {track.title}
@@ -54,6 +42,7 @@ export function TrackRow({
         <Text variant="caption" tone="secondary" numberOfLines={1}>
           {track.artist} · {votes}
         </Text>
+        <TrackPreviewProblem track={track} />
       </View>
       {status === "playing" ? (
         <Badge label={copy.tracks.playing} tone="accent" />

@@ -1,8 +1,9 @@
 import type { Track } from "@music-room/shared";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, FlatList, Modal, Platform, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTrackSearch } from "@/api/use-track-search";
+import { preview } from "@/audio/preview";
 import { Button, Input, Text, TrackPickRow } from "@/components";
 import { colors } from "@/theme";
 import { copy } from "@/copy";
@@ -51,6 +52,8 @@ function SheetContent({
 }: Omit<TrackSearchSheetProps, "visible">) {
   const insets = useSafeAreaInsets();
   const search = useTrackSearch();
+  // Closing the search silences a preview started in it (the content unmounts with the sheet).
+  useEffect(() => () => preview.stop(), []);
   const [text, setText] = useState("");
   const [pickingId, setPickingId] = useState<string | null>(null);
   const [pickError, setPickError] = useState<string | null>(null);

@@ -7,6 +7,10 @@ import type { TextTone } from "./text-styles";
 export const TRACK_ROW_CLASS =
   "flex-row items-center gap-3 rounded-xl border border-line-subtle bg-surface-low p-3";
 export const TRACK_COVER_CLASS = "size-12 rounded-md bg-surface-high";
+// The cover is the preview's play button (ADR-053): its icon sits on the cover, dimmed with the
+// canvas color so it reads on any artwork.
+export const TRACK_COVER_OVERLAY_CLASS =
+  "absolute inset-0 items-center justify-center rounded-md bg-canvas/60";
 export const TRACK_TEXT_CLASS = "flex-1 gap-1";
 
 export interface VoteLook {

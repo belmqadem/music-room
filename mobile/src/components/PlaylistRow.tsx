@@ -1,13 +1,9 @@
 import type { Track } from "@music-room/shared";
-import { ActivityIndicator, Image, Pressable, View } from "react-native";
+import { ActivityIndicator, Pressable, View } from "react-native";
 import { colors } from "@/theme/tokens.generated";
 import { Text } from "./Text";
-import {
-  iconButtonLook,
-  TRACK_COVER_CLASS,
-  TRACK_ROW_CLASS,
-  TRACK_TEXT_CLASS,
-} from "./track-row-styles";
+import { TrackCover, TrackPreviewProblem } from "./TrackCover";
+import { iconButtonLook, TRACK_ROW_CLASS, TRACK_TEXT_CLASS } from "./track-row-styles";
 import { copy } from "@/copy";
 
 export interface PlaylistRowProps {
@@ -33,15 +29,7 @@ export function PlaylistRow({
 }: PlaylistRowProps) {
   return (
     <View className={TRACK_ROW_CLASS}>
-      {track.coverUrl ? (
-        <Image
-          source={{ uri: track.coverUrl }}
-          className={TRACK_COVER_CLASS}
-          accessible={false}
-        />
-      ) : (
-        <View className={TRACK_COVER_CLASS} />
-      )}
+      <TrackCover track={track} />
       <View className={TRACK_TEXT_CLASS}>
         <Text variant="h3" numberOfLines={1}>
           {track.title}
@@ -49,6 +37,7 @@ export function PlaylistRow({
         <Text variant="caption" tone="secondary" numberOfLines={1}>
           {track.artist}
         </Text>
+        <TrackPreviewProblem track={track} />
       </View>
       {busy ? (
         <ActivityIndicator color={colors.contentSecondary} />

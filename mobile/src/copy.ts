@@ -318,6 +318,17 @@ export const copy = {
     action: (action: string, title: string) => `${action} ${title}`,
   },
 
+  // A 30-second sample on your own phone (ADR-053).
+  preview: {
+    play: (title: string) => `Play a preview of ${title}`,
+    pause: (title: string) => `Pause the preview of ${title}`,
+    errors: {
+      unavailable: "No preview for this track.",
+      offline: "Previews need a connection.",
+      unknown: "Couldn't play the preview. Try again.",
+    },
+  },
+
   search: {
     label: "Search the catalog",
     placeholder: "Artist or title",
