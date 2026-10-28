@@ -152,8 +152,7 @@ request is checked by the server, and an app screen opened without a session wou
   server, and changing the address while signed in would send that token to another server at the next refresh. The
   address must be `http(s)://`; "Check connection" only reads `/health`. A token can still be stored while signed out (the
   server was unreachable at launch), so saving a different address deletes it first, and does not change the address if
-  that fails. Plain `http` is accepted for the local network
-  of the defense; a production build should require `https` (open item).
+  that fails. Plain `http` is accepted: see "Transport security" below (accepted risk).
 
 ## Logging and privacy
 
@@ -197,7 +196,7 @@ request is checked by the server, and an app screen opened without a session wou
 - **The web client's refresh token is readable by XSS.** On web it lives in browser storage (ADR-012, option A), so a script injected into the page could steal it. Mitigations: refresh rotation with reuse detection (a stolen token that is replayed revokes the session), 15-minute access tokens, a strict Content-Security-Policy on the web build, and never rendering untrusted HTML (display names and track titles are user-controlled). Accepted for simplicity; an httpOnly cookie is the upgrade path.
 - **CORS is not an access control.** The allow-list (`ALLOWED_ORIGINS`) only stops a hostile website from reading responses in a visitor's browser. Anyone can still call the API directly, so every endpoint keeps its own authentication and authorization checks.
 - **Several browser tabs can log the user out.** Strict reuse detection treats two tabs presenting the same refresh token as theft. The web client must serialize refreshes across tabs.
-- **No rate limit on creating events or invitations yet.** A signed-in user could create events or invite people in a loop. Mitigations to add: a per-user limit on `POST /events` and on invitations, and a cap on invitations per event. Open item.
+- **No rate limit of their own on creating events or invitations.** A signed-in user could create events or invite people in a loop. Accepted for this project (2026-10-28): only a signed-in person with a verified email and a chosen username can do either, sign-ups are limited to 10 per hour per IP, only an event's owner can invite, and inviting someone twice changes nothing (the invitation's key is the event and the person), so a flood fills rows but reaches no one else and reveals nothing. What would close it: a per-user limit on `POST /events` and on invitations, and a cap on invitations per event.
 - **The user search exposes display names.** Any signed-in user can look up people by name prefix (3+ characters, 30 searches per minute per IP, only `id` and `displayName`, never an email). Display names are chosen by users, so clients must never render them as HTML.
 - **A removed invitation (or a private/deleted event) cuts live sockets, but not instantly.** The server re-checks the event's room right after the change commits and removes anyone who may no longer see it (`event:access-lost`). In the short gap between the commit and that re-check, a removed user could still receive one update. A user keeps their socket connection itself (and the 15-minute-token limit above); only the event's channel is closed.
 - **Catalog data is untrusted third-party content.** Track titles, artists and cover URLs come from Deezer and are stored and shown to every participant. They must never be rendered as HTML, and cover URLs are accepted only over https from Deezer's own image hosts (`*.dzcdn.net`, checked on the parsed host so look-alikes and `user@host` tricks fail) and are otherwise dropped; control characters are removed and lengths capped before anything is stored. A Deezer track id is digits only, so it can never alter the request path. Deezer reports many failures as HTTP 200 with an error body; the adapter reads that body instead of trusting the status.
@@ -239,7 +238,9 @@ request is checked by the server, and an app screen opened without a session wou
   and cross-origin isolation headers, which matter for pages, not for a JSON API.
 - **Transport security is the deployment's job.** The server speaks plain HTTP; TLS must be terminated in front of it (and
   `TRUST_PROXY` set to the number of proxies). The mobile app accepts `http://` backend URLs because local development
-  needs them (the default is `http://localhost:3000`); a release build should require https. Open item.
+  needs them (the default is `http://localhost:3000`). Accepted for this project (2026-10-28): the app is run and evaluated
+  on a local network without TLS, and there is no public deployment. What would close it: a release build that refuses an
+  `http://` server address (and a TLS proxy in front of the server).
 - **Personal data is stored unencrypted at rest** (phone, birth date, email). Disk and backup encryption belong to the
   host. Field-level encryption was not done.
 - **Dependencies**: `npm audit --omit=dev` reports 0 vulnerabilities for the backend (2026-10-16). For the mobile app it

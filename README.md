@@ -81,9 +81,29 @@ Where to read more: `docs/api-contract.md` (the API), `docs/mobile-handoff.md` (
 
 ## Project status
 
-This is a school project (42 Network), built by a team of two as a
-full-stack, mobile-first application: a live backend, an API connecting it
-to the app, and a mobile client people actually use during a session.
+A school project (42 Network) by a team of two: a live backend, a REST API documented at `/docs`, and a mobile app
+(iOS and Android; the same app also runs on the web). Feature-complete for the evaluation.
+
+**Mandatory part: done**
+
+- Accounts: sign-up with an emailed code, sign-in by email and password, Google or Facebook, password reset, linking
+  and unlinking sign-in methods, unique usernames.
+- **Track Vote** (rooms): suggest tracks from the Deezer catalog, vote, a live queue for everyone in the room. Public or
+  Private; who can vote: everyone in the room, invited people only, or at the venue during set hours.
+- **Playlist Editor**: add, move and remove tracks together, live, with simultaneous edits resolved by a version
+  number. Public or Private; who can edit: everyone who can see it, or invited people only.
+- Friends and profiles, with what each person sees decided by the server.
+- Every endpoint checks who you are and what you may do; every request from the app is logged with its platform,
+  device and app version; a load test with results and the server size we chose (`docs/ramp-up-results.md`).
+
+**Bonus: done**
+
+- Free and Premium plans (payment simulated), offline mode with saved copies and playlist edits synced later, the web
+  version, and IoT: "Rooms near you", a notification at the venue of a public room (geofencing).
+- 30-second track previews on your own phone, from any track's cover.
+
+Every decision is recorded in `docs/architecture-decisions.md` (ADR-001 to ADR-053); security choices and accepted
+risks in `docs/security.md`; AI use, PR by PR, in `docs/ai-usage.md`.
 
 ## Team
 
