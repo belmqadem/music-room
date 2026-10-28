@@ -1,10 +1,12 @@
 import type { EventQueueUpdate, EventTrack, GeoPoint } from "@music-room/shared";
 import { useEffect, useRef, useState } from "react";
+import { preview } from "@/audio/preview";
 import { currentPosition } from "@/location/current-position";
 import { connectivity, isUnreachable, offlineStore } from "@/offline";
 import { live } from "@/sockets/live";
 import { eventApi } from "./event-api";
 import { sendWithLocationIfRequired } from "./location-required";
+import { followPlayingTrack } from "./owner-playback";
 import { currentQueueFrom, TRACK_VOTE_MESSAGES, trackVoteErrorMessage } from "./messages";
 import {
   applyMyQueue,
@@ -146,7 +148,10 @@ export function useEventQueue(eventId: string) {
     return null;
   }
 
-  /** Owner only. Sends the track this phone shows as playing, so a double tap cannot skip a song. */
+  /**
+   * Owner only. Sends the track this phone shows as playing, so a double tap cannot skip a song.
+   * Once the server has moved, this phone plays the new track's preview.
+   */
   async function advance(): Promise<void> {
     setAdvancing(true);
     setActionError(null);
@@ -154,6 +159,8 @@ export function useEventQueue(eventId: string) {
     try {
       const next = await eventApi.advance(eventId, playingTrack(queue)?.id ?? null);
       setQueue((s) => applyMyQueue(s, next));
+      // The owner asked for music: their phone plays the new track's preview (ADR-053).
+      followPlayingTrack(next, preview);
     } catch (error) {
       const current = currentQueueFrom(error);
       if (current) setQueue((s) => applyMyQueue(s, current));
