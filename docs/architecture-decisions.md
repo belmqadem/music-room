@@ -910,6 +910,25 @@ Each decision must be defensible in detail at the defense. Copy the template for
     - On the iOS simulator (dev build rebuilt with background location): turned on about 5 km away; moved to the venue with the app in the background: iOS woke the app and showed "Rooftop at 42 is on near you", "Music from Daft Punk, Justice and Kavinsky" within seconds; arriving made 3 requests at once (the venue entered, the area left, the last re-check) and then none for a minute, not a loop; the tap opened the room.
     - The web loads unchanged and shows no card.
 
+### ADR-053: Track previews: a fresh 30-second sample, played on each person's own phone
+
+- Status: accepted
+- Date: 2026-10-28
+- Deciders: belmqadem, kaoutharrr
+- Context: the app showed which track is playing but made no sound: `Track` has no audio link (ADR-015), because Deezer's sample links are signed and expire within minutes. Hearing the music makes rooms and playlists much more convincing.
+- Options considered:
+  - Where the link comes from: (a) a backend endpoint that asks Deezer when the person presses play; (b) the app calls Deezer itself. (b) is no backend work, but Deezer's API has no CORS, so the web version could not use it, and the app would talk to a third party directly.
+  - Who hears it in a room: (a) everyone, each pressing play on their own phone; (b) only the owner's phone, as the room's speaker; (c) every phone starts by itself when a track starts. (b) leaves most people hearing nothing in the app; (c) can't keep phones in sync and autoplay surprises people.
+  - When the sample ends: (a) nothing, the owner still advances; (b) the owner's app advances by itself, so rooms run on 30-second tracks.
+- Decision: (a) in each case. `GET /tracks/{providerTrackId}/preview` returns `TrackPreview` `{ url }`, asked for when play is pressed and never stored. Each person plays and pauses on their own phone: the playing track, any track in Up next, the Suggest a track search, and the Playlist Editor (its tracks and its Add track search). The owner still advances the queue.
+- Security and privacy:
+  - Authenticated and rate limited (60 per minute per IP), like search: each call is a request to Deezer.
+  - Any signed-in person may ask for any catalog track: it is public catalog data, tied to no room or playlist, so there is no room or playlist right to check. The endpoint reveals nothing about our rooms.
+  - Only `https` links on Deezer's own CDN (`*.dzcdn.net`, checked on the parsed host, no credentials) are returned, as for covers, so a spoofed catalog answer can't make the app play an arbitrary URL. Anything else is "no sample".
+  - `Cache-Control: no-store`: the link is signed and must not be cached in between.
+- Consequences: one new error code, `404 PREVIEW_UNAVAILABLE` (Deezer has no sample for some tracks); an unknown track is `404 TRACK_NOT_FOUND`. The fake catalog (load tests) has no samples. Every `CatalogProvider` gains `getPreview`. Phones are not in sync: two people in a room may hear different moments of the same track, which is accepted since nobody is meant to share one phone's sound. Samples are 30 seconds, so the music stops long before a real track would end.
+  - Tests: the adapter (a link, no sample, an unusable link, an unknown track, outages), the link check (host, scheme, look-alikes, credentials, length), and the route (authentication, the answer and its header, both 404s, invalid ids never reaching the catalog, 502, the rate limit).
+
 ## Still to decide (record each as an ADR)
 
 TODO:

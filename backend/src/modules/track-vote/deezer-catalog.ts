@@ -8,6 +8,7 @@ const MAX_SEARCH_RESULTS = 25;
 // Limits of the event_tracks columns (migration create-event-tracks-and-votes).
 const MAX_TEXT_LENGTH = 500;
 const MAX_COVER_URL_LENGTH = 2048;
+const MAX_PREVIEW_URL_LENGTH = 2048;
 const MAX_DURATION_SECONDS = 86_400;
 
 // Deezer track ids are plain numbers. Only digits ever reach the URL, so a
@@ -31,6 +32,7 @@ const rawTrackSchema = z.object({
   artist: z.object({ name: z.string() }),
   album: z.object({ cover_medium: z.string().optional() }).optional(),
 });
+const previewBodySchema = z.object({ preview: z.string().optional() });
 const errorBodySchema = z.object({ error: z.object({ code: z.number().optional() }) });
 const searchBodySchema = z.object({ data: z.array(z.unknown()) });
 
@@ -57,12 +59,31 @@ export function cleanCoverUrl(value: string | undefined): string | null {
   } catch {
     return null;
   }
+  return isDeezerCdnUrl(url) ? url.toString() : null;
+}
+
+/** True for an https URL whose real host is Deezer's CDN (`dzcdn.net` or below), without credentials. */
+function isDeezerCdnUrl(url: URL): boolean {
   // `hostname` is what the browser will really contact (the part before an "@" is credentials).
   const isDeezerHost =
     url.hostname === "dzcdn.net" || url.hostname.endsWith(".dzcdn.net");
-  if (url.protocol !== "https:" || !isDeezerHost || url.username || url.password)
+  return url.protocol === "https:" && isDeezerHost && !url.username && !url.password;
+}
+
+/**
+ * The 30-second sample (ADR-053): only an https link on Deezer's own CDN
+ * (cdnt-preview.dzcdn.net today), like covers, so the app never plays an arbitrary URL.
+ * An empty or unusable link means "no sample".
+ */
+export function cleanPreviewUrl(value: string | undefined): string | null {
+  if (!value || value.length > MAX_PREVIEW_URL_LENGTH) return null;
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
     return null;
-  return url.toString();
+  }
+  return isDeezerCdnUrl(url) ? url.toString() : null;
 }
 
 /** A usable Track from one raw Deezer object, or null if it is unusable. */
@@ -113,6 +134,19 @@ export function createDeezerCatalog(options: DeezerCatalogOptions = {}): Catalog
     }
   }
 
+  /** Deezer's raw answer for one track, or null if no such track exists. */
+  async function getRawTrack(providerTrackId: string): Promise<unknown> {
+    if (!TRACK_ID.test(providerTrackId)) return null; // cannot exist, and must not reach the URL
+    const body = await getJson(`/track/${providerTrackId}`);
+    const failure = errorBodySchema.safeParse(body);
+    if (failure.success) {
+      const code = failure.data.error.code;
+      if (code === DEEZER_NO_DATA || code === DEEZER_INVALID_QUERY) return null;
+      throw new CatalogUnavailableError("Deezer reported an error"); // quota, outage, ...
+    }
+    return body;
+  }
+
   return {
     async search(query, limit) {
       const body = await getJson("/search", {
@@ -130,17 +164,21 @@ export function createDeezerCatalog(options: DeezerCatalogOptions = {}): Catalog
     },
 
     async getTrack(providerTrackId) {
-      if (!TRACK_ID.test(providerTrackId)) return null; // cannot exist, and must not reach the URL
-      const body = await getJson(`/track/${providerTrackId}`);
-      const failure = errorBodySchema.safeParse(body);
-      if (failure.success) {
-        const code = failure.data.error.code;
-        if (code === DEEZER_NO_DATA || code === DEEZER_INVALID_QUERY) return null;
-        throw new CatalogUnavailableError("Deezer reported an error"); // quota, outage, ...
-      }
+      const body = await getRawTrack(providerTrackId);
+      if (body === null) return null;
       const track = toTrack(body);
       if (!track) throw new CatalogUnavailableError("Deezer sent an unusable track");
       return track;
+    },
+
+    async getPreview(providerTrackId) {
+      const body = await getRawTrack(providerTrackId);
+      if (body === null) return { kind: "unknownTrack" };
+      const parsed = previewBodySchema.safeParse(body);
+      if (!parsed.success)
+        throw new CatalogUnavailableError("Deezer sent an unexpected answer");
+      const url = cleanPreviewUrl(parsed.data.preview);
+      return url ? { kind: "found", url } : { kind: "noPreview" };
     },
   };
 }

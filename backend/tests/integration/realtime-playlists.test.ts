@@ -58,6 +58,7 @@ describe.skipIf(!databaseUrl)("real-time playlist updates", () => {
   const catalog: CatalogProvider = {
     search: () => Promise.resolve([]),
     getTrack: (id) => Promise.resolve(song(id)),
+    getPreview: () => Promise.resolve({ kind: "noPreview" }),
   };
 
   beforeAll(async () => {

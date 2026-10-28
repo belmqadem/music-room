@@ -26,6 +26,15 @@ describe("fake catalog", () => {
     },
   );
 
+  it("has no sample for any track (no audio without the network), and knows the same ids", async () => {
+    expect(await catalog.getPreview("42")).toEqual({ kind: "noPreview" });
+    expect(await catalog.getPreview("0")).toEqual({ kind: "unknownTrack" });
+    expect(await catalog.getPreview("abc")).toEqual({ kind: "unknownTrack" });
+    await expect(catalog.getPreview("999999999")).rejects.toBeInstanceOf(
+      CatalogUnavailableError,
+    );
+  });
+
   it("can simulate an outage with one special id", async () => {
     await expect(catalog.getTrack("999999999")).rejects.toBeInstanceOf(
       CatalogUnavailableError,
