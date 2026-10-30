@@ -8,17 +8,87 @@ a say in what plays next.
 
 ## What it does
 
-When people are gathered — a party, a studio session, a get-together — Music
-Room turns the shared playlist into something the whole room builds together:
+Whether it's a party, a road trip or a study session, there are two ways to do it:
 
-- **Vote on what plays next.** Suggest a track or vote for one already in the
-  queue. Popular tracks rise to the top and play sooner.
-- **Edit a playlist together, live.** Build a shared playlist with friends or
-  people who share your taste — everyone's changes show up instantly, for
-  everyone.
-- **Control who's in charge.** Sessions can be open to anyone nearby, or
-  invite-only. The person running the session decides who gets to vote, who
-  gets to edit, and who gets to control playback.
+- **Rooms**: everyone suggests tracks and votes, and the most wanted track plays next.
+- **Playlists**: a shared list that several people build together, live.
+
+Everything you see is shared: when someone votes or moves a track, everyone in the room sees it a moment later.
+
+## How to use it
+
+### Get in
+
+- **Create account** with your email. We send you a 6-digit code to confirm it, then you **pick your username**: the
+  unique name people find you by.
+- Or **continue with Google or Facebook** (on iPhone and Android).
+- Forgot your password? Ask for a code by email and choose a new one.
+- In **Settings** you can **change your username**, and **link** or **unlink** Google and Facebook, so you can sign in
+  whichever way you like. Linking or unlinking asks you to **confirm it's you** first.
+
+### Rooms: vote on what plays next
+
+1. **Create room**: give it a name and choose:
+   - **Public** (anyone can find it) or **Private** (only the people you invite can see it);
+   - who can vote: **Everyone in the room**, **Invited people only**, or **At the venue** (only people at a place you
+     pick, during the hours you set; Premium).
+2. **Suggest a track**: search the music catalog by artist or title and add it to the queue. Suggesting a track counts
+   as your vote. If it's already queued, you're offered to vote for it instead.
+3. **Vote**: tap Vote on any track in **Up next**; tap again to take your vote back. The queue reorders itself: most
+   votes first, and on a tie, the track suggested first.
+4. The room's owner presses **Start playing**, then **Next track** to move on. The next track is always the one with
+   the most votes.
+5. The owner can **invite people** to a room, and remove them.
+
+### Playlists: build one together
+
+1. **Create playlist** (Premium): **Public** or **Private**, and who can edit: **Everyone who can see it** or **Invited
+   people only**.
+2. **Add track** from the catalog, **move** tracks up or down, or **remove** them. Everyone editing sees each change
+   right away, and if two people change the same thing at once, everyone still ends up with the same list.
+
+### Listen
+
+- Press a track's cover to hear a **30-second preview** on your own phone; press again to pause. Only one plays at a
+  time, and it stops when you leave the screen.
+- When a room's owner presses **Start playing** or **Next track**, the new track's preview starts on their phone
+  straight away.
+
+### Friends and your profile
+
+- Find people by their **username**, then **Add friend**. They can **Accept** or **Decline**; you can **Cancel request**
+  or **Unfriend** later.
+- Your profile has **My bio**, **About me** (full name, city, phone, birth date) and **My taste in music**. For each
+  part you choose who sees it: **Public**, **Friends only** or **Private**.
+
+### Free and Premium
+
+- **Free**: join rooms, suggest and vote, create rooms, listen to previews, view playlists.
+- **Premium**: also create and edit playlists, and create **At the venue** rooms.
+- Switch on the **Plans** screen: **Upgrade to Premium** or **Switch to Free**. Payment is simulated: no card, nothing
+  is charged.
+
+### Rooms near you
+
+Turn on **Rooms near you** in Settings and the app tells you, with a notification, when you're near a public room that
+takes votes at its venue: its name, when it's on and what music is in its queue. Tap the notification to open the room.
+It needs your location "all the time" and notifications; it's off until you turn it on, and the server doesn't keep
+your position.
+
+### Offline
+
+No connection? The app still opens and shows the rooms and playlists you last saw. In a playlist you can keep moving
+and removing tracks: your changes are sent when you're back online, and the app tells you what went through.
+
+### On the web
+
+The same app runs in a web browser: sign in with your email and password. Google and Facebook
+sign-in are only in the phone app.
+
+### The server address
+
+Before signing in, **Server address** on the welcome screen lets you point the app at another server (for example the
+computer running the backend during a demo).
 
 ## Why we're building it
 
