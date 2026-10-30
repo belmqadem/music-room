@@ -24,4 +24,3 @@
 
 - What was AI-generated:
 - What I reviewed and can explain without AI:
-- [ ] I added a row to `docs/ai-usage.md`

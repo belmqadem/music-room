@@ -173,7 +173,7 @@ A school project (42 Network) by a team of two: a live backend, a REST API docum
 - 30-second track previews on your own phone, from any track's cover.
 
 Every decision is recorded in `docs/architecture-decisions.md` (ADR-001 to ADR-053); security choices and accepted
-risks in `docs/security.md`; AI use, PR by PR, in `docs/ai-usage.md`.
+risks in `docs/security.md`.
 
 ## Team
 

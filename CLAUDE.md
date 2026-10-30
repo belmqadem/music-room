@@ -172,7 +172,7 @@ formats.
 - Rebase your branch on `develop` before opening a PR.
 - Never force-push shared branches.
 - Fill in `.github/PULL_REQUEST_TEMPLATE.md`, including the **AI usage**
-  section, and add a row to `docs/ai-usage.md`.
+  section.
 - CI (`.github/workflows/ci.yml`) runs format check, lint, typecheck and tests
   on every PR; it must be green.
 
