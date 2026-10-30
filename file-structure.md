@@ -49,6 +49,5 @@ music-room/
     ├── mobile-handoff.md        # what the app must do, per screen and rule (for the mobile developer)
     ├── security.md              # hazards + mitigations writeup
     ├── architecture-decisions.md # REST vs alt, JSON vs alt, stack justification
-    ├── ramp-up-results.md
-    └── ai-usage.md              # running log of AI-generated work
+    └── ramp-up-results.md
 ```
